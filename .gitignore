@@ -1,0 +1,9 @@
+.idea/
+node_modules/
+dist/
+build/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.env

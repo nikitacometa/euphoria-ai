@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "preserveWatchOutput": true,
+        "noEmit": true,
+        "module": "Node16",
+        "target": "ES2021",
+        "moduleResolution": "node16"
+    }
+}
