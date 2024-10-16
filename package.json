@@ -1,13 +1,14 @@
 {
     "scripts": {
         "typecheck": "tsc",
-        "dev": "tsc-watch --onSuccess \"tsx ./main.ts\"",
-        "start": "tsx ./main.ts"
+        "dev": "tsc-watch --onSuccess \"tsx ./src/main.ts\"",
+        "start": "tsx ./src/main.ts"
     },
     "dependencies": {
         "dotenv": "^16.3.1",
         "grammy": "^1.15.3",
-        "tsx": "^3.12.7"
+        "tsx": "^3.12.7",
+        "openai": "^4.67.3"
     },
     "devDependencies": {
         "@types/node": "^20.8.6",
