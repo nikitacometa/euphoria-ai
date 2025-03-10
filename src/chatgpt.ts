@@ -12,6 +12,33 @@ interface ChatMessage {
     content: string;
 }
 
+export async function generateImage(prompt: string): Promise<{ url: string; revisedPrompt: string }> {
+    try {
+        const response = await openai.images.generate({
+            model: "dall-e-3",
+            prompt,
+            n: 1,
+            size: "1024x1024",
+            quality: "standard",
+        });
+
+        const url = response.data[0].url;
+        const revisedPrompt = response.data[0].revised_prompt;
+
+        if (!url) {
+            throw new Error('No image URL returned from OpenAI');
+        }
+
+        return { 
+            url, 
+            revisedPrompt: revisedPrompt || prompt 
+        };
+    } catch (error) {
+        console.error('Error generating image:', error);
+        throw new Error('Failed to generate image');
+    }
+}
+
 export async function promptWithConversationHistory(
     currentMessage: string, 
     conversationHistory: IMessage[]

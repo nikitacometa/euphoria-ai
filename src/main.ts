@@ -1,6 +1,6 @@
 import { Bot, InlineKeyboard, Keyboard } from 'grammy'
 import { TELEGRAM_API_TOKEN } from './config'
-import { promptText, promptWithConversationHistory, transcribeAudio } from './chatgpt'
+import { promptText, promptWithConversationHistory, transcribeAudio, generateImage } from './chatgpt'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -9,6 +9,7 @@ import {
     findOrCreateUser, 
     saveTextMessage, 
     saveVoiceMessage,
+    saveImageMessage,
     MessageType,
     MessageRole,
     IUser,
@@ -17,7 +18,8 @@ import {
     createConversation,
     getActiveConversation,
     endAllUserConversations,
-    getMessagesByConversation
+    getMessagesByConversation,
+    getLastImageMessageByConversation
 } from './database'
 import { Types } from 'mongoose'
 
@@ -71,6 +73,153 @@ bot.command('chat_id', async ctx => {
     await ctx.reply(ctx.chat.id.toString());
 })
 
+// Add image generation command
+bot.command('image', async ctx => {
+    try {
+        if (!ctx.from || !ctx.message) {
+            await ctx.reply('Cannot identify user or message.');
+            return;
+        }
+        
+        // Get the prompt from the message
+        const prompt = ctx.message.text.replace('/image', '').trim();
+        
+        if (!prompt) {
+            await ctx.reply('Please provide a description for the image you want to generate.\nExample: /image a beautiful sunset over mountains');
+            return;
+        }
+        
+        // Show typing status while processing
+        await ctx.replyWithChatAction('upload_photo');
+        
+        // Save user to database
+        const user = await findOrCreateUser(
+            ctx.from.id,
+            ctx.from.first_name,
+            ctx.from.last_name,
+            ctx.from.username
+        );
+        
+        // Get or create active conversation
+        let conversation = await getActiveConversation(user._id as unknown as Types.ObjectId);
+        if (!conversation) {
+            conversation = await createConversation(user._id as unknown as Types.ObjectId);
+        }
+        
+        // Save text message to database
+        await saveTextMessage(
+            user._id as unknown as Types.ObjectId,
+            conversation._id as unknown as Types.ObjectId,
+            ctx.message.message_id,
+            `/image ${prompt}`,
+            MessageRole.USER
+        );
+        
+        // Generate the image
+        const { url, revisedPrompt } = await generateImage(prompt);
+        
+        // Create keyboard with regenerate button
+        const keyboard = new Keyboard()
+            .text('Regenerate Image')
+            .row()
+            .text('Reset Conversation')
+            .resized();
+        
+        // Send the image
+        const sentMessage = await ctx.replyWithPhoto(url, {
+            caption: `Here's your image based on: "${revisedPrompt}"`,
+            reply_markup: keyboard
+        });
+        
+        // Save the image to the database
+        await saveImageMessage(
+            user._id as unknown as Types.ObjectId,
+            conversation._id as unknown as Types.ObjectId,
+            sentMessage.message_id,
+            url,
+            revisedPrompt,
+            MessageRole.ASSISTANT
+        );
+    } catch (error) {
+        console.error('Error generating image:', error);
+        await ctx.reply('Sorry, I had trouble generating the image. Please try again later.');
+    }
+});
+
+// Handle regenerate image command
+bot.hears('Regenerate Image', async ctx => {
+    try {
+        if (!ctx.from || !ctx.message) {
+            await ctx.reply('Cannot identify user or message.');
+            return;
+        }
+        
+        // Show typing status while processing
+        await ctx.replyWithChatAction('upload_photo');
+        
+        // Save user to database
+        const user = await findOrCreateUser(
+            ctx.from.id,
+            ctx.from.first_name,
+            ctx.from.last_name,
+            ctx.from.username
+        );
+        
+        // Get active conversation
+        const conversation = await getActiveConversation(user._id as unknown as Types.ObjectId);
+        if (!conversation) {
+            await ctx.reply('No active conversation found. Please start a new one with /start.');
+            return;
+        }
+        
+        // Get the last image message from this conversation
+        const lastImageMessage = await getLastImageMessageByConversation(conversation._id as unknown as Types.ObjectId);
+        
+        if (!lastImageMessage || !lastImageMessage.imagePrompt) {
+            await ctx.reply('No previous image found to regenerate. Please use /image command with a description.');
+            return;
+        }
+        
+        // Save regenerate request to database
+        await saveTextMessage(
+            user._id as unknown as Types.ObjectId,
+            conversation._id as unknown as Types.ObjectId,
+            ctx.message.message_id,
+            'Regenerate Image',
+            MessageRole.USER
+        );
+        
+        // Generate a new image with the same prompt
+        const { url, revisedPrompt } = await generateImage(lastImageMessage.imagePrompt);
+        
+        // Create keyboard with regenerate button
+        const keyboard = new Keyboard()
+            .text('Regenerate Image')
+            .row()
+            .text('Reset Conversation')
+            .resized();
+        
+        // Send the image
+        const sentMessage = await ctx.replyWithPhoto(url, {
+            caption: `Here's your regenerated image based on: "${revisedPrompt}"`,
+            reply_markup: keyboard
+        });
+        
+        // Save the image to the database
+        await saveImageMessage(
+            user._id as unknown as Types.ObjectId,
+            conversation._id as unknown as Types.ObjectId,
+            sentMessage.message_id,
+            url,
+            revisedPrompt,
+            MessageRole.ASSISTANT
+        );
+    } catch (error) {
+        console.error('Error regenerating image:', error);
+        await ctx.reply('Sorry, I had trouble regenerating the image. Please try again later.');
+    }
+});
+
 // Add a command to get user's message history
 bot.command('history', async ctx => {
     try {
@@ -101,6 +250,8 @@ bot.command('history', async ctx => {
                 return `${index + 1}. <b>Text</b>: ${msg.text}`;
             } else if (msg.type === MessageType.VOICE) {
                 return `${index + 1}. <b>Voice</b>: ${msg.transcription}`;
+            } else if (msg.type === MessageType.IMAGE) {
+                return `${index + 1}. <b>Image</b>: ${msg.imagePrompt}`;
             }
             return '';
         }).join('\n\n');
@@ -151,8 +302,13 @@ bot.hears('Reset Conversation', async ctx => {
 // Handle text messages
 bot.on('message:text', async ctx => {
     try {
+        if (!ctx.message) {
+            await ctx.reply('Cannot identify message.');
+            return;
+        }
+        
         // Skip processing for the reset command as it's handled separately
-        if (ctx.message.text === 'Reset Conversation') {
+        if (ctx.message.text === 'Reset Conversation' || ctx.message.text === 'Regenerate Image') {
             return;
         }
         
