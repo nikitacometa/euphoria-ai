@@ -6,7 +6,8 @@ import { IConversation } from './conversation.model';
 export enum MessageType {
     TEXT = 'text',
     VOICE = 'voice',
-    IMAGE = 'image'
+    IMAGE = 'image',
+    VIDEO = 'video'
 }
 
 // Message role enum
@@ -152,6 +153,27 @@ export async function saveImageMessage(
         role,
         imageUrl,
         imagePrompt
+    });
+}
+
+export async function saveVideoMessage(
+    userId: Types.ObjectId,
+    conversationId: Types.ObjectId,
+    telegramMessageId: number,
+    fileId: string,
+    filePath: string,
+    transcription: string,
+    role: MessageRole = MessageRole.USER
+): Promise<IMessage> {
+    return Message.create({
+        user: userId,
+        conversation: conversationId,
+        telegramMessageId,
+        type: MessageType.VIDEO,
+        role,
+        fileId,
+        filePath,
+        transcription
     });
 }
 
