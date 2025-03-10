@@ -5,7 +5,8 @@ import { IConversation } from './conversation.model';
 // Message type enum
 export enum MessageType {
     TEXT = 'text',
-    VOICE = 'voice'
+    VOICE = 'voice',
+    IMAGE = 'image'
 }
 
 // Message role enum
@@ -23,6 +24,8 @@ export interface IMessage extends Document {
     role: MessageRole;
     text?: string;
     transcription?: string;
+    imageUrl?: string;
+    imagePrompt?: string;
     fileId?: string;
     filePath?: string;
     createdAt: Date;
@@ -63,6 +66,14 @@ const messageSchema = new Schema<IMessage>(
             required: false
         },
         transcription: {
+            type: String,
+            required: false
+        },
+        imageUrl: {
+            type: String,
+            required: false
+        },
+        imagePrompt: {
             type: String,
             required: false
         },
@@ -125,12 +136,38 @@ export async function saveVoiceMessage(
     });
 }
 
+export async function saveImageMessage(
+    userId: Types.ObjectId,
+    conversationId: Types.ObjectId,
+    telegramMessageId: number,
+    imageUrl: string,
+    imagePrompt: string,
+    role: MessageRole = MessageRole.ASSISTANT
+): Promise<IMessage> {
+    return Message.create({
+        user: userId,
+        conversation: conversationId,
+        telegramMessageId,
+        type: MessageType.IMAGE,
+        role,
+        imageUrl,
+        imagePrompt
+    });
+}
+
 export async function getMessagesByUser(userId: Types.ObjectId): Promise<IMessage[]> {
     return Message.find({ user: userId }).sort({ createdAt: -1 }).populate('user');
 }
 
 export async function getMessagesByConversation(conversationId: Types.ObjectId): Promise<IMessage[]> {
     return Message.find({ conversation: conversationId }).sort({ createdAt: 1 });
+}
+
+export async function getLastImageMessageByConversation(conversationId: Types.ObjectId): Promise<IMessage | null> {
+    return Message.findOne({ 
+        conversation: conversationId, 
+        type: MessageType.IMAGE 
+    }).sort({ createdAt: -1 });
 }
 
 export async function getMessageById(messageId: string): Promise<IMessage | null> {
