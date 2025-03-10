@@ -5,14 +5,14 @@
         "start": "tsx ./src/main.ts"
     },
     "dependencies": {
-        "dotenv": "^16.3.1",
-        "grammy": "^1.15.3",
-        "tsx": "^3.12.7",
-        "openai": "^4.67.3"
+        "dotenv": "^16.4.7",
+        "grammy": "^1.35.0",
+        "tsx": "^4.19.3",
+        "openai": "^4.86.2"
     },
     "devDependencies": {
-        "@types/node": "^20.8.6",
-        "tsc-watch": "^6.0.4",
-        "typescript": "^5.2.2"
+        "@types/node": "^22.13.10",
+        "tsc-watch": "^6.2.1",
+        "typescript": "^5.8.2"
     }
 }
