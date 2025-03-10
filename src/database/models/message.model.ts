@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import { IUser } from './user.model';
+import { IConversation } from './conversation.model';
 
 // Message type enum
 export enum MessageType {
@@ -7,11 +8,19 @@ export enum MessageType {
     VOICE = 'voice'
 }
 
+// Message role enum
+export enum MessageRole {
+    USER = 'user',
+    ASSISTANT = 'assistant'
+}
+
 // Message interface
 export interface IMessage extends Document {
     user: Types.ObjectId | IUser;
+    conversation: Types.ObjectId | IConversation;
     telegramMessageId: number;
     type: MessageType;
+    role: MessageRole;
     text?: string;
     transcription?: string;
     fileId?: string;
@@ -29,6 +38,12 @@ const messageSchema = new Schema<IMessage>(
             required: true,
             index: true
         },
+        conversation: {
+            type: Schema.Types.ObjectId,
+            ref: 'Conversation',
+            required: true,
+            index: true
+        },
         telegramMessageId: {
             type: Number,
             required: true
@@ -36,6 +51,11 @@ const messageSchema = new Schema<IMessage>(
         type: {
             type: String,
             enum: Object.values(MessageType),
+            required: true
+        },
+        role: {
+            type: String,
+            enum: Object.values(MessageRole),
             required: true
         },
         text: {
@@ -69,28 +89,36 @@ export const Message = mongoose.model<IMessage>('Message', messageSchema);
 // Message service functions
 export async function saveTextMessage(
     userId: Types.ObjectId,
+    conversationId: Types.ObjectId,
     telegramMessageId: number,
-    text: string
+    text: string,
+    role: MessageRole = MessageRole.USER
 ): Promise<IMessage> {
     return Message.create({
         user: userId,
+        conversation: conversationId,
         telegramMessageId,
         type: MessageType.TEXT,
+        role,
         text
     });
 }
 
 export async function saveVoiceMessage(
     userId: Types.ObjectId,
+    conversationId: Types.ObjectId,
     telegramMessageId: number,
     fileId: string,
     filePath: string,
-    transcription: string
+    transcription: string,
+    role: MessageRole = MessageRole.USER
 ): Promise<IMessage> {
     return Message.create({
         user: userId,
+        conversation: conversationId,
         telegramMessageId,
         type: MessageType.VOICE,
+        role,
         fileId,
         filePath,
         transcription
@@ -99,6 +127,10 @@ export async function saveVoiceMessage(
 
 export async function getMessagesByUser(userId: Types.ObjectId): Promise<IMessage[]> {
     return Message.find({ user: userId }).sort({ createdAt: -1 }).populate('user');
+}
+
+export async function getMessagesByConversation(conversationId: Types.ObjectId): Promise<IMessage[]> {
+    return Message.find({ conversation: conversationId }).sort({ createdAt: 1 });
 }
 
 export async function getMessageById(messageId: string): Promise<IMessage | null> {
