@@ -59,6 +59,8 @@ export async function promptWithConversationHistory(
             content = message.text || '';
         } else if (message.type === MessageType.VOICE) {
             content = message.transcription || '';
+        } else if (message.type === MessageType.VIDEO) {
+            content = message.transcription || '';
         }
         
         if (content) {

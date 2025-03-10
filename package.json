@@ -5,6 +5,7 @@
         "start": "tsx ./src/main.ts"
     },
     "dependencies": {
+        "chalk": "^5.4.1",
         "dotenv": "^16.4.7",
         "grammy": "^1.35.0",
         "mongoose": "^8.12.1",
