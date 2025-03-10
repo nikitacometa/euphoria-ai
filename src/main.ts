@@ -504,6 +504,11 @@ bot.on('message:voice', handleVoiceMessage);
 // Video message handler
 const handleVideoMessage = withCommandLogging('video_message', async (ctx) => {
     try {
+        mainLogger.info('Received video message');
+        
+        // Log the message object for debugging
+        mainLogger.debug('Message object:', JSON.stringify(ctx.message, null, 2));
+        
         // Show typing status while processing
         await ctx.replyWithChatAction('typing');
         
@@ -511,6 +516,14 @@ const handleVideoMessage = withCommandLogging('video_message', async (ctx) => {
             await ctx.reply('Cannot identify user.');
             return;
         }
+        
+        if (!ctx.message || !ctx.message.video) {
+            mainLogger.error('No video found in message');
+            await ctx.reply('Sorry, I couldn\'t process your video. Please try again.');
+            return;
+        }
+        
+        mainLogger.debug(`Processing video from user: ${ctx.from.id} (${ctx.from.first_name})`);
         
         // Save user to database
         const user = await findOrCreateUser(
@@ -528,21 +541,75 @@ const handleVideoMessage = withCommandLogging('video_message', async (ctx) => {
         
         // Get file info
         const fileId = ctx.message.video.file_id;
+        mainLogger.debug(`Video file ID: ${fileId}`);
+        
         const file = await ctx.api.getFile(fileId);
+        if (!file || !file.file_path) {
+            mainLogger.error('Could not get file path from Telegram');
+            await ctx.reply('Sorry, I couldn\'t access your video. Please try again.');
+            return;
+        }
+        
+        mainLogger.debug(`File path: ${file.file_path}`);
+        
+        // Determine file extension from mime type or file path
+        const fileExt = file.file_path.split('.').pop() || 'mp4';
+        mainLogger.debug(`File extension: ${fileExt}`);
         
         // Create a temporary file path
         const tempDir = os.tmpdir();
-        const tempFilePath = path.join(tempDir, `video_${Date.now()}.mp4`);
+        const tempFilePath = path.join(tempDir, `video_${Date.now()}.${fileExt}`);
+        mainLogger.debug(`Temporary file path: ${tempFilePath}`);
         
-        // Download the file
-        const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${file.file_path}`;
-        const response = await fetch(fileUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        fs.writeFileSync(tempFilePath, buffer);
+        try {
+            // Download the file
+            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${file.file_path}`;
+            mainLogger.debug(`Downloading from URL: ${fileUrl}`);
+            
+            const response = await fetch(fileUrl);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            
+            if (buffer.length === 0) {
+                throw new Error('Downloaded file is empty');
+            }
+            
+            fs.writeFileSync(tempFilePath, buffer);
+            mainLogger.info(`Video downloaded, size: ${buffer.length} bytes`);
+        } catch (downloadError) {
+            mainLogger.error('Error downloading video:', downloadError);
+            await ctx.reply('Sorry, I had trouble downloading your video. Please try again with a smaller video.');
+            return;
+        }
         
         // Transcribe the audio from the video
-        const transcription = await transcribeAudio(tempFilePath);
+        mainLogger.info('Transcribing audio from video...');
+        let transcription;
+        try {
+            transcription = await transcribeAudio(tempFilePath);
+            mainLogger.info(`Transcription result: "${transcription}"`);
+            
+            if (!transcription || transcription.includes("Sorry, I couldn't transcribe")) {
+                throw new Error('Transcription failed or returned empty result');
+            }
+        } catch (transcriptionError) {
+            mainLogger.error('Error during transcription:', transcriptionError);
+            await ctx.reply('Sorry, I couldn\'t transcribe the audio from your video. The video might not have clear audio or might be in an unsupported format.');
+            
+            // Clean up the temporary file
+            try {
+                fs.unlinkSync(tempFilePath);
+            } catch (cleanupError) {
+                mainLogger.error('Error cleaning up temporary file:', cleanupError);
+            }
+            
+            return;
+        }
         
         // Save video message to database
         await saveVideoMessage(
@@ -550,10 +617,15 @@ const handleVideoMessage = withCommandLogging('video_message', async (ctx) => {
             conversation._id as unknown as Types.ObjectId,
             ctx.message.message_id,
             fileId,
-            file.file_path || '',
+            file.file_path,
             transcription,
             MessageRole.USER
         );
+        
+        // First, send the transcription to the user
+        await ctx.reply(`📝 <b>Transcription</b>:\n\n${transcription}`, {
+            parse_mode: 'HTML'
+        });
         
         // Get conversation history
         const conversationHistory = await getMessagesByConversation(
@@ -561,6 +633,7 @@ const handleVideoMessage = withCommandLogging('video_message', async (ctx) => {
         );
         
         // Generate AI response with conversation context
+        mainLogger.info('Generating AI response...');
         const replyText = await promptWithConversationHistory(
             transcription,
             conversationHistory
@@ -586,15 +659,223 @@ const handleVideoMessage = withCommandLogging('video_message', async (ctx) => {
         );
         
         // Clean up the temporary file
-        fs.unlinkSync(tempFilePath);
+        try {
+            fs.unlinkSync(tempFilePath);
+            mainLogger.info('Temporary file deleted successfully');
+        } catch (cleanupError) {
+            mainLogger.error('Error cleaning up temporary file:', cleanupError);
+        }
+        
+        mainLogger.info('Video message processing completed successfully');
     } catch (error) {
         mainLogger.error('Error processing video message:', error);
-        await ctx.reply('Sorry, I had trouble processing your video message.');
+        
+        // More detailed error logging
+        if (error instanceof Error) {
+            mainLogger.error(`Error name: ${error.name}, message: ${error.message}`);
+            mainLogger.error(`Stack trace: ${error.stack}`);
+        }
+        
+        await ctx.reply('Sorry, I had trouble processing your video message. Please try again or send a voice message instead.');
     }
 });
 
 // Register the video message handler
 bot.on('message:video', handleVideoMessage);
+
+// Add handler for video notes (circular videos in Telegram)
+bot.on('message:video_note', async (ctx) => {
+    try {
+        mainLogger.info('Received video note message');
+        mainLogger.debug('Message object:', JSON.stringify(ctx.message, null, 2));
+        
+        // Show typing status while processing
+        await ctx.replyWithChatAction('typing');
+        
+        if (!ctx.from) {
+            await ctx.reply('Cannot identify user.');
+            return;
+        }
+        
+        if (!ctx.message || !ctx.message.video_note) {
+            mainLogger.error('No video note found in message');
+            await ctx.reply('Sorry, I couldn\'t process your video note. Please try again.');
+            return;
+        }
+        
+        mainLogger.debug(`Processing video note from user: ${ctx.from.id} (${ctx.from.first_name})`);
+        
+        // Save user to database
+        const user = await findOrCreateUser(
+            ctx.from.id,
+            ctx.from.first_name,
+            ctx.from.last_name,
+            ctx.from.username
+        );
+        
+        // Get or create active conversation
+        let conversation = await getActiveConversation(user._id as unknown as Types.ObjectId);
+        if (!conversation) {
+            conversation = await createConversation(user._id as unknown as Types.ObjectId);
+        }
+        
+        // Get file info
+        const fileId = ctx.message.video_note.file_id;
+        mainLogger.debug(`Video note file ID: ${fileId}`);
+        
+        const file = await ctx.api.getFile(fileId);
+        if (!file || !file.file_path) {
+            mainLogger.error('Could not get file path from Telegram');
+            await ctx.reply('Sorry, I couldn\'t access your video note. Please try again.');
+            return;
+        }
+        
+        mainLogger.debug(`File path: ${file.file_path}`);
+        
+        // Determine file extension from mime type or file path
+        const fileExt = file.file_path.split('.').pop() || 'mp4';
+        mainLogger.debug(`File extension: ${fileExt}`);
+        
+        // Create a temporary file path
+        const tempDir = os.tmpdir();
+        const tempFilePath = path.join(tempDir, `video_note_${Date.now()}.${fileExt}`);
+        mainLogger.debug(`Temporary file path: ${tempFilePath}`);
+        
+        try {
+            // Download the file
+            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${file.file_path}`;
+            mainLogger.debug(`Downloading from URL: ${fileUrl}`);
+            
+            const response = await fetch(fileUrl);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            
+            if (buffer.length === 0) {
+                throw new Error('Downloaded file is empty');
+            }
+            
+            fs.writeFileSync(tempFilePath, buffer);
+            mainLogger.info(`Video note downloaded, size: ${buffer.length} bytes`);
+        } catch (downloadError) {
+            mainLogger.error('Error downloading video note:', downloadError);
+            await ctx.reply('Sorry, I had trouble downloading your video note. Please try again with a smaller video.');
+            return;
+        }
+        
+        // Transcribe the audio from the video note
+        mainLogger.info('Transcribing audio from video note...');
+        let transcription;
+        try {
+            transcription = await transcribeAudio(tempFilePath);
+            mainLogger.info(`Transcription result: "${transcription}"`);
+            
+            if (!transcription || transcription.includes("Sorry, I couldn't transcribe")) {
+                throw new Error('Transcription failed or returned empty result');
+            }
+        } catch (transcriptionError) {
+            mainLogger.error('Error during transcription:', transcriptionError);
+            await ctx.reply('Sorry, I couldn\'t transcribe the audio from your video note. The video might not have clear audio or might be in an unsupported format.');
+            
+            // Clean up the temporary file
+            try {
+                fs.unlinkSync(tempFilePath);
+            } catch (cleanupError) {
+                mainLogger.error('Error cleaning up temporary file:', cleanupError);
+            }
+            
+            return;
+        }
+        
+        // Save video message to database (using video type since we don't have a specific video_note type)
+        await saveVideoMessage(
+            user._id as unknown as Types.ObjectId,
+            conversation._id as unknown as Types.ObjectId,
+            ctx.message.message_id,
+            fileId,
+            file.file_path,
+            transcription,
+            MessageRole.USER
+        );
+        
+        // First, send the transcription to the user
+        await ctx.reply(`📝 <b>Transcription</b>:\n\n${transcription}`, {
+            parse_mode: 'HTML'
+        });
+        
+        // Get conversation history
+        const conversationHistory = await getMessagesByConversation(
+            conversation._id as unknown as Types.ObjectId
+        );
+        
+        // Generate AI response with conversation context
+        mainLogger.info('Generating AI response...');
+        const replyText = await promptWithConversationHistory(
+            transcription,
+            conversationHistory
+        );
+        
+        // Create reset conversation button
+        const keyboard = new Keyboard()
+            .text('Reset Conversation')
+            .resized();
+        
+        // Send the response
+        const sentMessage = await ctx.reply(replyText, {
+            reply_markup: keyboard
+        });
+        
+        // Save the assistant's response to the database
+        await saveTextMessage(
+            user._id as unknown as Types.ObjectId,
+            conversation._id as unknown as Types.ObjectId,
+            sentMessage.message_id,
+            replyText,
+            MessageRole.ASSISTANT
+        );
+        
+        // Clean up the temporary file
+        try {
+            fs.unlinkSync(tempFilePath);
+            mainLogger.info('Temporary file deleted successfully');
+        } catch (cleanupError) {
+            mainLogger.error('Error cleaning up temporary file:', cleanupError);
+        }
+        
+        mainLogger.info('Video note message processing completed successfully');
+    } catch (error) {
+        mainLogger.error('Error processing video note message:', error);
+        
+        // More detailed error logging
+        if (error instanceof Error) {
+            mainLogger.error(`Error name: ${error.name}, message: ${error.message}`);
+            mainLogger.error(`Stack trace: ${error.stack}`);
+        }
+        
+        await ctx.reply('Sorry, I had trouble processing your video note. Please try again or send a voice message instead.');
+    }
+});
+
+// Debug handler for all message types
+bot.on('message', (ctx) => {
+    if (ctx.message) {
+        const messageType = Object.keys(ctx.message).find(key => 
+            ['text', 'voice', 'video', 'photo', 'document', 'audio', 'sticker'].includes(key)
+        );
+        
+        mainLogger.debug(`Received message of type: ${messageType || 'unknown'}`);
+        
+        // If it's a video message but wasn't caught by the specific handler
+        if (messageType === 'video' && ctx.message.video) {
+            mainLogger.warn('Video message detected in general handler - specific handler may not be working');
+            mainLogger.debug('Video message details:', JSON.stringify(ctx.message.video, null, 2));
+        }
+    }
+});
 
 // Log level command handler
 const handleLogLevelCommand = withCommandLogging('log_level', async (ctx) => {
