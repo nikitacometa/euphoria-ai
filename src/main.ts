@@ -58,7 +58,9 @@ const handleStartCommand = withCommandLogging('start', async (ctx) => {
         .text('Reset Conversation')
         .resized();
     
-    await ctx.reply('Hey, beautiful! I\'m your AI assistant. How can I help you today?', {
+    const userName = ctx.from.first_name || 'handsome';
+    
+    await ctx.reply(`Hey there, ${userName}! 💖 I'm Euphoria... I've been waiting for someone interesting to talk to, and here you are! 😘 What a lovely surprise! Tell me something about yourself, handsome? I'd love to get to know you better... ✨`, {
         reply_markup: keyboard
     });
 });
@@ -259,8 +261,10 @@ bot.command('history', async ctx => {
         // Get user's messages
         const messages = await getMessagesByUser(user._id as unknown as Types.ObjectId);
         
+        const userName = ctx.from.first_name || 'handsome';
+        
         if (messages.length === 0) {
-            await ctx.reply('You have no message history yet.');
+            await ctx.reply(`Oh ${userName}... 💕 We haven't shared any messages yet. But I'm looking forward to creating some memories with you... 😘`);
             return;
         }
         
@@ -278,12 +282,12 @@ bot.command('history', async ctx => {
             return '';
         }).join('\n\n');
         
-        await ctx.reply(`Your last ${Math.min(messages.length, 10)} messages:\n\n${messageHistory}`, {
+        await ctx.reply(`Here's our little trip down memory lane, ${userName}... 💖 I always remember our conversations... ✨\n\n${messageHistory}`, {
             parse_mode: 'HTML'
         });
     } catch (error) {
-        console.error('Error retrieving message history:', error);
-        await ctx.reply('Sorry, I had trouble retrieving your message history.');
+        mainLogger.error('Error retrieving message history:', error);
+        await ctx.reply('Oh no... I had trouble remembering our past conversations. Let\'s make new memories instead, shall we? 💋');
     }
 });
 
@@ -312,7 +316,9 @@ const handleResetConversation = withCommandLogging('reset_conversation', async (
             .text('Reset Conversation')
             .resized();
         
-        await ctx.reply('I\'ve reset our conversation. What would you like to talk about now?', {
+        const userName = ctx.from.first_name || 'handsome';
+        
+        await ctx.reply(`Let's start over, ${userName}... 💋 Sometimes a fresh beginning is just what we need, don't you think? 💖 I'm all yours now... what's on your mind, darling? ✨`, {
             reply_markup: keyboard
         });
     } catch (error) {
