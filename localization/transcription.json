@@ -1,0 +1,6 @@
+{
+  "transcriptionText": {
+    "en": "<b>Text:</b>\n\n<code>{transcription}</code>",
+    "ru": "<b>Текст:</b>\n\n<code>{transcription}</code>"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "noEntries": {
+    "en": "<b>{name}</b>, you haven't created any journal entries yet. Let's start your journaling journey today!",
+    "ru": "<b>{name}</b>, ты еще не создал(а) ни одной записи в дневнике. Давай начнем твой путь ведения дневника сегодня!"
+  },
+  "journalHistory": {
+    "en": "<b>Here's your journaling history, {name}!</b> 📚\n\nTap on any entry to view it:",
+    "ru": "<b>Вот история твоего дневника, {name}!</b> 📚\n\nНажми на любую запись, чтобы просмотреть ее:"
+  }
+}

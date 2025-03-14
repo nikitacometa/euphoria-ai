@@ -1,0 +1,18 @@
+{
+  "anythingElse": {
+    "en": "<b>Anything else you'd like to know about your journal, {name}?</b> I'm all ears! 👂",
+    "ru": "<b>Что-нибудь еще ты хотел бы узнать о своем дневнике, {name}?</b> Я весь внимание! 👂"
+  },
+  "anyOtherQuestions": {
+    "en": "<b>Any other questions about your journaling journey, {name}?</b>",
+    "ru": "<b>Есть ли у тебя другие вопросы о твоем пути ведения дневника, {name}?</b>"
+  },
+  "gotMoreQuestions": {
+    "en": "<b>Got any more questions for me, {name}?</b> I'm loving our chat!",
+    "ru": "<b>Есть ли у тебя еще вопросы ко мне, {name}?</b> Мне нравится наш разговор!"
+  },
+  "askMeAnything": {
+    "en": "<b>{name}</b>, you can ask me anything about your journal entries! Send me a text, voice message, or video with your question. Or type '❌ Exit Chat Mode' if you want to return to the main menu.",
+    "ru": "<b>{name}</b>, ты можешь спросить меня о чем угодно касательно твоих записей в дневнике! Отправь мне текст, голосовое сообщение или видео с твоим вопросом. Или напиши '❌ Выйти из режима обсуждения', если хочешь вернуться в главное меню."
+  }
+}

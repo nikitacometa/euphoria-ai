@@ -1,0 +1,14 @@
+{
+  "analyzeTodayIntro": {
+    "en": "<b>Let's analyze your day, {name}!</b> 📊\n\nI'll look at your entries from today and share some insights.",
+    "ru": "<b>Давай проанализируем твой день, {name}!</b> 📊\n\nЯ посмотрю на твои сегодняшние записи и поделюсь некоторыми наблюдениями."
+  },
+  "noTodayEntries": {
+    "en": "<b>{name}</b>, you don't have any journal entries from today. Let's create one first!",
+    "ru": "<b>{name}</b>, у тебя нет записей в дневнике за сегодня. Давай сначала создадим одну!"
+  },
+  "todayAnalysis": {
+    "en": "<b>Here's my analysis of your day, {name}:</b>\n\n{analysis}\n\n<b>Would you like to discuss this further?</b>",
+    "ru": "<b>Вот мой анализ твоего дня, {name}:</b>\n\n{analysis}\n\n<b>Хочешь обсудить это подробнее?</b>"
+  }
+}

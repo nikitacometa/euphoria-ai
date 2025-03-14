@@ -1,0 +1,10 @@
+{
+  "errorProcessingVoice": {
+    "en": "Sorry, I had trouble processing your voice message. Could you try sending a text message instead?",
+    "ru": "Извини, у меня возникли проблемы с обработкой твоего голосового сообщения. Не мог бы ты попробовать отправить текстовое сообщение?"
+  },
+  "errorProcessingVideo": {
+    "en": "Sorry, I had trouble processing your video. Could you try sending a text message instead?",
+    "ru": "Извини, у меня возникли проблемы с обработкой твоего видео. Не мог бы ты попробовать отправить текстовое сообщение?"
+  }
+}

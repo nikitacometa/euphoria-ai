@@ -1,0 +1,14 @@
+{
+  "noChatEntries": {
+    "en": "<b>{name}</b>, you don't have any journal entries yet. Let's create some first so we can chat about them!",
+    "ru": "<b>{name}</b>, у тебя еще нет записей в дневнике. Давай сначала создадим несколько, чтобы мы могли их обсудить!"
+  },
+  "chatIntro": {
+    "en": "<b>Hey {name}!</b> 💬\n\nI'm all ears and ready to chat about your journal entries!\n\nYou can ask me things like:\n\n<i>• \"What patterns do you notice in my entries?\"</i>\n<i>• \"How have my feelings changed over time?\"</i>\n<i>• \"What insights can you give me about my recent experiences?\"</i>\n\nJust ask away - I'll do my best to give you thoughtful insights!",
+    "ru": "<b>Привет, {name}!</b> 💬\n\nЯ весь внимание и готов обсудить твои записи в дневнике!\n\nТы можешь спросить меня о таких вещах, как:\n\n<i>• \"Какие закономерности ты замечаешь в моих записях?\"</i>\n<i>• \"Как менялись мои чувства со временем?\"</i>\n<i>• \"Какие выводы ты можешь сделать о моем недавнем опыте?\"</i>\n\nСпрашивай - я постараюсь дать тебе содержательные ответы!"
+  },
+  "exitChatMode": {
+    "en": "❌ Exit Chat Mode",
+    "ru": "❌ Выйти из режима обсуждения"
+  }
+}
