@@ -2,7 +2,7 @@ import { TELEGRAM_API_TOKEN } from './config'
 import { connectToDatabase } from './database'
 import { logger, createLogger } from './utils/logger'
 import { LOG_LEVEL } from './config'
-import { journalBot } from './journal-bot'
+import { journalBot } from './journal-bot-new'
 
 // Create a logger for the main application
 const mainLogger = createLogger('Main', LOG_LEVEL);
