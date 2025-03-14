@@ -4,28 +4,43 @@ import { logger, createLogger } from './utils/logger'
 import { LOG_LEVEL } from './config'
 import { journalBot } from './journal-bot-new'
 import { startAdminServer } from './admin/text-editor'
+import { initializeTexts } from './utils/localization'
 
 // Create a logger for the main application
 const mainLogger = createLogger('Main', LOG_LEVEL);
 
-// Connect to MongoDB
-connectToDatabase().catch(error => mainLogger.error('Failed to connect to MongoDB:', error));
-
-// Log bot startup
-mainLogger.info('Starting Journal Bot...');
-
-// Start the bot
-journalBot.start({
-    onStart: () => {
-        mainLogger.info('Journal Bot started successfully!');
+// Main function to start the application
+async function startApp() {
+    try {
+        // Connect to MongoDB
+        await connectToDatabase();
+        
+        // Initialize localization texts from database
+        await initializeTexts();
+        
+        // Log bot startup
+        mainLogger.info('Starting Journal Bot...');
+        
+        // Start the bot
+        journalBot.start({
+            onStart: () => {
+                mainLogger.info('Journal Bot started successfully!');
+            }
+        });
+        
+        // Start admin server if ENABLE_ADMIN_INTERFACE is set
+        if (process.env.ENABLE_ADMIN_INTERFACE === 'true') {
+            await startAdminServer();
+            mainLogger.info('Admin interface started');
+        }
+    } catch (error) {
+        mainLogger.error('Failed to start application:', error);
+        process.exit(1);
     }
-});
-
-// Start admin server if ENABLE_ADMIN_INTERFACE is set
-if (process.env.ENABLE_ADMIN_INTERFACE === 'true') {
-    startAdminServer();
-    mainLogger.info('Admin interface started');
 }
+
+// Start the application
+startApp();
 
 // Handle errors
 process.on('uncaughtException', (error) => {

@@ -1,7 +1,9 @@
 import express, { Request, Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Language, texts, reloadTexts, updateText } from '../utils/localization';
+import { Language, texts, reloadTexts, updateText, exportTextsToFiles } from '../utils/localization';
+import { getAllLocalizationTexts, getLocalizationTextsByCategory } from '../database';
+import { connectToDatabase } from '../database/connection';
 
 // Create Express app
 const app = express();
@@ -113,33 +115,43 @@ const indexTemplate = `
       border-radius: 4px;
       font-size: 16px;
     }
+    .actions {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
   </style>
 </head>
 <body>
   <h1>Journal Bot Text Editor</h1>
   
+  <div class="actions">
+    <button onclick="exportTexts()">Export to JSON Files</button>
+    <button onclick="location.reload()">Refresh</button>
+  </div>
+  
   <input type="text" id="searchBox" class="search-box" placeholder="Search for text keys...">
   
-  <% Object.entries(categories).forEach(([category, keys]) => { %>
+  <% Object.entries(categories).forEach(([category, items]) => { %>
     <div class="category" id="category-<%= category %>">
       <h2><%= category.charAt(0).toUpperCase() + category.slice(1) %></h2>
       
-      <% keys.forEach(key => { %>
-        <div class="text-item" data-key="<%= key %>">
-          <div class="text-key"><%= key %></div>
+      <% items.forEach(item => { %>
+        <div class="text-item" data-key="<%= item.key %>">
+          <div class="text-key"><%= item.key %></div>
           
           <div>
             <span class="language-label">English:</span>
-            <textarea id="<%= key %>-en"><%= texts[key][Language.ENGLISH] %></textarea>
-            <button onclick="saveText('<%= key %>', 'en')">Save English</button>
-            <span id="<%= key %>-en-status"></span>
+            <textarea id="<%= item.key %>-en"><%= item.translations[Language.ENGLISH] %></textarea>
+            <button onclick="saveText('<%= item.key %>', 'en')">Save English</button>
+            <span id="<%= item.key %>-en-status"></span>
           </div>
           
           <div>
             <span class="language-label">Russian:</span>
-            <textarea id="<%= key %>-ru"><%= texts[key][Language.RUSSIAN] %></textarea>
-            <button onclick="saveText('<%= key %>', 'ru')">Save Russian</button>
-            <span id="<%= key %>-ru-status"></span>
+            <textarea id="<%= item.key %>-ru"><%= item.translations[Language.RUSSIAN] %></textarea>
+            <button onclick="saveText('<%= item.key %>', 'ru')">Save Russian</button>
+            <span id="<%= item.key %>-ru-status"></span>
           </div>
         </div>
       <% }) %>
@@ -183,6 +195,23 @@ const indexTemplate = `
       });
     }
     
+    function exportTexts() {
+      fetch('/api/export-texts', {
+        method: 'POST'
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Texts exported to JSON files successfully!');
+        } else {
+          alert(\`Error exporting texts: \${data.error}\`);
+        }
+      })
+      .catch(error => {
+        alert(\`Error: \${error.message}\`);
+      });
+    }
+    
     // Search functionality
     const searchBox = document.getElementById('searchBox');
     searchBox.addEventListener('input', function() {
@@ -222,77 +251,41 @@ const indexTemplate = `
 // Write the template to the views directory
 fs.writeFileSync(path.join(viewsDir, 'index.ejs'), indexTemplate);
 
-// Group texts by category
-function getTextCategories() {
-  // Define categories and their keys
-  const categories: Record<string, string[]> = {
-    onboarding: [],
-    mainMenu: [],
-    journalEntry: [],
-    journalHistory: [],
-    chatMode: [],
-    buttonResponses: [],
-    entryView: [],
-    goDeeper: [],
-    analyzeJournal: [],
-    finishEntry: [],
-    settings: [],
-    analyzeToday: [],
-    errorMessages: [],
-    transcription: [],
-    chatFollowUps: [],
-    other: []
-  };
-  
-  // Categorize each text key
-  Object.keys(texts).forEach(key => {
-    let assigned = false;
-    
-    // Try to assign to a category based on the key name
-    for (const category of Object.keys(categories)) {
-      if (key.toLowerCase().includes(category.toLowerCase())) {
-        categories[category].push(key);
-        assigned = true;
-        break;
-      }
-    }
-    
-    // If not assigned to any category, put in "other"
-    if (!assigned) {
-      categories.other.push(key);
-    }
-  });
-  
-  // Remove empty categories
-  for (const category of Object.keys(categories)) {
-    if (categories[category].length === 0) {
-      delete categories[category];
-    } else {
-      // Sort keys alphabetically within each category
-      categories[category].sort();
-    }
-  }
-  
-  return categories;
-}
-
 // Routes
-app.get('/', (req: Request, res: Response) => {
-  // Reload texts to ensure we have the latest version
-  reloadTexts();
-  
-  // Get categorized texts
-  const categories = getTextCategories();
-  
-  res.render('index', {
-    texts,
-    categories,
-    Language
-  });
+app.get('/', async (req: Request, res: Response) => {
+  try {
+    // Reload texts to ensure we have the latest version
+    await reloadTexts();
+    
+    // Get all localization texts from database
+    const dbTexts = await getAllLocalizationTexts();
+    
+    // Group by category
+    const categories: Record<string, any[]> = {};
+    
+    for (const dbText of dbTexts) {
+      if (!categories[dbText.category]) {
+        categories[dbText.category] = [];
+      }
+      
+      categories[dbText.category].push({
+        key: dbText.key,
+        translations: dbText.translations
+      });
+    }
+    
+    res.render('index', {
+      categories,
+      Language
+    });
+  } catch (error) {
+    console.error('Error loading admin interface:', error);
+    res.status(500).send('Error loading admin interface');
+  }
 });
 
 // API endpoint to update text
-app.post('/api/update-text', (req: Request, res: Response) => {
+app.post('/api/update-text', async (req: Request, res: Response) => {
   const { key, language, text } = req.body;
   
   if (!key || !language || text === undefined) {
@@ -305,7 +298,7 @@ app.post('/api/update-text', (req: Request, res: Response) => {
   const langCode = language === 'en' ? Language.ENGLISH : Language.RUSSIAN;
   
   try {
-    const success = updateText(key, langCode, text);
+    const success = await updateText(key, langCode, text);
     
     if (success) {
       return res.json({ success: true });
@@ -324,8 +317,33 @@ app.post('/api/update-text', (req: Request, res: Response) => {
   }
 });
 
+// API endpoint to export texts to JSON files
+app.post('/api/export-texts', async (req: Request, res: Response) => {
+  try {
+    const success = await exportTextsToFiles();
+    
+    if (success) {
+      return res.json({ success: true });
+    } else {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to export texts'
+      });
+    }
+  } catch (error) {
+    console.error('Error exporting texts:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
 // Start the server
-export function startAdminServer() {
+export async function startAdminServer() {
+  // Connect to database
+  await connectToDatabase();
+  
   app.listen(PORT, () => {
     console.log(`Admin interface running at http://localhost:${PORT}`);
   });
@@ -333,5 +351,7 @@ export function startAdminServer() {
 
 // If this file is run directly, start the server
 if (require.main === module) {
-  startAdminServer();
+  startAdminServer().catch(error => {
+    console.error('Failed to start admin server:', error);
+  });
 } 

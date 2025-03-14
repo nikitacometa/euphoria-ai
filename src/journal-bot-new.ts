@@ -1916,7 +1916,7 @@ bot.command('updatetext', async (ctx: JournalBotContext) => {
     
     if (args === 'list') {
         // Reload texts to ensure we have the latest version
-        reloadTexts();
+        await reloadTexts();
         
         // Get all text keys
         const keys = Object.keys(texts).sort();
@@ -1941,7 +1941,7 @@ bot.command('updatetext', async (ctx: JournalBotContext) => {
     const language = langCode === 'en' ? Language.ENGLISH : Language.RUSSIAN;
     
     // Update the text
-    const success = updateText(key, language, newText);
+    const success = await updateText(key, language, newText);
     
     if (success) {
         await ctx.reply(`✅ Text updated successfully for key "${key}" in ${langCode.toUpperCase()}`);

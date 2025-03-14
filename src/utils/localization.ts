@@ -1,6 +1,13 @@
 import { IUser } from '../database';
 import * as fs from 'fs';
 import * as path from 'path';
+import { 
+  ILocalizationText, 
+  getAllLocalizationTexts, 
+  getLocalizationTextByKey,
+  upsertLocalizationText,
+  updateTranslation
+} from '../database';
 
 // Supported languages
 export enum Language {
@@ -255,8 +262,117 @@ const defaultTexts: TextCollection = {
   }
 };
 
-// Function to load texts from JSON files
-function loadTextsFromFiles(): TextCollection {
+// In-memory cache of texts
+export const texts: TextCollection = { ...defaultTexts };
+
+// Function to load texts from database
+export async function loadTextsFromDatabase(): Promise<TextCollection> {
+  try {
+    // Get all localization texts from database
+    const dbTexts = await getAllLocalizationTexts();
+    
+    // If no texts exist in the database, initialize with default texts
+    if (dbTexts.length === 0) {
+      await initializeDefaultTexts();
+      return defaultTexts;
+    }
+    
+    // Convert database texts to text collection format
+    const loadedTexts: TextCollection = {};
+    
+    for (const dbText of dbTexts) {
+      loadedTexts[dbText.key] = {
+        [Language.ENGLISH]: dbText.translations[Language.ENGLISH],
+        [Language.RUSSIAN]: dbText.translations[Language.RUSSIAN]
+      };
+    }
+    
+    return loadedTexts;
+  } catch (error) {
+    console.error('Error loading localization texts from database:', error);
+    return defaultTexts;
+  }
+}
+
+// Function to initialize default texts in the database
+async function initializeDefaultTexts(): Promise<void> {
+  try {
+    // Group texts by category
+    const categories = {
+      onboarding: [
+        'languageSelection', 'languageChanged', 'welcome', 'niceMeet', 
+        'thanks', 'gotIt', 'almostDone', 'amazing', 'welcomeAboard'
+      ],
+      mainMenu: [
+        'mainMenu', 'createNewEntry', 'viewJournalHistory', 
+        'chatAboutJournal', 'analyzeToday', 'settings'
+      ],
+      journalEntry: [
+        'continueEntry', 'newEntry', 'finishEntry', 
+        'goDeeper', 'cancelEntry'
+      ],
+      journalHistory: [
+        'noEntries', 'journalHistory'
+      ],
+      chatMode: [
+        'noChatEntries', 'chatIntro', 'exitChatMode'
+      ],
+      buttonResponses: [
+        'entryCanceled', 'exitedChatMode'
+      ],
+      entryView: [
+        'journalEntry', 'voiceTranscription', 'videoTranscription'
+      ],
+      goDeeper: [
+        'deeperQuestions', 'thoughtsOnQuestions'
+      ],
+      analyzeJournal: [
+        'noActiveEntry', 'entryNotFound', 'questionsToThinkAbout', 'shareThoughts'
+      ],
+      finishEntry: [
+        'entrySaved'
+      ],
+      settings: [
+        'settingsTitle', 'changeLanguage', 'backToMainMenu'
+      ],
+      analyzeToday: [
+        'analyzeTodayIntro', 'noTodayEntries', 'todayAnalysis'
+      ],
+      errorMessages: [
+        'errorProcessingVoice', 'errorProcessingVideo'
+      ],
+      transcription: [
+        'transcriptionText'
+      ],
+      chatFollowUps: [
+        'anythingElse', 'anyOtherQuestions', 'gotMoreQuestions', 'askMeAnything'
+      ]
+    };
+    
+    // Insert each text into the database
+    for (const [category, keys] of Object.entries(categories)) {
+      for (const key of keys) {
+        if (defaultTexts[key]) {
+          await upsertLocalizationText(
+            key,
+            category,
+            {
+              [Language.ENGLISH]: defaultTexts[key][Language.ENGLISH],
+              [Language.RUSSIAN]: defaultTexts[key][Language.RUSSIAN]
+            }
+          );
+        }
+      }
+      
+      console.log(`Default localization texts initialized in database for category: ${category}`);
+    }
+  } catch (error) {
+    console.error('Error initializing default texts in database:', error);
+  }
+}
+
+// Function to load texts from JSON files (for backward compatibility)
+export function loadTextsFromFiles(): TextCollection {
   try {
     // Create directory if it doesn't exist
     if (!fs.existsSync(LOCALIZATION_DIR)) {
@@ -296,7 +412,7 @@ function loadTextsFromFiles(): TextCollection {
   }
 }
 
-// Function to save default texts to separate files by category
+// Function to save default texts to separate files by category (for backward compatibility)
 function saveDefaultTextsToFiles() {
   // Group texts by category
   const categories = {
@@ -367,8 +483,12 @@ function saveDefaultTextsToFiles() {
   }
 }
 
-// Load texts from files or use defaults
-export const texts: TextCollection = loadTextsFromFiles();
+// Initialize texts from database
+export async function initializeTexts(): Promise<void> {
+  const loadedTexts = await loadTextsFromDatabase();
+  Object.assign(texts, loadedTexts);
+  console.log('Localization texts loaded from database');
+}
 
 // Helper function to get text for a specific key and language
 export function getText(key: string, language: Language): string {
@@ -397,45 +517,72 @@ export function getTextForUser(key: string, user: IUser, variables: Record<strin
   return text;
 }
 
-// Function to reload texts from files (can be called to refresh texts without restarting)
-export function reloadTexts(): TextCollection {
-  const reloadedTexts = loadTextsFromFiles();
+// Function to reload texts from database
+export async function reloadTexts(): Promise<TextCollection> {
+  const reloadedTexts = await loadTextsFromDatabase();
   Object.assign(texts, reloadedTexts);
   return texts;
 }
 
-// Function to update a specific text
-export function updateText(key: string, language: Language, newText: string): boolean {
+// Function to update a specific text in the database
+export async function updateText(key: string, language: Language, newText: string): Promise<boolean> {
   try {
-    // Find which file contains this key
-    const files = fs.readdirSync(LOCALIZATION_DIR).filter(file => file.endsWith('.json'));
+    // Update in database
+    const updatedText = await updateTranslation(key, language, newText);
     
-    for (const file of files) {
-      const filePath = path.join(LOCALIZATION_DIR, file);
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const fileTexts = JSON.parse(fileContent) as TextCollection;
-      
-      // If this file contains the key
-      if (fileTexts[key]) {
-        // Update the text
-        fileTexts[key][language] = newText;
-        
-        // Save the file
-        fs.writeFileSync(filePath, JSON.stringify(fileTexts, null, 2), 'utf8');
-        
-        // Update in-memory texts
-        if (!texts[key]) {
-          texts[key] = { [Language.ENGLISH]: '', [Language.RUSSIAN]: '' };
-        }
-        texts[key][language] = newText;
-        
-        return true;
-      }
+    if (!updatedText) {
+      console.error(`Text key "${key}" not found in database`);
+      return false;
     }
     
-    return false;
+    // Update in-memory cache
+    if (!texts[key]) {
+      texts[key] = { [Language.ENGLISH]: '', [Language.RUSSIAN]: '' };
+    }
+    texts[key][language] = newText;
+    
+    return true;
   } catch (error) {
     console.error('Error updating text:', error);
+    return false;
+  }
+}
+
+// Function to export texts to JSON files (for backup)
+export async function exportTextsToFiles(): Promise<boolean> {
+  try {
+    // Get all texts from database
+    const dbTexts = await getAllLocalizationTexts();
+    
+    // Group by category
+    const categorizedTexts: Record<string, TextCollection> = {};
+    
+    for (const dbText of dbTexts) {
+      if (!categorizedTexts[dbText.category]) {
+        categorizedTexts[dbText.category] = {};
+      }
+      
+      categorizedTexts[dbText.category][dbText.key] = {
+        [Language.ENGLISH]: dbText.translations[Language.ENGLISH],
+        [Language.RUSSIAN]: dbText.translations[Language.RUSSIAN]
+      };
+    }
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(LOCALIZATION_DIR)) {
+      fs.mkdirSync(LOCALIZATION_DIR, { recursive: true });
+    }
+    
+    // Save each category to a file
+    for (const [category, categoryTexts] of Object.entries(categorizedTexts)) {
+      const filePath = path.join(LOCALIZATION_DIR, `${category}.json`);
+      fs.writeFileSync(filePath, JSON.stringify(categoryTexts, null, 2), 'utf8');
+    }
+    
+    console.log('Texts exported to files successfully');
+    return true;
+  } catch (error) {
+    console.error('Error exporting texts to files:', error);
     return false;
   }
 } 
