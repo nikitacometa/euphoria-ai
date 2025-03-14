@@ -1,0 +1,284 @@
+import { IUser } from '../database';
+
+// Supported languages
+export enum Language {
+  ENGLISH = 'en',
+  RUSSIAN = 'ru'
+}
+
+// Interface for text entries
+export interface LocalizedText {
+  [Language.ENGLISH]: string;
+  [Language.RUSSIAN]: string;
+}
+
+// Type for text collections
+export type TextCollection = {
+  [key: string]: LocalizedText;
+};
+
+// Main texts collection
+export const texts: TextCollection = {
+  // Onboarding
+  languageSelection: {
+    [Language.ENGLISH]: 'Please select your preferred language:',
+    [Language.RUSSIAN]: 'Пожалуйста, выберите предпочитаемый язык:'
+  },
+  languageChanged: {
+    [Language.ENGLISH]: 'Language has been changed to English.',
+    [Language.RUSSIAN]: 'Язык изменен на русский.'
+  },
+  welcome: {
+    [Language.ENGLISH]: '<b>Hey there, {firstName}!</b> 👋\n\nI\'m your personal journal buddy! I\'m here to help you reflect, grow, and have some fun along the way.\n\nBefore we dive in, I\'d love to get to know you better.\n\n<b>First things first</b> - what name would you like me to call you?',
+    [Language.RUSSIAN]: '<b>Привет, {firstName}!</b> 👋\n\nЯ твой личный дневник-помощник! Я здесь, чтобы помочь тебе размышлять, расти и немного развлечься.\n\nПрежде чем мы начнем, я хотел бы узнать тебя получше.\n\n<b>Для начала</b> - как тебя называть?'
+  },
+  niceMeet: {
+    [Language.ENGLISH]: '<b>Nice to meet you, {name}!</b> 😊\n\nHow old are you? Feel free to pick from these options:',
+    [Language.RUSSIAN]: '<b>Приятно познакомиться, {name}!</b> 😊\n\nСколько тебе лет? Выбери один из вариантов:'
+  },
+  thanks: {
+    [Language.ENGLISH]: '<b>Thanks!</b> And what gender do you identify as?',
+    [Language.RUSSIAN]: '<b>Спасибо!</b> А какого ты пола?'
+  },
+  gotIt: {
+    [Language.ENGLISH]: '<b>Got it!</b> What do you do for work or study?',
+    [Language.RUSSIAN]: '<b>Понятно!</b> Чем ты занимаешься - работаешь или учишься?'
+  },
+  almostDone: {
+    [Language.ENGLISH]: '<b>Almost done!</b> Now for the fun part - tell me a bit more about yourself! 💫\n\nFeel free to share anything you want, like you\'re introducing yourself to a new friend (which I am, actually!).\n\nSome things you might want to share:\n\n<i>• Where are you from?</i>\n<i>• Where are you living now?</i>\n<i>• Do you travel often?</i>\n<i>• Are you in a relationship?</i>\n<i>• What sports or physical activities do you enjoy?</i>\n<i>• What are your hobbies?</i>\n<i>• What are your dreams and goals?</i>\n<i>• Do you have any pets?</i>\n<i>• Any spiritual practices?</i>\n\nYou can reply with text, voice message, or even a video!',
+    [Language.RUSSIAN]: '<b>Почти готово!</b> Теперь самое интересное - расскажи мне немного о себе! 💫\n\nМожешь поделиться чем угодно, как будто знакомишься с новым другом (которым я, собственно, и являюсь).\n\nВот что ты можешь рассказать:\n\n<i>• Откуда ты родом?</i>\n<i>• Где живешь сейчас?</i>\n<i>• Часто ли путешествуешь?</i>\n<i>• Состоишь ли в отношениях?</i>\n<i>• Какими видами спорта или физической активности занимаешься?</i>\n<i>• Какие у тебя хобби?</i>\n<i>• О чем ты мечтаешь, какие у тебя цели?</i>\n<i>• Есть ли у тебя домашние животные?</i>\n<i>• Занимаешься ли духовными практиками?</i>\n\nМожешь ответить текстом, голосовым сообщением или даже видео!'
+  },
+  amazing: {
+    [Language.ENGLISH]: '<b>Amazing! Thanks for sharing, {name}!</b> 🎉\n\nI\'m so excited to be your journal buddy. Let\'s start this journey together!',
+    [Language.RUSSIAN]: '<b>Потрясающе! Спасибо, что поделился(-ась), {name}!</b> 🎉\n\nЯ так рад быть твоим дневником-помощником. Давай начнем это путешествие вместе!'
+  },
+  welcomeAboard: {
+    [Language.ENGLISH]: '<b>Welcome aboard, {name}!</b> 🎉\n\nI\'m so excited to be your journal buddy. Let\'s start this journey together!',
+    [Language.RUSSIAN]: '<b>Добро пожаловать, {name}!</b> 🎉\n\nЯ так рад быть твоим дневником-помощником. Давай начнем это путешествие вместе!'
+  },
+  
+  // Main menu
+  mainMenu: {
+    [Language.ENGLISH]: '<b>Hey {name}!</b> 😊\n\nWhat\'s on your mind today?',
+    [Language.RUSSIAN]: '<b>Привет, {name}!</b> 😊\n\nО чем думаешь сегодня?'
+  },
+  createNewEntry: {
+    [Language.ENGLISH]: '📝 Create New Entry',
+    [Language.RUSSIAN]: '📝 Создать новую запись'
+  },
+  viewJournalHistory: {
+    [Language.ENGLISH]: '📚 View Journal History',
+    [Language.RUSSIAN]: '📚 Просмотр истории дневника'
+  },
+  chatAboutJournal: {
+    [Language.ENGLISH]: '💬 Chat About My Journal',
+    [Language.RUSSIAN]: '💬 Обсудить мой дневник'
+  },
+  analyzeToday: {
+    [Language.ENGLISH]: '📊 Analyze Today',
+    [Language.RUSSIAN]: '📊 Анализ сегодняшнего дня'
+  },
+  settings: {
+    [Language.ENGLISH]: '⚙️ Settings',
+    [Language.RUSSIAN]: '⚙️ Настройки'
+  },
+  
+  // Journal entry
+  continueEntry: {
+    [Language.ENGLISH]: '<b>Hey {name}!</b>\n\nYou already have an entry in progress. Want to continue where you left off? You can add more thoughts or choose an option below:',
+    [Language.RUSSIAN]: '<b>Привет, {name}!</b>\n\nУ тебя уже есть незавершенная запись. Хочешь продолжить с того места, где остановился(-ась)? Можешь добавить больше мыслей или выбрать один из вариантов ниже:'
+  },
+  newEntry: {
+    [Language.ENGLISH]: '<b>Let\'s create a new journal entry, {name}!</b> 📝✨\n\nShare whatever\'s on your mind - your thoughts, feelings, experiences... anything at all! You can send text, voice messages, or videos.\n\nI\'m here to listen and help you reflect. When you\'re ready, just choose one of the options below:',
+    [Language.RUSSIAN]: '<b>Давай создадим новую запись в дневнике, {name}!</b> 📝✨\n\nПоделись всем, что у тебя на уме - твоими мыслями, чувствами, опытом... чем угодно! Можешь отправлять текст, голосовые сообщения или видео.\n\nЯ здесь, чтобы выслушать и помочь тебе поразмышлять. Когда будешь готов(-а), просто выбери один из вариантов ниже:'
+  },
+  finishEntry: {
+    [Language.ENGLISH]: '✅ Finish Entry',
+    [Language.RUSSIAN]: '✅ Завершить запись'
+  },
+  goDeeper: {
+    [Language.ENGLISH]: '🔍 Go Deeper, Ask Me',
+    [Language.RUSSIAN]: '🔍 Копнуть глубже'
+  },
+  cancelEntry: {
+    [Language.ENGLISH]: '❌ Cancel Entry',
+    [Language.RUSSIAN]: '❌ Отменить запись'
+  },
+  
+  // Journal history
+  noEntries: {
+    [Language.ENGLISH]: '<b>{name}</b>, you haven\'t created any journal entries yet. Let\'s start your journaling journey today!',
+    [Language.RUSSIAN]: '<b>{name}</b>, ты еще не создал(а) ни одной записи в дневнике. Давай начнем твой путь ведения дневника сегодня!'
+  },
+  journalHistory: {
+    [Language.ENGLISH]: '<b>Here\'s your journaling history, {name}!</b> 📚\n\nTap on any entry to view it:',
+    [Language.RUSSIAN]: '<b>Вот история твоего дневника, {name}!</b> 📚\n\nНажми на любую запись, чтобы просмотреть ее:'
+  },
+  
+  // Chat mode
+  noChatEntries: {
+    [Language.ENGLISH]: '<b>{name}</b>, you don\'t have any journal entries yet. Let\'s create some first so we can chat about them!',
+    [Language.RUSSIAN]: '<b>{name}</b>, у тебя еще нет записей в дневнике. Давай сначала создадим несколько, чтобы мы могли их обсудить!'
+  },
+  chatIntro: {
+    [Language.ENGLISH]: '<b>Hey {name}!</b> 💬\n\nI\'m all ears and ready to chat about your journal entries!\n\nYou can ask me things like:\n\n<i>• "What patterns do you notice in my entries?"</i>\n<i>• "How have my feelings changed over time?"</i>\n<i>• "What insights can you give me about my recent experiences?"</i>\n\nJust ask away - I\'ll do my best to give you thoughtful insights!',
+    [Language.RUSSIAN]: '<b>Привет, {name}!</b> 💬\n\nЯ весь внимание и готов обсудить твои записи в дневнике!\n\nТы можешь спросить меня о таких вещах, как:\n\n<i>• "Какие закономерности ты замечаешь в моих записях?"</i>\n<i>• "Как менялись мои чувства со временем?"</i>\n<i>• "Какие выводы ты можешь сделать о моем недавнем опыте?"</i>\n\nСпрашивай - я постараюсь дать тебе содержательные ответы!'
+  },
+  exitChatMode: {
+    [Language.ENGLISH]: '❌ Exit Chat Mode',
+    [Language.RUSSIAN]: '❌ Выйти из режима обсуждения'
+  },
+  
+  // Button responses
+  entryCanceled: {
+    [Language.ENGLISH]: '<b>No worries, {name}!</b> I\'ve canceled this entry. We can start fresh whenever you\'re ready.',
+    [Language.RUSSIAN]: '<b>Не беспокойся, {name}!</b> Я отменил эту запись. Мы можем начать заново, когда ты будешь готов(а).'
+  },
+  exitedChatMode: {
+    [Language.ENGLISH]: '<b>Alright {name}!</b> We\'re back to the main menu. Let me know if you want to chat again later.',
+    [Language.RUSSIAN]: '<b>Хорошо, {name}!</b> Мы вернулись в главное меню. Дай мне знать, если захочешь пообщаться позже.'
+  },
+  
+  // Entry view
+  journalEntry: {
+    [Language.ENGLISH]: '<b>📝 Journal Entry</b> ({date} at {time}):\n\n{content}\n\n<b>📊 Analysis:</b>\n{analysis}',
+    [Language.RUSSIAN]: '<b>📝 Запись в дневнике</b> ({date} в {time}):\n\n{content}\n\n<b>📊 Анализ:</b>\n{analysis}'
+  },
+  voiceTranscription: {
+    [Language.ENGLISH]: '🎙️ <b>Voice:</b> {transcription}',
+    [Language.RUSSIAN]: '🎙️ <b>Голос:</b> {transcription}'
+  },
+  videoTranscription: {
+    [Language.ENGLISH]: '🎥 <b>Video:</b> {transcription}',
+    [Language.RUSSIAN]: '🎥 <b>Видео:</b> {transcription}'
+  },
+  
+  // Go deeper
+  deeperQuestions: {
+    [Language.ENGLISH]: '<b>{analysis}</b>\n\n<b>🤔 Let\'s dig a bit deeper:</b>\n\n{questions}',
+    [Language.RUSSIAN]: '<b>{analysis}</b>\n\n<b>🤔 Давай копнем глубже:</b>\n\n{questions}'
+  },
+  thoughtsOnQuestions: {
+    [Language.ENGLISH]: '<b>What are your thoughts on these questions, {name}?</b> Or would you like to wrap up this entry?',
+    [Language.RUSSIAN]: '<b>Что ты думаешь об этих вопросах, {name}?</b> Или хочешь завершить эту запись?'
+  },
+  
+  // Analyze journal
+  noActiveEntry: {
+    [Language.ENGLISH]: '<b>Hey {name}</b>, you don\'t have an active journal entry yet. Let\'s create one first!',
+    [Language.RUSSIAN]: '<b>Привет, {name}</b>, у тебя еще нет активной записи в дневнике. Давай сначала создадим одну!'
+  },
+  entryNotFound: {
+    [Language.ENGLISH]: '<b>Hmm, I can\'t seem to find your journal entry.</b> Let\'s start fresh!',
+    [Language.RUSSIAN]: '<b>Хм, не могу найти твою запись в дневнике.</b> Давай начнем заново!'
+  },
+  questionsToThinkAbout: {
+    [Language.ENGLISH]: '<b>I\'ve been thinking about what you shared, {name}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n{questions}',
+    [Language.RUSSIAN]: '<b>Я размышлял о том, чем ты поделился(-ась), {name}... 🤔</b>\n\n<b>Вопросы для размышления:</b>\n\n{questions}'
+  },
+  shareThoughts: {
+    [Language.ENGLISH]: '<b>Feel free to share your thoughts on these questions</b>, or we can wrap up whenever you\'re ready!',
+    [Language.RUSSIAN]: '<b>Не стесняйся делиться своими мыслями по этим вопросам</b>, или мы можем закончить, когда ты будешь готов(а)!'
+  },
+  
+  // Finish entry
+  entrySaved: {
+    [Language.ENGLISH]: '<b>Good job, {name}! ✨ Entry saved.</b>\n\n<b>📝 Summary:</b>\n{summary}\n\n<b>💭 Something to reflect on:</b>\n<i>{question}</i>',
+    [Language.RUSSIAN]: '<b>Отличная работа, {name}! ✨ Запись сохранена.</b>\n\n<b>📝 Краткое содержание:</b>\n{summary}\n\n<b>💭 Вопрос для размышления:</b>\n<i>{question}</i>'
+  },
+  
+  // Settings
+  settingsTitle: {
+    [Language.ENGLISH]: '<b>Settings</b>\n\nHere you can customize your journal experience:',
+    [Language.RUSSIAN]: '<b>Настройки</b>\n\nЗдесь ты можешь настроить свой опыт ведения дневника:'
+  },
+  changeLanguage: {
+    [Language.ENGLISH]: '🌐 Change Language',
+    [Language.RUSSIAN]: '🌐 Изменить язык'
+  },
+  backToMainMenu: {
+    [Language.ENGLISH]: '↩️ Back to Main Menu',
+    [Language.RUSSIAN]: '↩️ Вернуться в главное меню'
+  },
+  
+  // Analyze Today
+  analyzeTodayIntro: {
+    [Language.ENGLISH]: '<b>Let\'s analyze your day, {name}!</b> 📊\n\nI\'ll look at your entries from today and share some insights.',
+    [Language.RUSSIAN]: '<b>Давай проанализируем твой день, {name}!</b> 📊\n\nЯ посмотрю на твои сегодняшние записи и поделюсь некоторыми наблюдениями.'
+  },
+  noTodayEntries: {
+    [Language.ENGLISH]: '<b>{name}</b>, you don\'t have any journal entries from today. Let\'s create one first!',
+    [Language.RUSSIAN]: '<b>{name}</b>, у тебя нет записей в дневнике за сегодня. Давай сначала создадим одну!'
+  },
+  todayAnalysis: {
+    [Language.ENGLISH]: '<b>Here\'s my analysis of your day, {name}:</b>\n\n{analysis}\n\n<b>Would you like to discuss this further?</b>',
+    [Language.RUSSIAN]: '<b>Вот мой анализ твоего дня, {name}:</b>\n\n{analysis}\n\n<b>Хочешь обсудить это подробнее?</b>'
+  },
+  
+  // Error messages
+  errorProcessingVoice: {
+    [Language.ENGLISH]: 'Sorry, I had trouble processing your voice message. Could you try sending a text message instead?',
+    [Language.RUSSIAN]: 'Извини, у меня возникли проблемы с обработкой твоего голосового сообщения. Не мог бы ты попробовать отправить текстовое сообщение?'
+  },
+  errorProcessingVideo: {
+    [Language.ENGLISH]: 'Sorry, I had trouble processing your video. Could you try sending a text message instead?',
+    [Language.RUSSIAN]: 'Извини, у меня возникли проблемы с обработкой твоего видео. Не мог бы ты попробовать отправить текстовое сообщение?'
+  },
+  
+  // Transcription
+  transcriptionText: {
+    [Language.ENGLISH]: '<b>Text:</b>\n\n<code>{transcription}</code>',
+    [Language.RUSSIAN]: '<b>Текст:</b>\n\n<code>{transcription}</code>'
+  },
+  
+  // Chat follow-ups
+  anythingElse: {
+    [Language.ENGLISH]: '<b>Anything else you\'d like to know about your journal, {name}?</b> I\'m all ears! 👂',
+    [Language.RUSSIAN]: '<b>Что-нибудь еще ты хотел бы узнать о своем дневнике, {name}?</b> Я весь внимание! 👂'
+  },
+  anyOtherQuestions: {
+    [Language.ENGLISH]: '<b>Any other questions about your journaling journey, {name}?</b>',
+    [Language.RUSSIAN]: '<b>Есть ли у тебя другие вопросы о твоем пути ведения дневника, {name}?</b>'
+  },
+  gotMoreQuestions: {
+    [Language.ENGLISH]: '<b>Got any more questions for me, {name}?</b> I\'m loving our chat!',
+    [Language.RUSSIAN]: '<b>Есть ли у тебя еще вопросы ко мне, {name}?</b> Мне нравится наш разговор!'
+  },
+  askMeAnything: {
+    [Language.ENGLISH]: '<b>{name}</b>, you can ask me anything about your journal entries! Send me a text, voice message, or video with your question. Or type \'❌ Exit Chat Mode\' if you want to return to the main menu.',
+    [Language.RUSSIAN]: '<b>{name}</b>, ты можешь спросить меня о чем угодно касательно твоих записей в дневнике! Отправь мне текст, голосовое сообщение или видео с твоим вопросом. Или напиши \'❌ Выйти из режима обсуждения\', если хочешь вернуться в главное меню.'
+  }
+};
+
+// Helper function to get text in the user's language
+export function getText(key: string, language: Language, replacements: Record<string, string> = {}): string {
+  const textEntry = texts[key];
+  
+  if (!textEntry) {
+    console.warn(`Missing text entry for key: ${key}`);
+    return key;
+  }
+  
+  let text = textEntry[language];
+  
+  // Apply replacements
+  Object.entries(replacements).forEach(([placeholder, value]) => {
+    text = text.replace(new RegExp(`{${placeholder}}`, 'g'), value);
+  });
+  
+  return text;
+}
+
+// Helper function to get text for a specific user
+export function getTextForUser(key: string, user: IUser, replacements: Record<string, string> = {}): string {
+  const language = user.language as Language || Language.ENGLISH;
+  
+  // Add user-specific replacements
+  const userReplacements = {
+    ...replacements,
+    name: user.name || user.firstName,
+    firstName: user.firstName
+  };
+  
+  return getText(key, language, userReplacements);
+} 

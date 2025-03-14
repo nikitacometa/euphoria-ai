@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { Language } from '../../utils/localization';
 
 // User interface
 export interface IUser extends Document {
@@ -14,6 +15,7 @@ export interface IUser extends Document {
     occupation?: string;
     bio?: string; // User's detailed bio information
     parsedBio?: string; // Structured bio information in JSON format
+    language?: Language; // User's preferred language
     onboardingCompleted?: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -69,6 +71,11 @@ const userSchema = new Schema<IUser>(
             type: String,
             required: false
         },
+        language: {
+            type: String,
+            enum: Object.values(Language),
+            default: Language.ENGLISH
+        },
         onboardingCompleted: {
             type: Boolean,
             default: false
@@ -97,6 +104,7 @@ export async function findOrCreateUser(
             firstName,
             lastName,
             username,
+            language: Language.ENGLISH,
             onboardingCompleted: false
         });
     }
@@ -123,12 +131,24 @@ export async function updateUserProfile(
         occupation?: string;
         bio?: string;
         parsedBio?: string;
+        language?: Language;
         onboardingCompleted?: boolean;
     }
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(
         { telegramId },
         { $set: updates },
+        { new: true }
+    );
+}
+
+export async function updateUserLanguage(
+    telegramId: number,
+    language: Language
+): Promise<IUser | null> {
+    return User.findOneAndUpdate(
+        { telegramId },
+        { $set: { language } },
         { new: true }
     );
 }
