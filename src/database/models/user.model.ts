@@ -13,6 +13,7 @@ export interface IUser extends Document {
     religion?: string;
     occupation?: string;
     bio?: string; // User's detailed bio information
+    parsedBio?: string; // Structured bio information in JSON format
     onboardingCompleted?: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -61,6 +62,10 @@ const userSchema = new Schema<IUser>(
             required: false
         },
         bio: {
+            type: String,
+            required: false
+        },
+        parsedBio: {
             type: String,
             required: false
         },
@@ -117,6 +122,7 @@ export async function updateUserProfile(
         religion?: string;
         occupation?: string;
         bio?: string;
+        parsedBio?: string;
         onboardingCompleted?: boolean;
     }
 ): Promise<IUser | null> {
