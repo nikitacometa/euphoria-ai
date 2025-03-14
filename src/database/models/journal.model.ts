@@ -19,6 +19,7 @@ export interface IJournalEntry extends Document {
     analysis?: string;
     aiQuestions?: string[];
     aiInsights?: string;
+    fullText?: string; // Full text of all messages
     createdAt: Date;
     updatedAt: Date;
 }
@@ -55,6 +56,10 @@ const journalEntrySchema = new Schema<IJournalEntry>(
             required: false
         }],
         aiInsights: {
+            type: String,
+            required: false
+        },
+        fullText: {
             type: String,
             required: false
         }
@@ -169,4 +174,15 @@ export async function getUserJournalEntries(userId: Types.ObjectId): Promise<IJo
 
 export async function getAllJournalEntries(): Promise<IJournalEntry[]> {
     return JournalEntry.find().sort({ createdAt: -1 }).populate('user');
+}
+
+export async function updateJournalEntryFullText(
+    entryId: Types.ObjectId,
+    fullText: string
+): Promise<IJournalEntry | null> {
+    return JournalEntry.findByIdAndUpdate(
+        entryId,
+        { $set: { fullText } },
+        { new: true }
+    );
 } 
