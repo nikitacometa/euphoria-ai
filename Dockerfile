@@ -4,7 +4,7 @@ FROM node:lts-slim AS base
 WORKDIR /app
 
 # Files required by npm install
-COPY package*.json .
+COPY package*.json ./
 
 # Install app dependencies
 RUN npm ci
