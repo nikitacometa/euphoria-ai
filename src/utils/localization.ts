@@ -213,6 +213,56 @@ const defaultTexts: TextCollection = {
     [Language.RUSSIAN]: '↩️ Вернуться в главное меню'
   },
   
+  // Notifications
+  notificationSettings: {
+    [Language.ENGLISH]: '🔔 Notification Settings',
+    [Language.RUSSIAN]: '🔔 Настройки уведомлений'
+  },
+  notificationsEnabled: {
+    [Language.ENGLISH]: '✅ Notifications: ON',
+    [Language.RUSSIAN]: '✅ Уведомления: ВКЛ'
+  },
+  notificationsDisabled: {
+    [Language.ENGLISH]: '❌ Notifications: OFF',
+    [Language.RUSSIAN]: '❌ Уведомления: ВЫКЛ'
+  },
+  notificationTime: {
+    [Language.ENGLISH]: '⏰ Notification Time: {time}',
+    [Language.RUSSIAN]: '⏰ Время уведомлений: {time}'
+  },
+  changeNotificationTime: {
+    [Language.ENGLISH]: '⏰ Change Time',
+    [Language.RUSSIAN]: '⏰ Изменить время'
+  },
+  enterNotificationTime: {
+    [Language.ENGLISH]: 'Please enter the time for daily notifications in 24-hour format (HH:mm), for example: 20:00',
+    [Language.RUSSIAN]: 'Пожалуйста, введите время для ежедневных уведомлений в 24-часовом формате (ЧЧ:мм), например: 20:00'
+  },
+  invalidTimeFormat: {
+    [Language.ENGLISH]: 'Invalid time format. Please use 24-hour format (HH:mm), for example: 20:00',
+    [Language.RUSSIAN]: 'Неверный формат времени. Пожалуйста, используйте 24-часовой формат (ЧЧ:мм), например: 20:00'
+  },
+  timeUpdated: {
+    [Language.ENGLISH]: 'Notification time has been updated to {time}',
+    [Language.RUSSIAN]: 'Время уведомлений обновлено на {time}'
+  },
+  journalReminder: {
+    [Language.ENGLISH]: '✨ <b>Time for your daily reflection!</b>\n\nHow about taking a moment to journal about your day?',
+    [Language.RUSSIAN]: '✨ <b>Время для ежедневной рефлексии!</b>\n\nКак насчет того, чтобы уделить минутку записи в дневник о своем дне?'
+  },
+  createEntry: {
+    [Language.ENGLISH]: '📝 Create Entry',
+    [Language.RUSSIAN]: '📝 Создать запись'
+  },
+  skipToday: {
+    [Language.ENGLISH]: '⏭ Skip Today',
+    [Language.RUSSIAN]: '⏭ Пропустить сегодня'
+  },
+  turnOffNotifications: {
+    [Language.ENGLISH]: '🔕 Turn Off Notifications',
+    [Language.RUSSIAN]: '🔕 Отключить уведомления'
+  },
+  
   // Analyze Today
   analyzeTodayIntro: {
     [Language.ENGLISH]: '<b>Let\'s analyze your day, {name}!</b> 📊\n\nI\'ll look at your entries from today and share some insights.',

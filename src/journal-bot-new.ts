@@ -37,6 +37,12 @@ import * as path from 'path';
 import * as os from 'os';
 import OpenAI from 'openai';
 import { Language, getTextForUser, getText, updateText, reloadTexts, texts } from './utils/localization';
+import { 
+    initializeNotifications, 
+    scheduleNotificationForUser, 
+    updateUserNotificationSettings 
+} from './utils/notification-scheduler';
+import { JournalBotContext } from './types';
 
 // Create OpenAI instance
 const openai = new OpenAI({
@@ -61,24 +67,12 @@ async function sendTranscriptionReply(ctx: Context, messageId: number, transcrip
     });
 }
 
-// Define session interface
-interface JournalBotSession {
-    onboardingStep?: 'language' | 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'complete';
-    journalEntryId?: string;
-    journalChatMode?: boolean;
-    waitingForJournalQuestion?: boolean;
-    settingsMode?: boolean;
-}
-
-// Define context type
-type JournalBotContext = Context & SessionFlavor<JournalBotSession>;
-
 // Create bot instance
 const bot = new Bot<JournalBotContext>(TELEGRAM_API_TOKEN);
 
 // Set up session middleware
 bot.use(session({
-    initial: (): JournalBotSession => ({})
+    initial: () => ({})
 }));
 
 // Connect to MongoDB
@@ -288,8 +282,18 @@ bot.hears(["⚙️ Settings", "⚙️ Настройки"], async (ctx) => {
         ctx.from.username
     );
     
-    ctx.session.settingsMode = true;
-    await showSettings(ctx, user);
+    // Create settings keyboard
+    const keyboard = new InlineKeyboard()
+        .text(getTextForUser('changeLanguage', user), 'settings_language')
+        .row()
+        .text(getTextForUser('notificationSettings', user), 'settings_notifications')
+        .row()
+        .text(getTextForUser('backToMainMenu', user), 'main_menu');
+    
+    await ctx.reply(getTextForUser('settingsTitle', user), {
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+    });
 });
 
 // Register button handlers
@@ -1950,5 +1954,219 @@ bot.command('updatetext', async (ctx: JournalBotContext) => {
     }
 });
 
+// Register all handlers
+export function startBot() {
+    // Initialize notifications
+    initializeNotifications(bot).catch(error => journalBotLogger.error('Failed to initialize notifications:', error));
+    
+    // Start the bot
+    bot.start();
+}
+
+// Notification settings handler
+bot.callbackQuery('settings_notifications', async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // Create notification settings keyboard
+    const keyboard = new InlineKeyboard()
+        .text(
+            user.notificationsEnabled 
+                ? getTextForUser('notificationsEnabled', user) 
+                : getTextForUser('notificationsDisabled', user),
+            'toggle_notifications'
+        )
+        .row()
+        .text(
+            getTextForUser('notificationTime', user, { time: user.notificationTime || "20:00" }),
+            'change_notification_time'
+        )
+        .row()
+        .text(getTextForUser('backToMainMenu', user), 'main_menu');
+    
+    await ctx.editMessageText(getTextForUser('settingsTitle', user), {
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+    });
+});
+
+// Toggle notifications handler
+bot.callbackQuery('toggle_notifications', async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // Toggle notifications
+    const newEnabled = !user.notificationsEnabled;
+    await updateUserNotificationSettings(bot, user.telegramId, newEnabled);
+    
+    // Update keyboard
+    const keyboard = new InlineKeyboard()
+        .text(
+            newEnabled 
+                ? getTextForUser('notificationsEnabled', user) 
+                : getTextForUser('notificationsDisabled', user),
+            'toggle_notifications'
+        )
+        .row()
+        .text(
+            getTextForUser('notificationTime', user, { time: user.notificationTime || "20:00" }),
+            'change_notification_time'
+        )
+        .row()
+        .text(getTextForUser('backToMainMenu', user), 'main_menu');
+    
+    await ctx.editMessageText(getTextForUser('settingsTitle', user), {
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+    });
+});
+
+// Change notification time handler
+bot.callbackQuery('change_notification_time', async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    ctx.session.settingsStep = 'time';
+    
+    await ctx.reply(getTextForUser('enterNotificationTime', user), {
+        parse_mode: 'HTML'
+    });
+});
+
+// Handle notification callbacks
+bot.callbackQuery('notification_create_entry', async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // Create new entry
+    const entry = await createJournalEntry(user._id as unknown as Types.ObjectId);
+    ctx.session.journalEntryId = entry._id?.toString() || '';
+    
+    // Update the notification message with inline keyboard
+    const keyboard = new InlineKeyboard()
+        .text(getTextForUser('finishEntry', user), 'finish_entry')
+        .row()
+        .text(getTextForUser('goDeeper', user), 'go_deeper')
+        .row()
+        .text(getTextForUser('cancelEntry', user), 'cancel_entry');
+    
+    await ctx.editMessageText(getTextForUser('newEntry', user), {
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+    });
+});
+
+bot.callbackQuery('notification_skip', async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // Just delete the notification message
+    await ctx.deleteMessage();
+});
+
+bot.callbackQuery('notification_turn_off', async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // Turn off notifications
+    await updateUserNotificationSettings(bot, user.telegramId, false);
+    
+    // Delete the notification message
+    await ctx.deleteMessage();
+});
+
+// Modify the existing message handler to handle time input
+bot.on('message:text', async (ctx) => {
+    if (!ctx.from || !ctx.message?.text) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // If we're waiting for notification time
+    if (ctx.session.settingsStep === 'time') {
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(ctx.message.text)) {
+            await ctx.reply(getTextForUser('invalidTimeFormat', user), {
+                parse_mode: 'HTML'
+            });
+            return;
+        }
+        
+        // Update notification time
+        await updateUserNotificationSettings(bot, user.telegramId, user.notificationsEnabled, ctx.message.text);
+        
+        // Clear settings step
+        ctx.session.settingsStep = undefined;
+        
+        await ctx.reply(getTextForUser('timeUpdated', user, { time: ctx.message.text }), {
+            parse_mode: 'HTML'
+        });
+        
+        // Show settings menu again
+        const keyboard = new InlineKeyboard()
+            .text(
+                user.notificationsEnabled 
+                    ? getTextForUser('notificationsEnabled', user) 
+                    : getTextForUser('notificationsDisabled', user),
+                'toggle_notifications'
+            )
+            .row()
+            .text(
+                getTextForUser('notificationTime', user, { time: ctx.message.text }),
+                'change_notification_time'
+            )
+            .row()
+            .text(getTextForUser('backToMainMenu', user), 'main_menu');
+        
+        await ctx.reply(getTextForUser('settingsTitle', user), {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
+        return;
+    }
+    
+    // ... rest of the existing message handler ...
+});
+
 // Export the bot
-export { bot as journalBot };
+export default bot;

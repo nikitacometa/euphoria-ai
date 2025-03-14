@@ -17,6 +17,8 @@ export interface IUser extends Document {
     parsedBio?: string; // Structured bio information in JSON format
     language?: Language; // User's preferred language
     onboardingCompleted?: boolean;
+    notificationsEnabled: boolean;
+    notificationTime?: string; // 24-hour format HH:mm
     createdAt: Date;
     updatedAt: Date;
 }
@@ -79,6 +81,14 @@ const userSchema = new Schema<IUser>(
         onboardingCompleted: {
             type: Boolean,
             default: false
+        },
+        notificationsEnabled: {
+            type: Boolean,
+            default: true
+        },
+        notificationTime: {
+            type: String,
+            default: "20:00" // Default to 8 PM
         }
     },
     {
@@ -133,6 +143,8 @@ export async function updateUserProfile(
         parsedBio?: string;
         language?: Language;
         onboardingCompleted?: boolean;
+        notificationsEnabled?: boolean;
+        notificationTime?: string;
     }
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(

@@ -2,7 +2,7 @@ import { TELEGRAM_API_TOKEN } from './config'
 import { connectToDatabase } from './database'
 import { logger, createLogger } from './utils/logger'
 import { LOG_LEVEL } from './config'
-import { journalBot } from './journal-bot-new'
+import bot, { startBot } from './journal-bot-new'
 import { startAdminServer } from './admin/text-editor'
 import { initializeTexts } from './utils/localization'
 
@@ -22,11 +22,7 @@ async function startApp() {
         mainLogger.info('Starting Journal Bot...');
         
         // Start the bot
-        journalBot.start({
-            onStart: () => {
-                mainLogger.info('Journal Bot started successfully!');
-            }
-        });
+        startBot();
         
         // Start admin server if ENABLE_ADMIN_INTERFACE is set
         if (process.env.ENABLE_ADMIN_INTERFACE === 'true') {
@@ -52,4 +48,4 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Export the bot for testing
-export { journalBot };
+export { bot };
