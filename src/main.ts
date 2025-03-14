@@ -3,6 +3,7 @@ import { connectToDatabase } from './database'
 import { logger, createLogger } from './utils/logger'
 import { LOG_LEVEL } from './config'
 import { journalBot } from './journal-bot-new'
+import { startAdminServer } from './admin/text-editor'
 
 // Create a logger for the main application
 const mainLogger = createLogger('Main', LOG_LEVEL);
@@ -19,6 +20,12 @@ journalBot.start({
         mainLogger.info('Journal Bot started successfully!');
     }
 });
+
+// Start admin server if ENABLE_ADMIN_INTERFACE is set
+if (process.env.ENABLE_ADMIN_INTERFACE === 'true') {
+    startAdminServer();
+    mainLogger.info('Admin interface started');
+}
 
 // Handle errors
 process.on('uncaughtException', (error) => {

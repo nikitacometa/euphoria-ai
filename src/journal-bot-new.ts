@@ -36,7 +36,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import OpenAI from 'openai';
-import { Language, getTextForUser, getText } from './utils/localization';
+import { Language, getTextForUser, getText, updateText, reloadTexts, texts } from './utils/localization';
 
 // Create OpenAI instance
 const openai = new OpenAI({
@@ -1892,6 +1892,63 @@ async function parseBioInformation(text: string): Promise<{ parsedBio: string, s
         return { parsedBio: "{}", structuredInfo: {} };
     }
 }
+
+// Admin command to update text messages
+bot.command('updatetext', async (ctx: JournalBotContext) => {
+    // Only allow specific admin users to update texts
+    const adminIds = [60972166]; // Add your Telegram ID here
+    
+    if (!ctx.from || !adminIds.includes(ctx.from.id)) {
+        await ctx.reply("Sorry, you don't have permission to use this command.");
+        return;
+    }
+    
+    const args = ctx.message?.text?.split(' ').slice(1).join(' ');
+    
+    if (!args) {
+        await ctx.reply(
+            "Usage: /updatetext key language text\n\n" +
+            "Example: /updatetext welcome en Hello, welcome to the journal bot!\n\n" +
+            "To see all available keys, use: /updatetext list"
+        );
+        return;
+    }
+    
+    if (args === 'list') {
+        // Reload texts to ensure we have the latest version
+        reloadTexts();
+        
+        // Get all text keys
+        const keys = Object.keys(texts).sort();
+        const keysList = keys.map(key => `- ${key}`).join('\n');
+        
+        await ctx.reply(`Available text keys:\n\n${keysList}`);
+        return;
+    }
+    
+    // Parse arguments
+    const match = args.match(/^(\S+)\s+(en|ru)\s+(.+)$/s);
+    
+    if (!match) {
+        await ctx.reply(
+            "Invalid format. Usage: /updatetext key language text\n\n" +
+            "Example: /updatetext welcome en Hello, welcome to the journal bot!"
+        );
+        return;
+    }
+    
+    const [, key, langCode, newText] = match;
+    const language = langCode === 'en' ? Language.ENGLISH : Language.RUSSIAN;
+    
+    // Update the text
+    const success = updateText(key, language, newText);
+    
+    if (success) {
+        await ctx.reply(`✅ Text updated successfully for key "${key}" in ${langCode.toUpperCase()}`);
+    } else {
+        await ctx.reply(`❌ Failed to update text. Key "${key}" not found.`);
+    }
+});
 
 // Export the bot
 export { bot as journalBot };

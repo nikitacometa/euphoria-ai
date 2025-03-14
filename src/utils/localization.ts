@@ -1,4 +1,6 @@
 import { IUser } from '../database';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Supported languages
 export enum Language {
@@ -17,8 +19,11 @@ export type TextCollection = {
   [key: string]: LocalizedText;
 };
 
-// Main texts collection
-export const texts: TextCollection = {
+// Path to the localization files directory
+const LOCALIZATION_DIR = path.join(process.cwd(), 'localization');
+
+// Default texts as fallback
+const defaultTexts: TextCollection = {
   // Onboarding
   languageSelection: {
     [Language.ENGLISH]: 'Please select your preferred language:',
@@ -250,35 +255,187 @@ export const texts: TextCollection = {
   }
 };
 
-// Helper function to get text in the user's language
-export function getText(key: string, language: Language, replacements: Record<string, string> = {}): string {
-  const textEntry = texts[key];
+// Function to load texts from JSON files
+function loadTextsFromFiles(): TextCollection {
+  try {
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(LOCALIZATION_DIR)) {
+      fs.mkdirSync(LOCALIZATION_DIR, { recursive: true });
+      
+      // Save default texts to files for each category
+      saveDefaultTextsToFiles();
+      
+      return defaultTexts;
+    }
+    
+    // Load all JSON files from the localization directory
+    const files = fs.readdirSync(LOCALIZATION_DIR).filter(file => file.endsWith('.json'));
+    
+    // If no files exist, create them with default texts
+    if (files.length === 0) {
+      saveDefaultTextsToFiles();
+      return defaultTexts;
+    }
+    
+    // Merge all text files into a single collection
+    const loadedTexts: TextCollection = {};
+    
+    for (const file of files) {
+      const filePath = path.join(LOCALIZATION_DIR, file);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const fileTexts = JSON.parse(fileContent) as TextCollection;
+      
+      // Merge with loaded texts
+      Object.assign(loadedTexts, fileTexts);
+    }
+    
+    return loadedTexts;
+  } catch (error) {
+    console.error('Error loading localization files:', error);
+    return defaultTexts;
+  }
+}
+
+// Function to save default texts to separate files by category
+function saveDefaultTextsToFiles() {
+  // Group texts by category
+  const categories = {
+    onboarding: [
+      'languageSelection', 'languageChanged', 'welcome', 'niceMeet', 
+      'thanks', 'gotIt', 'almostDone', 'amazing', 'welcomeAboard'
+    ],
+    mainMenu: [
+      'mainMenu', 'createNewEntry', 'viewJournalHistory', 
+      'chatAboutJournal', 'analyzeToday', 'settings'
+    ],
+    journalEntry: [
+      'continueEntry', 'newEntry', 'finishEntry', 
+      'goDeeper', 'cancelEntry'
+    ],
+    journalHistory: [
+      'noEntries', 'journalHistory'
+    ],
+    chatMode: [
+      'noChatEntries', 'chatIntro', 'exitChatMode'
+    ],
+    buttonResponses: [
+      'entryCanceled', 'exitedChatMode'
+    ],
+    entryView: [
+      'journalEntry', 'voiceTranscription', 'videoTranscription'
+    ],
+    goDeeper: [
+      'deeperQuestions', 'thoughtsOnQuestions'
+    ],
+    analyzeJournal: [
+      'noActiveEntry', 'entryNotFound', 'questionsToThinkAbout', 'shareThoughts'
+    ],
+    finishEntry: [
+      'entrySaved'
+    ],
+    settings: [
+      'settingsTitle', 'changeLanguage', 'backToMainMenu'
+    ],
+    analyzeToday: [
+      'analyzeTodayIntro', 'noTodayEntries', 'todayAnalysis'
+    ],
+    errorMessages: [
+      'errorProcessingVoice', 'errorProcessingVideo'
+    ],
+    transcription: [
+      'transcriptionText'
+    ],
+    chatFollowUps: [
+      'anythingElse', 'anyOtherQuestions', 'gotMoreQuestions', 'askMeAnything'
+    ]
+  };
   
-  if (!textEntry) {
-    console.warn(`Missing text entry for key: ${key}`);
-    return key;
+  // Create a file for each category
+  for (const [category, keys] of Object.entries(categories)) {
+    const categoryTexts: TextCollection = {};
+    
+    // Add each key to the category
+    for (const key of keys) {
+      if (defaultTexts[key]) {
+        categoryTexts[key] = defaultTexts[key];
+      }
+    }
+    
+    // Save to file
+    const filePath = path.join(LOCALIZATION_DIR, `${category}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(categoryTexts, null, 2), 'utf8');
+  }
+}
+
+// Load texts from files or use defaults
+export const texts: TextCollection = loadTextsFromFiles();
+
+// Helper function to get text for a specific key and language
+export function getText(key: string, language: Language): string {
+  if (!texts[key]) {
+    console.warn(`Missing text key: ${key}`);
+    return `[Missing text: ${key}]`;
   }
   
-  let text = textEntry[language];
+  return texts[key][language] || texts[key][Language.ENGLISH] || `[Missing translation: ${key}]`;
+}
+
+// Helper function to get text for a user with variable replacement
+export function getTextForUser(key: string, user: IUser, variables: Record<string, string> = {}): string {
+  const language = user.language || Language.ENGLISH;
+  let text = getText(key, language);
   
-  // Apply replacements
-  Object.entries(replacements).forEach(([placeholder, value]) => {
-    text = text.replace(new RegExp(`{${placeholder}}`, 'g'), value);
-  });
+  // Replace user-specific variables
+  text = text.replace(/{name}/g, user.name || user.firstName || '');
+  text = text.replace(/{firstName}/g, user.firstName || '');
+  
+  // Replace custom variables
+  for (const [varName, varValue] of Object.entries(variables)) {
+    text = text.replace(new RegExp(`{${varName}}`, 'g'), varValue);
+  }
   
   return text;
 }
 
-// Helper function to get text for a specific user
-export function getTextForUser(key: string, user: IUser, replacements: Record<string, string> = {}): string {
-  const language = user.language as Language || Language.ENGLISH;
-  
-  // Add user-specific replacements
-  const userReplacements = {
-    ...replacements,
-    name: user.name || user.firstName,
-    firstName: user.firstName
-  };
-  
-  return getText(key, language, userReplacements);
+// Function to reload texts from files (can be called to refresh texts without restarting)
+export function reloadTexts(): TextCollection {
+  const reloadedTexts = loadTextsFromFiles();
+  Object.assign(texts, reloadedTexts);
+  return texts;
+}
+
+// Function to update a specific text
+export function updateText(key: string, language: Language, newText: string): boolean {
+  try {
+    // Find which file contains this key
+    const files = fs.readdirSync(LOCALIZATION_DIR).filter(file => file.endsWith('.json'));
+    
+    for (const file of files) {
+      const filePath = path.join(LOCALIZATION_DIR, file);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const fileTexts = JSON.parse(fileContent) as TextCollection;
+      
+      // If this file contains the key
+      if (fileTexts[key]) {
+        // Update the text
+        fileTexts[key][language] = newText;
+        
+        // Save the file
+        fs.writeFileSync(filePath, JSON.stringify(fileTexts, null, 2), 'utf8');
+        
+        // Update in-memory texts
+        if (!texts[key]) {
+          texts[key] = { [Language.ENGLISH]: '', [Language.RUSSIAN]: '' };
+        }
+        texts[key][language] = newText;
+        
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error updating text:', error);
+    return false;
+  }
 } 
