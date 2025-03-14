@@ -1,0 +1,14 @@
+{
+  "settingsTitle": {
+    "en": "<b>Settings</b>\n\nHere you can customize your journal experience:",
+    "ru": "<b>Настройки</b>\n\nЗдесь ты можешь настроить свой опыт ведения дневника:"
+  },
+  "changeLanguage": {
+    "en": "🌐 Change Language",
+    "ru": "🌐 Изменить язык"
+  },
+  "backToMainMenu": {
+    "en": "↩️ Back to Main Menu",
+    "ru": "↩️ Вернуться в главное меню"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "deeperQuestions": {
+    "en": "<b>{analysis}</b>\n\n<b>🤔 Let's dig a bit deeper:</b>\n\n{questions}",
+    "ru": "<b>{analysis}</b>\n\n<b>🤔 Давай копнем глубже:</b>\n\n{questions}"
+  },
+  "thoughtsOnQuestions": {
+    "en": "<b>What are your thoughts on these questions, {name}?</b> Or would you like to wrap up this entry?",
+    "ru": "<b>Что ты думаешь об этих вопросах, {name}?</b> Или хочешь завершить эту запись?"
+  }
+}

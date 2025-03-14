@@ -1,0 +1,18 @@
+{
+  "noActiveEntry": {
+    "en": "<b>Hey {name}</b>, you don't have an active journal entry yet. Let's create one first!",
+    "ru": "<b>Привет, {name}</b>, у тебя еще нет активной записи в дневнике. Давай сначала создадим одну!"
+  },
+  "entryNotFound": {
+    "en": "<b>Hmm, I can't seem to find your journal entry.</b> Let's start fresh!",
+    "ru": "<b>Хм, не могу найти твою запись в дневнике.</b> Давай начнем заново!"
+  },
+  "questionsToThinkAbout": {
+    "en": "<b>I've been thinking about what you shared, {name}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n{questions}",
+    "ru": "<b>Я размышлял о том, чем ты поделился(-ась), {name}... 🤔</b>\n\n<b>Вопросы для размышления:</b>\n\n{questions}"
+  },
+  "shareThoughts": {
+    "en": "<b>Feel free to share your thoughts on these questions</b>, or we can wrap up whenever you're ready!",
+    "ru": "<b>Не стесняйся делиться своими мыслями по этим вопросам</b>, или мы можем закончить, когда ты будешь готов(а)!"
+  }
+}

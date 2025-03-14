@@ -1,0 +1,10 @@
+{
+  "entryCanceled": {
+    "en": "<b>No worries, {name}!</b> I've canceled this entry. We can start fresh whenever you're ready.",
+    "ru": "<b>Не беспокойся, {name}!</b> Я отменил эту запись. Мы можем начать заново, когда ты будешь готов(а)."
+  },
+  "exitedChatMode": {
+    "en": "<b>Alright {name}!</b> We're back to the main menu. Let me know if you want to chat again later.",
+    "ru": "<b>Хорошо, {name}!</b> Мы вернулись в главное меню. Дай мне знать, если захочешь пообщаться позже."
+  }
+}

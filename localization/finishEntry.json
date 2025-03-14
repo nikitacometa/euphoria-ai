@@ -1,0 +1,6 @@
+{
+  "entrySaved": {
+    "en": "<b>Good job, {name}! ✨ Entry saved.</b>\n\n<b>📝 Summary:</b>\n{summary}\n\n<b>💭 Something to reflect on:</b>\n<i>{question}</i>",
+    "ru": "<b>Отличная работа, {name}! ✨ Запись сохранена.</b>\n\n<b>📝 Краткое содержание:</b>\n{summary}\n\n<b>💭 Вопрос для размышления:</b>\n<i>{question}</i>"
+  }
+}

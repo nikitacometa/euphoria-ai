@@ -1,0 +1,26 @@
+{
+  "mainMenu": {
+    "en": "Hello, dear {name} :) 😊\n\n<i>What's on your mind today?</i>",
+    "ru": "<b>Привет, {name}!</b> 😊\n\nО чем думаешь сегодня?"
+  },
+  "createNewEntry": {
+    "en": "📝 Create New Entry",
+    "ru": "📝 Создать новую запись"
+  },
+  "viewJournalHistory": {
+    "en": "📚 View Journal History",
+    "ru": "📚 Просмотр истории дневника"
+  },
+  "chatAboutJournal": {
+    "en": "💬 Chat About My Journal",
+    "ru": "💬 Обсудить мой дневник"
+  },
+  "analyzeToday": {
+    "en": "📊 Analyze Today",
+    "ru": "📊 Анализ сегодняшнего дня"
+  },
+  "settings": {
+    "en": "⚙️ Settings",
+    "ru": "⚙️ Настройки"
+  }
+}

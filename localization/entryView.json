@@ -1,0 +1,14 @@
+{
+  "journalEntry": {
+    "en": "<b>📝 Journal Entry</b> ({date} at {time}):\n\n{content}\n\n<b>📊 Analysis:</b>\n{analysis}",
+    "ru": "<b>📝 Запись в дневнике</b> ({date} в {time}):\n\n{content}\n\n<b>📊 Анализ:</b>\n{analysis}"
+  },
+  "voiceTranscription": {
+    "en": "🎙️ <b>Voice:</b> {transcription}",
+    "ru": "🎙️ <b>Голос:</b> {transcription}"
+  },
+  "videoTranscription": {
+    "en": "🎥 <b>Video:</b> {transcription}",
+    "ru": "🎥 <b>Видео:</b> {transcription}"
+  }
+}
