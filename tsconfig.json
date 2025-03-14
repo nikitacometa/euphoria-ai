@@ -8,5 +8,6 @@
         "module": "Node16",
         "target": "ES2021",
         "moduleResolution": "node16"
-    }
+    },
+    "exclude": ["src/journal-bot.ts"]
 }
