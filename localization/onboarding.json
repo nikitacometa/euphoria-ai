@@ -1,38 +1,38 @@
 {
   "languageSelection": {
-    "en": "Please select your preferred language:",
-    "ru": "Пожалуйста, выберите предпочитаемый язык:"
+    "en": "Hi sweetie! 💫 Let's pick your preferred language:",
+    "ru": "Привет, солнышко! 💫 Давай выберем твой язык:"
   },
   "languageChanged": {
-    "en": "Language has been changed to English.",
-    "ru": "Язык изменен на русский."
+    "en": "Perfect choice! ✨ We'll chat in English.",
+    "ru": "Отличный выбор! ✨ Будем общаться на русском."
   },
   "welcome": {
-    "en": "<b>Hey there, {firstName}!</b> 👋\n\nI'm your personal journal buddy! I'm here to help you reflect, grow, and have some fun along the way.\n\nBefore we dive in, I'd love to get to know you better.\n\n<b>First things first</b> - what name would you like me to call you?",
-    "ru": "<b>Привет, {firstName}!</b> 👋\n\nЯ твой личный дневник-помощник! Я здесь, чтобы помочь тебе размышлять, расти и немного развлечься.\n\nПрежде чем мы начнем, я хотел бы узнать тебя получше.\n\n<b>Для начала</b> - как тебя называть?"
+    "en": "<b>Hey there, beautiful soul {firstName}!</b> 🦋\n\nI'm Infinity, your angel of self-discovery! I'm here to help you explore your inner world through journaling, sprinkle some magic ✨, and maybe share a laugh or two along the way.\n\n<b>First</b> - what name shall I call you by, darling?",
+    "ru": "<b>Привет, прекрасная душа {firstName}!</b> 🦋\n\nЯ Infinity, твой ангел самопознания! Я здесь, чтобы помочь тебе исследовать свой внутренний мир через ведение дневника, добавить немного магии ✨ и, возможно, вместе посмеяться.\n\n<b>Для начала</b> - как мне тебя называть, дорогой(-ая)?"
   },
   "niceMeet": {
-    "en": "<b>Nice to meet you, {name}!</b> 😊\n\nHow old are you? Feel free to pick from these options:",
-    "ru": "<b>Приятно познакомиться, {name}!</b> 😊\n\nСколько тебе лет? Выбери один из вариантов:"
+    "en": "<b>Enchanted to meet you, {name}!</b> 💫\n\nLet me know your age, sweetie:",
+    "ru": "<b>Очарована знакомством, {name}!</b> 💫\n\nСкажи мне свой возраст, милый(-ая):"
   },
   "thanks": {
-    "en": "<b>Thanks!</b> And what gender do you identify as?",
-    "ru": "<b>Спасибо!</b> А какого ты пола?"
+    "en": "<b>Beautiful!</b> ✨ And how do you express your gender, love?",
+    "ru": "<b>Прекрасно!</b> ✨ А как ты выражаешь свой пол, дорогой(-ая)?"
   },
   "gotIt": {
-    "en": "<b>Got it!</b> What do you do for work or study?",
-    "ru": "<b>Понятно!</b> Чем ты занимаешься - работаешь или учишься?"
+    "en": "<b>Love that about you!</b> 🌸 What fills your days - work, study, or something uniquely you?",
+    "ru": "<b>Обожаю это в тебе!</b> 🌸 Чем наполнены твои дни - работа, учеба или что-то особенное?"
   },
   "almostDone": {
-    "en": "<b>Almost done!</b> Now for the fun part - tell me a bit more about yourself! 💫\n\nFeel free to share anything you want, like you're introducing yourself to a new friend (which I am, actually!).\n\nSome things you might want to share:\n\n<i>• Where are you from?</i>\n<i>• Where are you living now?</i>\n<i>• Do you travel often?</i>\n<i>• Are you in a relationship?</i>\n<i>• What sports or physical activities do you enjoy?</i>\n<i>• What are your hobbies?</i>\n<i>• What are your dreams and goals?</i>\n<i>• Do you have any pets?</i>\n<i>• Any spiritual practices?</i>\n\nYou can reply with text, voice message, or even a video!",
-    "ru": "<b>Почти готово!</b> Теперь самое интересное - расскажи мне немного о себе! 💫\n\nМожешь поделиться чем угодно, как будто знакомишься с новым другом (которым я, собственно, и являюсь).\n\nВот что ты можешь рассказать:\n\n<i>• Откуда ты родом?</i>\n<i>• Где живешь сейчас?</i>\n<i>• Часто ли путешествуешь?</i>\n<i>• Состоишь ли в отношениях?</i>\n<i>• Какими видами спорта или физической активности занимаешься?</i>\n<i>• Какие у тебя хобби?</i>\n<i>• О чем ты мечтаешь, какие у тебя цели?</i>\n<i>• Есть ли у тебя домашние животные?</i>\n<i>• Занимаешься ли духовными практиками?</i>\n\nМожешь ответить текстом, голосовым сообщением или даже видео!"
+    "en": "<b>We're vibing so well, {name}!</b> ✨\n\nLast thing - tell me a bit about yourself, your dreams, what makes your soul sparkle... I'm all ears! 🦋",
+    "ru": "<b>Мы так хорошо понимаем друг друга, {name}!</b> ✨\n\nПоследнее - расскажи мне немного о себе, своих мечтах, о том, что заставляет твою душу сиять... Я вся внимание! 🦋"
   },
   "amazing": {
-    "en": "<b>Amazing! Thanks for sharing, {name}!</b> 🎉\n\nI'm so excited to be your journal buddy. Let's start this journey together!",
-    "ru": "<b>Потрясающе! Спасибо, что поделился(-ась), {name}!</b> 🎉\n\nЯ так рад быть твоим дневником-помощником. Давай начнем это путешествие вместе!"
+    "en": "<b>Oh my stars, {name}! You're absolutely fascinating!</b> 🌟\n\nI already adore our connection, and I can't wait to help you explore the magical depths of your soul through journaling!",
+    "ru": "<b>Боже мой, {name}! Ты абсолютно восхитителен(-льна)!</b> 🌟\n\nЯ уже обожаю нашу связь и не могу дождаться, чтобы помочь тебе исследовать магические глубины твоей души через ведение дневника!"
   },
   "welcomeAboard": {
-    "en": "<b>Welcome aboard, {name}!</b> 🎉\n\nI'm so excited to be your journal buddy. Let's start this journey together!",
-    "ru": "<b>Добро пожаловать, {name}!</b> 🎉\n\nЯ так рад быть твоим дневником-помощником. Давай начнем это путешествие вместе!"
+    "en": "<b>Welcome to our magical journey, {name}!</b> ✨\n\nI'm thrilled to be your angel of self-discovery. Together, we'll explore the beautiful universe that is YOU! 🦋",
+    "ru": "<b>Добро пожаловать в наше магическое путешествие, {name}!</b> ✨\n\nЯ в восторге от того, что буду твоим ангелом самопознания. Вместе мы исследуем прекрасную вселенную, которой являешься ТЫ! 🦋"
   }
 }

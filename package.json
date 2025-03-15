@@ -3,7 +3,8 @@
         "typecheck": "tsc",
         "dev": "tsc-watch --onSuccess \"tsx ./src/main.ts\"",
         "start": "tsx ./src/main.ts",
-        "admin": "tsx ./src/admin/text-editor.ts"
+        "admin": "tsx ./src/admin/text-editor.ts",
+        "clear-db": "ts-node scripts/clear-db.ts"
     },
     "dependencies": {
         "@types/node-schedule": "^2.1.7",

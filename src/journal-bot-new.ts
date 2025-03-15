@@ -199,9 +199,9 @@ bot.hears(["📚 View Journal History", "📚 Просмотр истории д
     const keyboard = new InlineKeyboard();
     
     entries.slice(0, 10).forEach((entry) => {
-        // Format date as [HH:MM DD/MM/YY]
+        // Format date as [DD/MM/YY HH:MM]
         const date = new Date(entry.createdAt);
-        const formattedDate = `[${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}]`;
+        const formattedDate = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}]`;
         
         // Get text snippet from entry
         let textSnippet = "";
@@ -524,9 +524,9 @@ bot.on('callback_query:data', async (ctx) => {
         const keyboard = new InlineKeyboard();
         
         entries.slice(0, 10).forEach((entry) => {
-            // Format date as [HH:MM DD/MM/YY]
+            // Format date as [DD/MM/YY HH:MM]
             const date = new Date(entry.createdAt);
-            const formattedDate = `[${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}]`;
+            const formattedDate = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}]`;
             
             // Get text snippet from entry
             let textSnippet = "";
@@ -571,7 +571,7 @@ bot.on('callback_query:data', async (ctx) => {
 });
 
 // Handle onboarding process and general messages (should be last)
-bot.on('message', async (ctx) => {
+bot.on('message', async (ctx: JournalBotContext) => {
     if (!ctx.from || !ctx.message) return;
     
     const user = await findOrCreateUser(
@@ -685,8 +685,14 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
                 // Move to name step
                 ctx.session.onboardingStep = 'name';
                 
+                // Create keyboard with user's first name
+                const nameKeyboard = new Keyboard()
+                    .text(ctx.from.first_name)
+                    .resized();
+                
                 // Send welcome message in selected language
                 await ctx.reply(getTextForUser('welcome', user), {
+                    reply_markup: nameKeyboard,
                     parse_mode: 'HTML'
                 });
                 break;
@@ -755,6 +761,7 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
                 await updateUserProfile(ctx.from.id, { gender: text });
                 ctx.session.onboardingStep = 'occupation';
                 await ctx.reply(getTextForUser('gotIt', user), {
+                    reply_markup: { remove_keyboard: true },
                     parse_mode: 'HTML'
                 });
                 break;
@@ -1688,31 +1695,33 @@ async function handleJournalChat(ctx: JournalBotContext, user: IUser) {
             return; // This will be handled by the specific hears handler
         }
         
-        // Generate insights based on user's question using all entries
+        // Show typing indicator
+        if (ctx.chat) {
+            await ctx.api.sendChatAction(ctx.chat.id, "typing");
+        }
+        
         try {
-            // Send wait message with sand clock emoji
-            const waitMsg = await ctx.reply("⏳");
+            // Generate response based on user's question
+            const response = await generateJournalInsights(allEntries, user, text);
             
-            // Generate insights
-            const insights = await generateJournalInsights(allEntries, user, text);
+            // Get the most recent entry for follow-up questions
+            const mostRecentEntry = allEntries.length > 0 ? allEntries[0] : null;
             
-            // Delete wait message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
+            // Generate 1-2 follow-up questions if we have a recent entry
+            let questionsText = "";
+            if (mostRecentEntry) {
+                const followUpQuestions = await generateJournalQuestions(mostRecentEntry, user);
+                questionsText = followUpQuestions.length > 0 ? 
+                    "\n\n" + followUpQuestions.slice(0, 2).map(q => q).join("\n") : "";
             }
             
-            // Send insights to user
-            await ctx.reply(`<b>${insights}</b>`, {
-                parse_mode: 'HTML'
-            });
-            
-            // Prompt for another question
-            await ctx.reply(getTextForUser('anythingElse', user), {
+            // Send response with follow-up questions
+            await ctx.reply(`${response}${questionsText}\n\nOr maybe you wanna know something else? 😏`, {
                 parse_mode: 'HTML'
             });
         } catch (error) {
-            journalBotLogger.error('Error generating insights:', error);
-            await ctx.reply("I'm having trouble analyzing your journal right now. Let's try again later.");
+            journalBotLogger.error('Error in journal chat:', error);
+            await ctx.reply("I encountered an error while processing your question. Let's try again!");
         }
     } 
     // Handle voice message
