@@ -8,6 +8,7 @@ COPY package*.json ./
 
 # Install all dependencies including dev dependencies
 RUN npm ci
+RUN npm install -g tsx
 
 # Bundle app source
 COPY . .
@@ -20,12 +21,11 @@ FROM base AS runner
 # Bundle app source
 COPY . .
 
-# For production, we want to use the start script, not dev
-# Install all dependencies since we need tsx
-RUN npm ci
+# Install dependencies and ensure tsx is available
+RUN npm ci && npm install -g tsx
 
 USER node
 
 # Start the app
 EXPOSE 80
-CMD ["npm", "run", "start"]
+CMD ["tsx", "./src/main.ts"]
