@@ -6,20 +6,22 @@
         "admin": "tsx ./src/admin/text-editor.ts"
     },
     "dependencies": {
+        "@types/node-schedule": "^2.1.7",
         "chalk": "^5.4.1",
         "dotenv": "^16.4.7",
         "ejs": "^3.1.9",
         "express": "^4.18.2",
         "grammy": "^1.35.0",
         "mongoose": "^8.12.1",
+        "node-schedule": "^2.1.1",
         "openai": "^4.86.2",
-        "tsx": "^4.19.3"
+        "tsx": "^4.19.3",
+        "typescript": "^5.8.2"
     },
     "devDependencies": {
         "@types/ejs": "^3.1.5",
         "@types/express": "^4.17.21",
         "@types/node": "^22.13.10",
-        "tsc-watch": "^6.2.1",
-        "typescript": "^5.8.2"
+        "tsc-watch": "^6.2.1"
     }
 }

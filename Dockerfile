@@ -1,12 +1,12 @@
-FROM node:lts-slim AS base
+FROM node:20-slim AS builder
 
 # Create app directory
 WORKDIR /app
 
-# Files required by npm install
+# Copy package files
 COPY package*.json ./
 
-# Install all dependencies including dev dependencies
+# Install dependencies
 RUN npm ci
 
 # Bundle app source
@@ -15,17 +15,21 @@ COPY . .
 # Type check app
 RUN npm run typecheck
 
-FROM base AS runner
+FROM node:20-slim AS runner
 
-# Bundle app source
-COPY . .
+WORKDIR /app
 
-# For production, we want to use the start script, not dev
-# Install all dependencies since we need tsx
-RUN npm ci
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
 
+# Copy built app
+COPY --from=builder /app/src ./src
+
+# Use non-root user
 USER node
 
 # Start the app
 EXPOSE 80
-CMD ["npm", "run", "start"]
+ENV NODE_ENV=production
+CMD ["npx", "tsx", "./src/main.ts"]
