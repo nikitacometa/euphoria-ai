@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 services:
 
     bot:
@@ -11,27 +11,41 @@ services:
         command: npm run dev
         depends_on:
             - mongodb
+        environment:
+            - TELEGRAM_API_TOKEN=${TELEGRAM_API_TOKEN}
+            - OPENAI_API_KEY=${OPENAI_API_KEY}
+            - GPT_VERSION=${GPT_VERSION}
+            - MONGODB_HOST=${MONGODB_HOST}
+            - MONGODB_PORT=${MONGODB_PORT}
+            - MONGODB_USER=${MONGODB_USER}
+            - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+            - MONGODB_DATABASE=${MONGODB_DATABASE}
+            - MONGO_EXPRESS_PORT=${MONGO_EXPRESS_PORT}
+            - LOG_LEVEL=${LOG_LEVEL}
+        restart: always
 
     mongodb:
         image: mongo:latest
         ports:
-            - "27017:27017"
+            - "${MONGODB_PORT}:27017"
         volumes:
             - mongodb_data:/data/db
         environment:
-            - MONGO_INITDB_ROOT_USERNAME=admin
-            - MONGO_INITDB_ROOT_PASSWORD=password
+            - MONGO_INITDB_ROOT_USERNAME=${MONGODB_USER}
+            - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_PASSWORD}
+            - MONGO_INITDB_DATABASE=${MONGODB_DATABASE}
 
     mongo-express:
-        image: mongo-express:latest
+        image: mongo-express
         ports:
-            - "8081:8081"
+            - "${MONGO_EXPRESS_PORT}:8081"
         environment:
-            - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
-            - ME_CONFIG_MONGODB_ADMINPASSWORD=password
-            - ME_CONFIG_MONGODB_SERVER=mongodb
+            - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGODB_USER}
+            - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGODB_PASSWORD}
+            - ME_CONFIG_MONGODB_SERVER=${MONGODB_HOST}
         depends_on:
             - mongodb
+        restart: always
 
 volumes:
     mongodb_data:

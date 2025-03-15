@@ -90,3 +90,23 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Grammy.js](https://grammy.dev/) for the Telegram bot framework
 - [OpenAI](https://openai.com/) for the AI capabilities
 - [Mongoose](https://mongoosejs.com/) for MongoDB object modeling
+
+# Environment Variables
+
+The following environment variables need to be set:
+
+## Required Variables
+- `TELEGRAM_API_TOKEN`: Your Telegram Bot API token
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `GPT_VERSION`: GPT model version to use (e.g., "gpt-4")
+
+## MongoDB Configuration
+- `MONGODB_HOST`: MongoDB host (default: "mongodb")
+- `MONGODB_PORT`: MongoDB port (default: "27017")
+- `MONGODB_USER`: MongoDB username (default: "admin")
+- `MONGODB_PASSWORD`: MongoDB password (default: "password")
+- `MONGODB_DATABASE`: MongoDB database name (default: "euphoria")
+- `MONGO_EXPRESS_PORT`: Mongo Express web interface port (default: "8081")
+
+## Optional Variables
+- `LOG_LEVEL`: Logging level (default: INFO)
