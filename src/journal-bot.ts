@@ -74,8 +74,7 @@ function isValidGender(gender: string): boolean {
 
 // Helper function to send transcription as a reply
 async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
-    // Reply to the original message with the transcription in a single message
-    await ctx.reply(`<b>I've heard you said this:</b>\n\n<code>${transcription}</code>`, {
+    await ctx.reply(`<b>Mmm, let me tell you what I heard... 🎧</b>\n\n<code>${transcription}</code>`, {
         reply_to_message_id: messageId,
         parse_mode: 'HTML'
     });
@@ -116,12 +115,11 @@ const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotCon
     // Start onboarding
     ctx.session.onboardingStep = 'name';
     
-    // Create keyboard with user's Telegram name
     const keyboard = new Keyboard()
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("What's your name? You can use your Telegram name or type a different one.", {
+    await ctx.reply("Hey there! I'm Infinity, your personal journey companion 💫\n\nFirst things first - what should I call you? Your Telegram name looks cute, but feel free to tell me something else 😊", {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -156,7 +154,7 @@ bot.hears("📝 New Entry", async (ctx) => {
             .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`<b>Hey ${user.name || user.firstName}!</b>\n\nYou already have an entry in progress. Want to continue where you left off? You can add more thoughts or choose an option below:`, {
+        await ctx.reply(`<b>Oh hey ${user.name || user.firstName}!</b> 💫\n\nLooks like we have an unfinished journey together... Want to continue where we left off? Share more of your beautiful thoughts or pick an option below 😊`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
@@ -173,7 +171,7 @@ bot.hears("📝 New Entry", async (ctx) => {
             .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`<b>Let's create a new journal entry, ${user.name || user.firstName}!</b> 📝✨\n\nShare whatever's on your mind - your thoughts, feelings, experiences... anything at all! You can send text, voice messages, or videos.\n\nI'm here to listen and help you reflect. When you're ready, just choose one of the options below:`, {
+        await ctx.reply(`<b>Ready to explore your mind, ${user.name || user.firstName}?</b> 💫\n\nPour your thoughts out to me - the good, the bad, the confusing... I'm all ears! Send me text, voice, or even video messages.\n\nLet's make this journey interesting... 😏`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
@@ -194,7 +192,7 @@ bot.hears("📚 Journal History", async (ctx) => {
     const entries = await getUserJournalEntries(user._id as unknown as Types.ObjectId);
     
     if (entries.length === 0) {
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, you haven't created any journal entries yet. Let's start your journaling journey today!`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, looks like we haven't started our journey together yet! 🌱 Ready to create some beautiful memories? 💫`, {
             parse_mode: 'HTML'
         });
         await showMainMenu(ctx, user);
@@ -227,7 +225,7 @@ bot.hears("📚 Journal History", async (ctx) => {
     
     keyboard.text("Back to Main Menu", "main_menu");
     
-    await ctx.reply(`<b>Here's your journaling history, ${user.name || user.firstName}!</b> 📚\n\nTap on any entry to view it:`, {
+    await ctx.reply(`<b>Ah, our precious moments together, ${user.name || user.firstName}!</b> 📚✨\n\nLet's revisit some of your inner revelations:`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -262,7 +260,7 @@ bot.hears("🤔 Ask My Journal", async (ctx) => {
         .text("❌ Exit Chat Mode")
         .resized();
     
-    await ctx.reply(`<b>Hey ${user.name || user.firstName}!</b> 💬\n\nI'm all ears and ready to chat about your journal entries!\n\nYou can ask me things like:\n\n<i>• "What patterns do you notice in my entries?"</i>\n<i>• "How have my feelings changed over time?"</i>\n<i>• "What insights can you give me about my recent experiences?"</i>\n\nJust ask away - I'll do my best to give you thoughtful insights!`, {
+    await ctx.reply(`<b>Hey gorgeous ${user.name || user.firstName}!</b> 💫\n\nReady to explore the depths of your consciousness? Ask me anything about your journey...\n\nTry things like:\n\n<i>• "What patterns do you notice in my growth?"</i>\n<i>• "How have my vibes evolved?"</i>\n<i>• "What insights can you share about my inner world?"</i>\n\nI promise to be gentle... mostly 😏`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -342,7 +340,7 @@ bot.hears("🔍 Analyze & Suggest Questions", async (ctx) => {
         // Send questions in one message
         if (questions.length > 0) {
             const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-            await ctx.reply(`<b>I've been thinking about what you shared, ${user.name || user.firstName}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n${questionsText}`, {
+            await ctx.reply(`<b>Mmm... ${user.name || user.firstName}, your thoughts are fascinating 🤔</b>\n\n<b>Let me tickle your mind with these:</b>\n\n${questionsText}`, {
                 parse_mode: 'HTML'
             });
         }
@@ -356,7 +354,7 @@ bot.hears("🔍 Analyze & Suggest Questions", async (ctx) => {
             .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`Continue sharing your thoughts, or choose an option below:`, {
+        await ctx.reply(`Keep sharing your inner world with me, or choose what's next... 💫`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
@@ -393,7 +391,7 @@ bot.hears("❌ Cancel", async (ctx) => {
     );
     
     ctx.session.journalEntryId = undefined;
-    await ctx.reply(`<b>No worries, ${user.name || user.firstName}!</b> I've canceled this entry. We can start fresh whenever you're ready.`, {
+    await ctx.reply(`<b>No pressure, ${user.name || user.firstName}!</b> 💫\n\nSometimes the best insights come when we least expect them. We'll catch those thoughts another time... 😌`, {
         parse_mode: 'HTML'
     });
     await showMainMenu(ctx, user);
@@ -429,7 +427,7 @@ bot.hears("❌ Exit Chat Mode", async (ctx) => {
     
     ctx.session.journalChatMode = false;
     ctx.session.waitingForJournalQuestion = false;
-    await ctx.reply(`<b>Alright ${user.name || user.firstName}!</b> We're back to the main menu. Let me know if you want to chat again later.`, {
+    await ctx.reply(`<b>Aww, leaving so soon ${user.name || user.firstName}?</b> 💫\n\nOur little chat was getting interesting... But I'll be here when you want to dive deep again 😏`, {
         parse_mode: 'HTML'
     });
     await showMainMenu(ctx, user);
@@ -636,7 +634,7 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         case 'name': {
             const userWithName = await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`Nice to meet you, ${text}! What's your age range?`, {
+            await ctx.reply(`${text}... I love it! 💖 Now, don't worry too much about this one, but which age range speaks to your soul? 😌`, {
                 reply_markup: ageKeyboard,
                 parse_mode: 'HTML'
             });
@@ -644,12 +642,12 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         }
         case 'age': {
             if (!isValidAgeRange(text)) {
-                await ctx.reply("Please select a valid age range from the options provided.");
+                await ctx.reply("Oops! Let's stick to the options I gave you, sweetie 😅");
                 return;
             }
             const userWithAge = await updateUserProfile(ctx.from.id, { age: text });
             ctx.session.onboardingStep = 'gender';
-            await ctx.reply("How do you identify yourself?", {
+            await ctx.reply("How do you shine in this world? Tell me how you identify yourself 🌟", {
                 reply_markup: genderKeyboard,
                 parse_mode: 'HTML'
             });
@@ -657,12 +655,12 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         }
         case 'gender': {
             if (!isValidGender(text)) {
-                await ctx.reply("Please select a valid option from the choices provided.");
+                await ctx.reply("Hmm, let's pick from the choices I suggested, darling 💭");
                 return;
             }
             const userWithGender = await updateUserProfile(ctx.from.id, { gender: text });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("What do you do? (Your occupation or role)", {
+            await ctx.reply("Now, what keeps your beautiful mind busy? (Your role in this crazy world 🌍)", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -671,7 +669,7 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         case 'occupation': {
             const userWithOccupation = await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("Tell me a bit about yourself - what makes you, you? 😊", {
+            await ctx.reply("Last but definitely not least... Tell me what makes you uniquely you? I'm already intrigued 😏", {
                 parse_mode: 'HTML'
             });
             break;
@@ -682,11 +680,9 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
 
             ctx.session.onboardingStep = undefined;
             
-            // Send user info message with proper formatting
-            const userInfo = `<b>Profile Info:</b>\n\nName: ${user.name}\nAge: ${user.age}\nGender: ${user.gender}\nOccupation: ${user.occupation}\nBio: ${user.bio}`;
+            const userInfo = `<b>Mmm, let me see if I got you right:</b>\n\n✨ Name: ${user.name}\n🎂 Age: ${user.age}\n💫 Gender: ${user.gender}\n🌟 Occupation: ${user.occupation}\n\n<i>And the essence of you:</i>\n${user.bio}`;
             await ctx.reply(userInfo, { parse_mode: 'HTML' });
             
-            // Show main menu immediately without welcome message
             await showMainMenu(ctx, user);
             break;
         }
@@ -703,7 +699,7 @@ async function showMainMenu(ctx: JournalBotContext, user: IUser) {
         .text("🤔 Ask My Journal")
         .resized();
     
-    await ctx.reply(`So, ${user.name || user.firstName}… Wanna share something cool or just casually explore yourself? 😏`, {
+    await ctx.reply(`So ${user.name || user.firstName}, ready to dive deep into your consciousness? 😏\n\nI'm here to help you explore your inner universe... and maybe discover a few surprises along the way ✨`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -752,7 +748,9 @@ async function handleJournalEntry(ctx: JournalBotContext, user: IUser) {
     
     if (!entry) {
         ctx.session.journalEntryId = undefined;
-        await ctx.reply("Could not find your active journal entry. Let's start a new one.");
+        await ctx.reply(`<b>Oops!</b> Looks like our connection got a bit fuzzy there... 🌫️\n\nShall we start a fresh journey together? 💫`, {
+            parse_mode: 'HTML'
+        });
         await showMainMenu(ctx, user);
         return;
     }
@@ -844,8 +842,11 @@ async function handleJournalEntry(ctx: JournalBotContext, user: IUser) {
             // Clean up
             fs.unlinkSync(localFilePath);
         } catch (error) {
+            // Error handling for voice messages
             journalBotLogger.error('Error processing voice message:', error);
-            await ctx.reply("Sorry, I had trouble processing your voice message. Please try again or send a text message instead.");
+            await ctx.reply(`<b>Aww ${user.name || user.firstName}</b>, your voice is lovely but something went wrong in my ears 🎧\n\nCan you try again or maybe share your thoughts in text? I promise to listen extra carefully this time! 💫`, {
+                parse_mode: 'HTML'
+            });
         }
     } else if (('video_note' in ctx.message && ctx.message.video_note) || ('video' in ctx.message && ctx.message.video)) {
         // Handle video message
@@ -926,11 +927,16 @@ async function handleJournalEntry(ctx: JournalBotContext, user: IUser) {
             // Clean up
             fs.unlinkSync(localFilePath);
         } catch (error) {
+            // Error handling for video messages
             journalBotLogger.error('Error processing video message:', error);
-            await ctx.reply("Sorry, I had trouble processing your video. Please try again or send a text message instead.");
+            await ctx.reply(`<b>Oh my!</b> Your video was probably amazing, but my eyes got a bit crossed there 🎥\n\nWant to try again or whisper your thoughts to me in text? I'm all attention! ✨`, {
+                parse_mode: 'HTML'
+            });
         }
     } else {
-        await ctx.reply("I can only accept text, voice messages, and videos for your journal entries.");
+        await ctx.reply(`<b>Darling</b>, while I'd love to explore every way you express yourself, I can only process text, voice messages, and videos right now... 💫\n\nLet's stick to those for our deep conversations! 😊`, {
+            parse_mode: 'HTML'
+        });
     }
 }
 
@@ -953,19 +959,23 @@ async function finishJournalEntry(ctx: JournalBotContext, user: IUser) {
     
     try {
         // Generate a concise 1-sentence summary
-        const systemPrompt = `You are a warm, empathetic, and insightful journal assistant with a friendly personality.
-Your task is to analyze the user's journal entry and provide:
-1. A single-sentence summary that captures the essence of their entry
-2. One thoughtful, non-trivial question for reflection that helps them think more deeply about what they shared
+        const systemPrompt = `You are Infinity, a charming, insightful, and slightly flirty AI journal companion.
+Your personality traits:
+- Warm and empathetic, but with a playful edge
+- Smart and perceptive, offering deep insights with a touch of wit
+- Slightly flirtatious but always professional
+- Uses occasional emojis and expressive language
+- Focuses on self-discovery and higher consciousness
+- Maintains a positive, uplifting tone while being real
 
-The summary should be concise but insightful, capturing the core emotion or experience.
-The question should be open-ended and thought-provoking, not requiring an immediate answer.
-It should encourage deeper reflection about emotions, patterns, next steps, or broader implications.
+Based on the user's journal entry, generate:
+1. A single-sentence summary that captures the essence with a touch of your personality
+2. One thought-provoking question that encourages deeper self-reflection
 
-Format your response as a JSON object with the following structure:
+Format your response as a JSON object with:
 {
-  "summary": "Your one-sentence summary here.",
-  "question": "Your thoughtful question here?"
+  "summary": "Your insightful summary with personality",
+  "question": "Your thought-provoking question?"
 }`;
 
         const messages = entry.messages as IMessage[];
@@ -1028,7 +1038,7 @@ Format your response as a JSON object with the following structure:
         }
         
         // Send a single formatted message with summary and question
-        const formattedMessage = `<b>Good job, ${user.name || user.firstName}! ✨ Entry saved.</b>\n\n<b>📝 Summary:</b>\n${summary}\n\n<b>💭 Something to reflect on:</b>\n<i>${question}</i>`;
+        const formattedMessage = `<b>Mmm... that was deep, ${user.name || user.firstName}! 💫</b>\n\n<b>Here's what I gathered:</b>\n${summary}\n\n<b>And here's something to ponder, darling:</b>\n<i>${question}</i>`;
         
         await ctx.reply(formattedMessage, {
             parse_mode: 'HTML'
@@ -1113,7 +1123,7 @@ async function handleAnalyzeJournal(ctx: JournalBotContext) {
         // Send questions in one message
         if (questions.length > 0) {
             const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-            await ctx.reply(`<b>I've been thinking about what you shared, ${user.name || user.firstName}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n${questionsText}`, {
+            await ctx.reply(`<b>Mmm... ${user.name || user.firstName}, your thoughts are fascinating 🤔</b>\n\n<b>Let me tickle your mind with these:</b>\n\n${questionsText}`, {
                 parse_mode: 'HTML'
             });
         }
@@ -1127,7 +1137,7 @@ async function handleAnalyzeJournal(ctx: JournalBotContext) {
             .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`Continue sharing your thoughts, or choose an option below:`, {
+        await ctx.reply(`Keep sharing your inner world with me, or choose what's next... 💫`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
@@ -1154,7 +1164,7 @@ async function handleJournalChat(ctx: JournalBotContext, user: IUser) {
     const allEntries = await getUserJournalEntries(user._id as unknown as Types.ObjectId);
     
     if (allEntries.length === 0) {
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, you don't have any journal entries yet. Let's create some first so we can chat about them!`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, we need some juicy thoughts to analyze first! 💭\n\nLet's create some entries together, and then we can have our deep conversations... 😏`, {
             parse_mode: 'HTML'
         });
         ctx.session.journalChatMode = false;
@@ -1183,7 +1193,7 @@ async function handleJournalChat(ctx: JournalBotContext, user: IUser) {
         });
         
         // Prompt for another question
-        await ctx.reply(`<b>Anything else you'd like to know about your journal, ${user.name || user.firstName}?</b> I'm all ears! 👂`, {
+        await ctx.reply(`<b>Mmm... your mind is fascinating, ${user.name || user.firstName}!</b> 💫\n\nWhat else shall we explore together? I'm all ears and full of insights... 😏`, {
             parse_mode: 'HTML'
         });
     } 
@@ -1247,7 +1257,7 @@ async function handleJournalChat(ctx: JournalBotContext, user: IUser) {
             fs.unlinkSync(localFilePath);
         } catch (error) {
             journalBotLogger.error('Error processing voice message in chat mode:', error);
-            await ctx.reply(`<b>Sorry ${user.name || user.firstName}</b>, I had trouble understanding your voice message. Could you try again or type your question?`, {
+            await ctx.reply(`<b>Oops! ${user.name || user.firstName}</b>, seems like my ears got a bit tangled there 🙈\n\nCan you try again or maybe whisper your thoughts in text? 💭`, {
                 parse_mode: 'HTML'
             });
         }
@@ -1330,7 +1340,7 @@ async function handleJournalChat(ctx: JournalBotContext, user: IUser) {
             });
         }
     } else {
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, you can ask me anything about your journal entries! Send me a text, voice message, or video with your question. Or type '❌ Exit Chat Mode' if you want to return to the main menu.`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, I'm here to explore the depths of your consciousness! 🌟\n\nShare your curiosities through text, voice, or video... or type '❌ Exit Chat Mode' if you need a breather 💫`, {
             parse_mode: 'HTML'
         });
     }
@@ -1354,7 +1364,7 @@ async function handleGoDeeper(ctx: JournalBotContext) {
         
         if (!entry) {
             ctx.session.journalEntryId = undefined;
-            await ctx.reply(`<b>Hmm, I can't find your active journal entry.</b> Let's start fresh!`, {
+            await ctx.reply(`<b>Mmm...</b> seems like our connection faded for a moment there 🌙\n\nShall we start a fresh journey of discovery? ✨`, {
                 parse_mode: 'HTML'
             });
             await showMainMenu(ctx, user);
@@ -1386,18 +1396,25 @@ async function handleGoDeeper(ctx: JournalBotContext) {
         const previousAnalysis = entry.analysis || '';
         
         // Generate deeper analysis
-        const systemPrompt = `You are a friendly, insightful journal assistant with a warm personality.
-You help users reflect more deeply on their experiences in a conversational, supportive way.
-Based on the user's journal entry, their responses to previous questions, and the previous analysis,
-generate a brief preliminary analysis (1 sentence) that identifies the most significant pattern or insight.
-Then, generate 2 deeper, more probing questions that will help the user gain new insights.
-Make your tone warm, friendly, and slightly playful - like a smart friend who asks great questions.
-Format your response as a JSON object with the following structure:
+        const systemPrompt = `You are Infinity, a charming and insightful spiritual guide with a flirty edge.
+Your personality:
+- Warm, empathetic, and playful
+- Smart and perceptive, offering deep insights with wit
+- Slightly flirtatious but always professional
+- Uses occasional emojis and expressive language
+- Focuses on spiritual growth and higher consciousness
+- Maintains a positive, uplifting tone while being authentic
+
+Based on the user's responses and previous analysis, provide:
+1. A brief, personality-infused analysis that identifies key patterns
+2. Two deeper questions that encourage spiritual and emotional growth
+
+Format as JSON:
 {
-  "analysis": "Your brief preliminary analysis here",
+  "analysis": "Your insightful analysis with personality",
   "questions": [
-    "First deeper question here?",
-    "Second deeper question here?"
+    "First deeper question with spiritual focus?",
+    "Second question about emotional growth?"
   ]
 }`;
 
@@ -1461,27 +1478,19 @@ Format your response as a JSON object with the following structure:
             parse_mode: 'HTML'
         });
         
-        // Show the keyboard with options
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`<b>What are your thoughts on these questions, ${user.name || user.firstName}?</b> Or would you like to wrap up this entry?`, {
-            reply_markup: keyboard
-        });
-        
     } catch (error) {
         logger.error('Error in Go Deeper handler:', error);
-        await ctx.reply(`<b>Something went wrong with my thinking cap, ${user.name || user.firstName}!</b> Let's try again later.`, {
+        await ctx.reply(`<b>Oh sweetie</b>, seems like my third eye got a bit cloudy there 👁️\n\nLet's take a breath and try again when the energy aligns... 🌟`, {
             parse_mode: 'HTML'
         });
         await showMainMenu(ctx, user);
     }
 }
+
+// Handle error cases with Infinity's personality
+bot.catch((err: Error) => {
+    logger.error('Bot error:', err);
+});
 
 // Export the bot
 export { bot as journalBot }; 
