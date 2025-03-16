@@ -50,11 +50,23 @@ interface ChatMessage {
 // Create a logger for the journal bot
 const journalBotLogger = createLogger('JournalBot', LOG_LEVEL);
 
-// Define valid age ranges and gender options
-const AGE_RANGES = ['Under 18', '18-24', '25-34', '35-44', '45-54', '55+'];
-const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+// Define age ranges and gender options
+const AGE_RANGES = [
+    "18-24",
+    "25-34",
+    "35-44",
+    "45-54",
+    "55+"
+];
 
-// Create keyboards for age and gender selection
+const GENDER_OPTIONS = [
+    "Male",
+    "Female",
+    "Non-binary",
+    "Prefer not to say"
+];
+
+// Create keyboards for onboarding
 const ageKeyboard = new Keyboard();
 AGE_RANGES.forEach(age => ageKeyboard.text(age).row());
 ageKeyboard.resized();
@@ -74,7 +86,7 @@ function isValidGender(gender: string): boolean {
 
 // Helper function to send transcription as a reply
 async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
-    await ctx.reply(`<b>Mmm, let me tell you what I heard... 🎧</b>\n\n<code>${transcription}</code>`, {
+    await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${transcription}</code>`, {
         reply_to_message_id: messageId,
         parse_mode: 'HTML'
     });
@@ -106,20 +118,20 @@ connectToDatabase().catch(error => journalBotLogger.error('Failed to connect to 
 const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
 
-    const existingUser = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    if (existingUser) {
-        await showMainMenu(ctx, existingUser);
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    if (user.onboardingCompleted) {
+        await showMainMenu(ctx, user);
         return;
     }
 
-    // Start onboarding
     ctx.session.onboardingStep = 'name';
     
     const keyboard = new Keyboard()
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("Hey there! I'm Infinity, your personal journey companion 💫\n\nFirst things first - what should I call you? Your Telegram name looks cute, but feel free to tell me something else 😊", {
+    await ctx.reply("Hi! I'm Infinity, your personal guide to self-discovery ✨\nWhat shall I call you?", {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -143,7 +155,6 @@ bot.hears("📝 New Entry", async (ctx) => {
     const activeEntry = await getActiveJournalEntry(user._id as unknown as Types.ObjectId);
     
     if (activeEntry) {
-        // Continue with existing entry
         ctx.session.journalEntryId = activeEntry._id?.toString() || '';
         
         const keyboard = new Keyboard()
@@ -154,12 +165,11 @@ bot.hears("📝 New Entry", async (ctx) => {
             .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`<b>Oh hey ${user.name || user.firstName}!</b> 💫\n\nLooks like we have an unfinished journey together... Want to continue where we left off? Share more of your beautiful thoughts or pick an option below 😊`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, you have an unfinished entry. Would you like to continue? ✨`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
     } else {
-        // Create new entry
         const entry = await createJournalEntry(user._id as unknown as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
         
@@ -171,7 +181,7 @@ bot.hears("📝 New Entry", async (ctx) => {
             .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`<b>Ready to explore your mind, ${user.name || user.firstName}?</b> 💫\n\nPour your thoughts out to me - the good, the bad, the confusing... I'm all ears! Send me text, voice, or even video messages.\n\nLet's make this journey interesting... 😏`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, share your thoughts through text, voice, or video ✨`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
@@ -192,7 +202,7 @@ bot.hears("📚 Journal History", async (ctx) => {
     const entries = await getUserJournalEntries(user._id as unknown as Types.ObjectId);
     
     if (entries.length === 0) {
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, looks like we haven't started our journey together yet! 🌱 Ready to create some beautiful memories? 💫`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, you haven't created any entries yet. Ready to start? ✨`, {
             parse_mode: 'HTML'
         });
         await showMainMenu(ctx, user);
@@ -225,7 +235,7 @@ bot.hears("📚 Journal History", async (ctx) => {
     
     keyboard.text("Back to Main Menu", "main_menu");
     
-    await ctx.reply(`<b>Ah, our precious moments together, ${user.name || user.firstName}!</b> 📚✨\n\nLet's revisit some of your inner revelations:`, {
+    await ctx.reply(`<b>${user.name || user.firstName}</b>, here are your past reflections 📚`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -245,7 +255,7 @@ bot.hears("🤔 Ask My Journal", async (ctx) => {
     const entries = await getUserJournalEntries(user._id as unknown as Types.ObjectId);
     
     if (entries.length === 0) {
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, you don't have any journal entries yet. Let's create some first so we can chat about them!`, {
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, let's create some entries first before we analyze them ✨`, {
             parse_mode: 'HTML'
         });
         await showMainMenu(ctx, user);
@@ -260,7 +270,7 @@ bot.hears("🤔 Ask My Journal", async (ctx) => {
         .text("❌ Exit Chat Mode")
         .resized();
     
-    await ctx.reply(`<b>Hey gorgeous ${user.name || user.firstName}!</b> 💫\n\nReady to explore the depths of your consciousness? Ask me anything about your journey...\n\nTry things like:\n\n<i>• "What patterns do you notice in my growth?"</i>\n<i>• "How have my vibes evolved?"</i>\n<i>• "What insights can you share about my inner world?"</i>\n\nI promise to be gentle... mostly 😏`, {
+    await ctx.reply(`<b>${user.name || user.firstName}</b>, what would you like to know about your journey? 🌟\n\nAsk about:\n<i>• Patterns in your entries\n• Personal growth\n• Hidden insights</i>`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -391,7 +401,7 @@ bot.hears("❌ Cancel", async (ctx) => {
     );
     
     ctx.session.journalEntryId = undefined;
-    await ctx.reply(`<b>No pressure, ${user.name || user.firstName}!</b> 💫\n\nSometimes the best insights come when we least expect them. We'll catch those thoughts another time... 😌`, {
+    await ctx.reply(`Your entry has been cancelled, ${user.name || user.firstName}. We can start fresh anytime ✨`, {
         parse_mode: 'HTML'
     });
     await showMainMenu(ctx, user);
@@ -427,7 +437,7 @@ bot.hears("❌ Exit Chat Mode", async (ctx) => {
     
     ctx.session.journalChatMode = false;
     ctx.session.waitingForJournalQuestion = false;
-    await ctx.reply(`<b>Aww, leaving so soon ${user.name || user.firstName}?</b> 💫\n\nOur little chat was getting interesting... But I'll be here when you want to dive deep again 😏`, {
+    await ctx.reply(`Returning to main menu, ${user.name || user.firstName}. Feel free to ask more questions anytime ✨`, {
         parse_mode: 'HTML'
     });
     await showMainMenu(ctx, user);
@@ -634,7 +644,7 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         case 'name': {
             const userWithName = await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`${text}... I love it! 💖 Now, don't worry too much about this one, but which age range speaks to your soul? 😌`, {
+            await ctx.reply(`${text}, what a lovely name 💫\nWhich age range resonates with you?`, {
                 reply_markup: ageKeyboard,
                 parse_mode: 'HTML'
             });
@@ -642,12 +652,12 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         }
         case 'age': {
             if (!isValidAgeRange(text)) {
-                await ctx.reply("Oops! Let's stick to the options I gave you, sweetie 😅");
+                await ctx.reply("Please choose from the options provided ✨");
                 return;
             }
             const userWithAge = await updateUserProfile(ctx.from.id, { age: text });
             ctx.session.onboardingStep = 'gender';
-            await ctx.reply("How do you shine in this world? Tell me how you identify yourself 🌟", {
+            await ctx.reply("How do you identify yourself? 🌟", {
                 reply_markup: genderKeyboard,
                 parse_mode: 'HTML'
             });
@@ -655,12 +665,12 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         }
         case 'gender': {
             if (!isValidGender(text)) {
-                await ctx.reply("Hmm, let's pick from the choices I suggested, darling 💭");
+                await ctx.reply("Let's pick from the options I suggested 💫");
                 return;
             }
             const userWithGender = await updateUserProfile(ctx.from.id, { gender: text });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("Now, what keeps your beautiful mind busy? (Your role in this crazy world 🌍)", {
+            await ctx.reply("What do you do in life? 🌟", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -669,27 +679,73 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
         case 'occupation': {
             const userWithOccupation = await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("Last but definitely not least... Tell me what makes you uniquely you? I'm already intrigued 😏", {
+            await ctx.reply("Tell me about yourself ✨\n\n<i>Some ideas:\n• What drives you?\n• Your passions?\n• Life philosophy?\n• What makes you unique?</i>\n\nFeel free to type, or send a voice/video message.", {
                 parse_mode: 'HTML'
             });
             break;
         }
         case 'bio': {
-            const user = await updateUserProfile(ctx.from.id, { bio: text, onboardingCompleted: true });
+            let bioText = text;
+            
+            // Handle voice/video transcription if present
+            if ('voice' in ctx.message || 'video' in ctx.message || 'video_note' in ctx.message) {
+                await ctx.reply("✨ One moment, processing your message...");
+                try {
+                    const fileId = 'voice' in ctx.message ? ctx.message.voice?.file_id :
+                                 'video' in ctx.message ? ctx.message.video?.file_id :
+                                 ctx.message.video_note?.file_id;
+                    
+                    if (fileId) {
+                        const file = await ctx.api.getFile(fileId);
+                        const filePath = file.file_path;
+                        
+                        if (filePath) {
+                            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
+                            const tempDir = path.join(os.tmpdir(), 'journal-bot');
+                            
+                            if (!fs.existsSync(tempDir)) {
+                                fs.mkdirSync(tempDir, { recursive: true });
+                            }
+                            
+                            const localFilePath = path.join(tempDir, `bio_${Date.now()}.${filePath.split('.').pop()}`);
+                            
+                            const response = await fetch(fileUrl);
+                            const buffer = await response.arrayBuffer();
+                            fs.writeFileSync(localFilePath, Buffer.from(buffer));
+                            
+                            bioText = await transcribeAudio(localFilePath);
+                            fs.unlinkSync(localFilePath);
+                        }
+                    }
+                } catch (error) {
+                    logger.error('Error processing voice/video bio:', error);
+                    await ctx.reply("I couldn't process your message. Could you type it instead? 🎧");
+                    return;
+                }
+            }
+
+            const user = await updateUserProfile(ctx.from.id, { bio: bioText, onboardingCompleted: true });
             if (!user) return;
 
             ctx.session.onboardingStep = undefined;
             
-            const userInfo = `<b>Mmm, let me see if I got you right:</b>\n\n✨ Name: ${user.name}\n🎂 Age: ${user.age}\n💫 Gender: ${user.gender}\n🌟 Occupation: ${user.occupation}\n\n<i>And the essence of you:</i>\n${user.bio}`;
-            await ctx.reply(userInfo, { parse_mode: 'HTML' });
+            // Generate a warm, personalized summary
+            const summary = `<b>Here's what I know about you:</b>\n\n✨ ${user.name}, ${user.age}\n🌟 ${(user.gender || '').toLowerCase()}\n💫 ${user.occupation}\n\n<i>${generatePersonalizedBioSummary(user.bio || '')}</i>`;
             
+            await ctx.reply(summary, { parse_mode: 'HTML' });
             await showMainMenu(ctx, user);
             break;
         }
     }
 }
 
-// Show main menu
+// Helper function to generate a warm, personalized bio summary
+function generatePersonalizedBioSummary(bio: string): string {
+    const shortBio = bio.slice(0, 100).trim();
+    return `${shortBio}${bio.length > 100 ? '...' : ''}\n\nLooking forward to our conversations ✨`;
+}
+
+// Show main menu with shorter, more elegant messages
 async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     const keyboard = new Keyboard()
         .text("📝 New Entry")
@@ -699,7 +755,7 @@ async function showMainMenu(ctx: JournalBotContext, user: IUser) {
         .text("🤔 Ask My Journal")
         .resized();
     
-    await ctx.reply(`So ${user.name || user.firstName}, ready to dive deep into your consciousness? 😏\n\nI'm here to help you explore your inner universe... and maybe discover a few surprises along the way ✨`, {
+    await ctx.reply(`Welcome back, ${user.name || user.firstName}! Ready to explore your thoughts? ✨`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -959,22 +1015,21 @@ async function finishJournalEntry(ctx: JournalBotContext, user: IUser) {
     
     try {
         // Generate a concise 1-sentence summary
-        const systemPrompt = `You are Infinity, a charming, insightful, and slightly flirty AI journal companion.
-Your personality traits:
-- Warm and empathetic, but with a playful edge
-- Smart and perceptive, offering deep insights with a touch of wit
-- Slightly flirtatious but always professional
-- Uses occasional emojis and expressive language
-- Focuses on self-discovery and higher consciousness
-- Maintains a positive, uplifting tone while being real
+        const systemPrompt = `You are Infinity, an insightful and supportive guide.
+Your personality:
+- Warm and empathetic
+- Clear and perceptive
+- Professional with a gentle touch
+- Focused on personal growth
+- Uses minimal emojis (✨ 🌟 💫)
 
 Based on the user's journal entry, generate:
-1. A single-sentence summary that captures the essence with a touch of your personality
-2. One thought-provoking question that encourages deeper self-reflection
+1. A single-sentence summary that captures the key insight
+2. One thought-provoking question for deeper reflection
 
-Format your response as a JSON object with:
+Format as JSON:
 {
-  "summary": "Your insightful summary with personality",
+  "summary": "Your insightful summary",
   "question": "Your thought-provoking question?"
 }`;
 
@@ -1396,30 +1451,29 @@ async function handleGoDeeper(ctx: JournalBotContext) {
         const previousAnalysis = entry.analysis || '';
         
         // Generate deeper analysis
-        const systemPrompt = `You are Infinity, a charming and insightful spiritual guide with a flirty edge.
+        const deeperAnalysisPrompt = `You are Infinity, an insightful and supportive guide.
 Your personality:
-- Warm, empathetic, and playful
-- Smart and perceptive, offering deep insights with wit
-- Slightly flirtatious but always professional
-- Uses occasional emojis and expressive language
-- Focuses on spiritual growth and higher consciousness
-- Maintains a positive, uplifting tone while being authentic
+- Warm and empathetic
+- Clear and perceptive
+- Professional with a gentle touch
+- Focused on personal growth
+- Uses minimal emojis (✨ 🌟 💫)
 
 Based on the user's responses and previous analysis, provide:
-1. A brief, personality-infused analysis that identifies key patterns
-2. Two deeper questions that encourage spiritual and emotional growth
+1. A brief analysis identifying key patterns or insights
+2. Two questions for deeper reflection
 
 Format as JSON:
 {
-  "analysis": "Your insightful analysis with personality",
+  "analysis": "Your insightful analysis",
   "questions": [
-    "First deeper question with spiritual focus?",
-    "Second question about emotional growth?"
+    "First question about personal growth?",
+    "Second question about deeper insights?"
   ]
 }`;
 
         const chatMessages: ChatMessage[] = [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: deeperAnalysisPrompt },
             { 
                 role: 'user', 
                 content: `User's Journal Entry and Responses:\n${userResponses}\n\nPrevious Questions:\n${previousQuestions}\n\nPrevious Analysis:\n${previousAnalysis}\n\nPlease generate a deeper analysis and more probing questions.` 
