@@ -50,6 +50,28 @@ interface ChatMessage {
 // Create a logger for the journal bot
 const journalBotLogger = createLogger('JournalBot', LOG_LEVEL);
 
+// Define valid age ranges and gender options
+const AGE_RANGES = ['Under 18', '18-24', '25-34', '35-44', '45-54', '55+'];
+const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+
+// Create keyboards for age and gender selection
+const ageKeyboard = new Keyboard();
+AGE_RANGES.forEach(age => ageKeyboard.text(age).row());
+ageKeyboard.resized();
+
+const genderKeyboard = new Keyboard();
+GENDER_OPTIONS.forEach(gender => genderKeyboard.text(gender).row());
+genderKeyboard.resized();
+
+// Validation functions
+function isValidAgeRange(age: string): boolean {
+    return AGE_RANGES.includes(age);
+}
+
+function isValidGender(gender: string): boolean {
+    return GENDER_OPTIONS.includes(gender);
+}
+
 // Helper function to send transcription as a reply
 async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
     // Reply to the original message with the transcription in a single message
@@ -83,39 +105,33 @@ connectToDatabase().catch(error => journalBotLogger.error('Failed to connect to 
 
 // Start command handler
 const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotContext) => {
-    if (!ctx.from) {
-        await ctx.reply('Hello there!');
+    if (!ctx.from) return;
+
+    const existingUser = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    if (existingUser) {
+        await showMainMenu(ctx, existingUser);
         return;
     }
+
+    // Start onboarding
+    ctx.session.onboardingStep = 'name';
     
-    // Save user to database
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    // Reset session
-    ctx.session = {};
-    
-    // Check if user has completed onboarding
-    if (user.onboardingCompleted) {
-        await showMainMenu(ctx, user);
-    } else {
-        // Start onboarding
-        ctx.session.onboardingStep = 'name';
-        await ctx.reply(`<b>Hey there, ${user.firstName}!</b> 👋\n\nI'm your personal journal buddy! I'm here to help you reflect, grow, and have some fun along the way.\n\nBefore we dive in, I'd love to get to know you better.\n\n<b>First things first</b> - what name would you like me to call you?`, {
-            parse_mode: 'HTML'
-        });
-    }
+    // Create keyboard with user's Telegram name
+    const keyboard = new Keyboard()
+        .text(ctx.from.first_name)
+        .resized();
+
+    await ctx.reply("What's your name? You can use your Telegram name or type a different one.", {
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+    });
 });
 
 // Register the start command
 bot.command('start', handleStartCommand);
 
 // Register main menu button handlers
-bot.hears("📝 Create New Entry", async (ctx) => {
+bot.hears("New Entry", async (ctx) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -133,11 +149,11 @@ bot.hears("📝 Create New Entry", async (ctx) => {
         ctx.session.journalEntryId = activeEntry._id?.toString() || '';
         
         const keyboard = new Keyboard()
-            .text("✅ Finish Entry")
+            .text("Save")
             .row()
-            .text("🔍 Go Deeper, Ask Me")
+            .text("Let's Go Deeper! Ask questions")
             .row()
-            .text("❌ Cancel Entry")
+            .text("Cancel")
             .resized();
         
         await ctx.reply(`<b>Hey ${user.name || user.firstName}!</b>\n\nYou already have an entry in progress. Want to continue where you left off? You can add more thoughts or choose an option below:`, {
@@ -150,11 +166,11 @@ bot.hears("📝 Create New Entry", async (ctx) => {
         ctx.session.journalEntryId = entry._id?.toString() || '';
         
         const keyboard = new Keyboard()
-            .text("✅ Finish Entry")
+            .text("Save")
             .row()
-            .text("🔍 Go Deeper, Ask Me")
+            .text("Let's Go Deeper! Ask questions")
             .row()
-            .text("❌ Cancel Entry")
+            .text("Cancel")
             .resized();
         
         await ctx.reply(`<b>Let's create a new journal entry, ${user.name || user.firstName}!</b> 📝✨\n\nShare whatever's on your mind - your thoughts, feelings, experiences... anything at all! You can send text, voice messages, or videos.\n\nI'm here to listen and help you reflect. When you're ready, just choose one of the options below:`, {
@@ -164,7 +180,7 @@ bot.hears("📝 Create New Entry", async (ctx) => {
     }
 });
 
-bot.hears("📚 View Journal History", async (ctx) => {
+bot.hears("Journal History", async (ctx) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -189,9 +205,8 @@ bot.hears("📚 View Journal History", async (ctx) => {
     const keyboard = new InlineKeyboard();
     
     entries.slice(0, 10).forEach((entry) => {
-        // Format date as [HH:MM DD/MM/YY]
         const date = new Date(entry.createdAt);
-        const formattedDate = `[${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}]`;
+        const formattedDate = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}]`;
         
         // Get text snippet from entry
         let textSnippet = "";
@@ -218,7 +233,7 @@ bot.hears("📚 View Journal History", async (ctx) => {
     });
 });
 
-bot.hears("💬 Chat About My Journal", async (ctx) => {
+bot.hears("Ask My Journal", async (ctx) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -254,7 +269,7 @@ bot.hears("💬 Chat About My Journal", async (ctx) => {
 });
 
 // Register entry action button handlers
-bot.hears("✅ Finish Entry", async (ctx) => {
+bot.hears("Save", async (ctx) => {
     if (!ctx.from || !ctx.session.journalEntryId) {
         await ctx.reply("No active journal entry found. Let's go back to the main menu.");
         if (ctx.from) {
@@ -279,7 +294,7 @@ bot.hears("✅ Finish Entry", async (ctx) => {
     await finishJournalEntry(ctx, user);
 });
 
-bot.hears("🔍 Go Deeper, Ask Me", async (ctx) => {
+bot.hears("Let's Go Deeper! Ask questions", async (ctx) => {
     if (!ctx.from || !ctx.session.journalEntryId) {
         await ctx.reply("No active journal entry found. Let's go back to the main menu.");
         if (ctx.from) {
@@ -304,7 +319,7 @@ bot.hears("🔍 Go Deeper, Ask Me", async (ctx) => {
     await handleGoDeeper(ctx);
 });
 
-bot.hears("❌ Cancel Entry", async (ctx) => {
+bot.hears("Cancel", async (ctx) => {
     if (!ctx.from || !ctx.session.journalEntryId) {
         await ctx.reply("No active journal entry found. Let's go back to the main menu.");
         if (ctx.from) {
@@ -454,9 +469,8 @@ bot.on('callback_query:data', async (ctx) => {
         const keyboard = new InlineKeyboard();
         
         entries.slice(0, 10).forEach((entry) => {
-            // Format date as [HH:MM DD/MM/YY]
             const date = new Date(entry.createdAt);
-            const formattedDate = `[${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}]`;
+            const formattedDate = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}]`;
             
             // Get text snippet from entry
             let textSnippet = "";
@@ -543,12 +557,12 @@ bot.on('message', async (ctx) => {
     if ('text' in ctx.message) {
         const text = ctx.message.text || '';
         if (
-            text === "📝 Create New Entry" ||
-            text === "📚 View Journal History" ||
-            text === "💬 Chat About My Journal" ||
-            text === "✅ Finish Entry" ||
-            text === "🔍 Go Deeper, Ask Me" ||
-            text === "❌ Cancel Entry" ||
+            text === "New Entry" ||
+            text === "Journal History" ||
+            text === "Ask My Journal" ||
+            text === "Save" ||
+            text === "Let's Go Deeper! Ask questions" ||
+            text === "Cancel" ||
             text === "✅ Finish Reflection" ||
             text === "❌ Exit Chat Mode"
         ) {
@@ -564,290 +578,81 @@ bot.on('message', async (ctx) => {
 async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
     if (!ctx.message || !ctx.from) return;
     
-    // Handle text messages for onboarding
-    if ('text' in ctx.message) {
-        const text = ctx.message.text || '';
-        
-        switch (ctx.session.onboardingStep) {
-            case 'name':
-                await updateUserProfile(ctx.from.id, { name: text });
-                ctx.session.onboardingStep = 'age';
-                
-                // Create age selection keyboard
-                const ageKeyboard = new Keyboard()
-                    .text("0-18")
-                    .text("18-24")
-                    .row()
-                    .text("25-34")
-                    .text("35-44")
-                    .row()
-                    .text("45-60")
-                    .text("60+")
-                    .resized();
-                
-                await ctx.reply(`<b>Nice to meet you, ${text}!</b> 😊\n\nHow old are you? Feel free to pick from these options:`, {
-                    reply_markup: ageKeyboard,
-                    parse_mode: 'HTML'
-                });
-                break;
-                
-            case 'age':
-                // Handle age selection
-                let age: number;
-                
-                // Parse age range or direct number
-                if (text === "0-18") age = 15;
-                else if (text === "18-24") age = 21;
-                else if (text === "25-34") age = 30;
-                else if (text === "35-44") age = 40;
-                else if (text === "45-60") age = 50;
-                else if (text === "60+") age = 65;
-                else {
-                    // Try to parse as direct number
-                    age = parseInt(text);
-                    if (isNaN(age) || age < 1 || age > 120) {
-                        await ctx.reply('Please select one of the age ranges or enter a valid age (a number between 1 and 120):');
-                        return;
-                    }
-                }
-                
-                await updateUserProfile(ctx.from.id, { age });
-                ctx.session.onboardingStep = 'gender';
-                
-                // Create gender selection keyboard
-                const genderKeyboard = new Keyboard()
-                    .text("Male")
-                    .text("Female")
-                    .row()
-                    .text("Non-binary")
-                    .text("Other")
-                    .resized();
-                
-                await ctx.reply('<b>Thanks!</b> And what gender do you identify as?', {
-                    reply_markup: genderKeyboard,
-                    parse_mode: 'HTML'
-                });
-                break;
-                
-            case 'gender':
-                await updateUserProfile(ctx.from.id, { gender: text });
-                ctx.session.onboardingStep = 'occupation';
-                await ctx.reply('<b>Got it!</b> What do you do for work or study?', {
-                    parse_mode: 'HTML'
-                });
-                break;
-                
-            case 'occupation':
-                await updateUserProfile(ctx.from.id, { occupation: text });
-                ctx.session.onboardingStep = 'bio';
-                
-                await ctx.reply('<b>Almost done!</b> Now for the fun part - tell me a bit more about yourself! 💫\n\nFeel free to share anything you want, like you\'re introducing yourself to a new friend (which I am, actually!).\n\nSome things you might want to share:\n\n<i>• Where are you from?</i>\n<i>• Where are you living now?</i>\n<i>• Do you travel often?</i>\n<i>• Are you in a relationship?</i>\n<i>• What sports or physical activities do you enjoy?</i>\n<i>• What are your hobbies?</i>\n<i>• What are your dreams and goals?</i>\n<i>• Do you have any pets?</i>\n<i>• Any spiritual practices?</i>\n\nYou can reply with text, voice message, or even a video!', {
-                    reply_markup: { remove_keyboard: true },
-                    parse_mode: 'HTML'
-                });
-                break;
-                
-            case 'bio':
-                await updateUserProfile(ctx.from.id, { bio: text, onboardingCompleted: true });
-                ctx.session.onboardingStep = undefined;
-                
-                // Get updated user
-                const updatedUser = await findOrCreateUser(
-                    ctx.from.id,
-                    ctx.from.first_name,
-                    ctx.from.last_name,
-                    ctx.from.username
-                );
-                
-                await ctx.reply(`<b>Amazing! Thanks for sharing, ${updatedUser.name || updatedUser.firstName}!</b> 🎉\n\nI'm so excited to be your journal buddy. Let's start this journey together!`, {
-                    parse_mode: 'HTML'
-                });
-                await showMainMenu(ctx, updatedUser);
-                break;
+    const step = ctx.session.onboardingStep;
+    const text = ctx.message?.text || '';
+
+    switch (step) {
+        case 'name': {
+            const userWithName = await updateUserProfile(ctx.from.id, { name: text });
+            ctx.session.onboardingStep = 'age';
+            await ctx.reply(`Nice to meet you, ${text}! What's your age range?`, {
+                reply_markup: ageKeyboard,
+                parse_mode: 'HTML'
+            });
+            break;
         }
-    } else if ('voice' in ctx.message && ctx.message.voice && ctx.session.onboardingStep === 'bio') {
-        // Handle voice message for bio
-        try {
-            await ctx.react("👍");
-            
-            // Download voice message
-            const fileId = ctx.message.voice.file_id;
-            const file = await ctx.api.getFile(fileId);
-            const filePath = file.file_path;
-            
-            if (!filePath) {
-                throw new Error('File path not found');
+        case 'age': {
+            if (!isValidAgeRange(text)) {
+                await ctx.reply("Please select a valid age range from the options provided.");
+                return;
             }
-            
-            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-            const tempDir = path.join(os.tmpdir(), 'journal-bot');
-            
-            // Create temp directory if it doesn't exist
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-            
-            const localFilePath = path.join(tempDir, `voice_${Date.now()}.oga`);
-            
-            // Download file
-            const response = await fetch(fileUrl);
-            const buffer = await response.arrayBuffer();
-            fs.writeFileSync(localFilePath, Buffer.from(buffer));
-            
-            // Send wait message with sand clock emoji
-            const waitMsg = await ctx.reply("⏳");
-            
-            // Transcribe audio
-            const transcription = await transcribeAudio(localFilePath);
-            
-            // Reply to the original message with the transcription
-            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
-            
-            // Parse bio information
-            const { parsedBio, structuredInfo } = await parseBioInformation(transcription);
-            
-            // Save bio with both raw transcription and parsed information
-            await updateUserProfile(ctx.from.id, { 
-                bio: transcription,
-                parsedBio: parsedBio,
-                onboardingCompleted: true 
-            });
-            
-            // Delete wait message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-            }
-            
-            // Get updated user
-            const updatedUser = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
-            
-            // Send the structured information
-            await ctx.reply(`${structuredInfo}`, {
+            const userWithAge = await updateUserProfile(ctx.from.id, { age: text });
+            ctx.session.onboardingStep = 'gender';
+            await ctx.reply("How do you identify yourself?", {
+                reply_markup: genderKeyboard,
                 parse_mode: 'HTML'
             });
-            
-            await ctx.reply(`<b>Welcome aboard, ${updatedUser.name || updatedUser.firstName}!</b> 🎉\n\nI'm so excited to be your journal buddy. Let's start this journey together!`, {
-                parse_mode: 'HTML'
-            });
-            await showMainMenu(ctx, updatedUser);
-            
-            // Clean up
-            fs.unlinkSync(localFilePath);
-        } catch (error) {
-            journalBotLogger.error('Error processing voice message for bio:', error);
-            await ctx.reply("Sorry, I had trouble processing your voice message. Could you try sending a text message instead?");
+            break;
         }
-    } else if (('video_note' in ctx.message && ctx.message.video_note) || ('video' in ctx.message && ctx.message.video) && ctx.session.onboardingStep === 'bio') {
-        // Handle video message for bio
-        try {
-            await ctx.react("👍");
-            
-            // Get file details
-            const fileId = 'video_note' in ctx.message && ctx.message.video_note 
-                ? ctx.message.video_note.file_id 
-                : (ctx.message.video ? ctx.message.video.file_id : '');
-                
-            if (!fileId) {
-                throw new Error('File ID not found');
+        case 'gender': {
+            if (!isValidGender(text)) {
+                await ctx.reply("Please select a valid option from the choices provided.");
+                return;
             }
-            
-            const file = await ctx.api.getFile(fileId);
-            const filePath = file.file_path;
-            
-            if (!filePath) {
-                throw new Error('File path not found');
-            }
-            
-            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-            const tempDir = path.join(os.tmpdir(), 'journal-bot');
-            
-            // Create temp directory if it doesn't exist
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-            
-            const localFilePath = path.join(tempDir, `video_${Date.now()}.mp4`);
-            
-            // Download file
-            const response = await fetch(fileUrl);
-            const buffer = await response.arrayBuffer();
-            fs.writeFileSync(localFilePath, Buffer.from(buffer));
-            
-            // Send wait message with sand clock emoji
-            const waitMsg = await ctx.reply("⏳");
-            
-            // Extract audio and transcribe it
-            let transcription;
-            try {
-                transcription = await transcribeAudio(localFilePath);
-            } catch (transcriptionError) {
-                journalBotLogger.error('Error transcribing video for bio:', transcriptionError);
-                transcription = "Could not transcribe audio from video. The video might not have clear audio.";
-            }
-            
-            // Reply to the original message with the transcription
-            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
-            
-            // Parse bio information
-            const { parsedBio, structuredInfo } = await parseBioInformation(transcription);
-            
-            // Save bio with both raw transcription and parsed information
-            await updateUserProfile(ctx.from.id, { 
-                bio: transcription,
-                parsedBio: parsedBio,
-                onboardingCompleted: true 
-            });
-            
-            // Delete wait message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-            }
-            
-            // Get updated user
-            const updatedUser = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
-            
-            // Send the structured information
-            await ctx.reply(`${structuredInfo}`, {
+            const userWithGender = await updateUserProfile(ctx.from.id, { gender: text });
+            ctx.session.onboardingStep = 'occupation';
+            await ctx.reply("What do you do? (Your occupation or role)", {
+                reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
-            
-            await ctx.reply(`<b>Welcome aboard, ${updatedUser.name || updatedUser.firstName}!</b> 🎉\n\nI'm so excited to be your journal buddy. Let's start this journey together!`, {
-                parse_mode: 'HTML'
-            });
-            await showMainMenu(ctx, updatedUser);
-            
-            // Clean up
-            fs.unlinkSync(localFilePath);
-        } catch (error) {
-            journalBotLogger.error('Error processing video message for bio:', error);
-            await ctx.reply("Sorry, I had trouble processing your video. Could you try sending a text message instead?");
+            break;
         }
-    } else {
-        await ctx.reply('Please send a text message, voice message, or video to continue with the setup.');
+        case 'occupation': {
+            const userWithOccupation = await updateUserProfile(ctx.from.id, { occupation: text });
+            ctx.session.onboardingStep = 'bio';
+            await ctx.reply("Tell me a bit about yourself - what makes you, you? 😊", {
+                parse_mode: 'HTML'
+            });
+            break;
+        }
+        case 'bio': {
+            const user = await updateUserProfile(ctx.from.id, { bio: text, onboardingCompleted: true });
+            if (!user) return;
+
+            ctx.session.onboardingStep = undefined;
+            
+            // Send user info message with proper formatting
+            const userInfo = `<b>Profile Info:</b>\n\nName: ${user.name}\nAge: ${user.age}\nGender: ${user.gender}\nOccupation: ${user.occupation}\nBio: ${user.bio}`;
+            await ctx.reply(userInfo, { parse_mode: 'HTML' });
+            
+            // Show main menu immediately without welcome message
+            await showMainMenu(ctx, user);
+            break;
+        }
     }
 }
 
 // Show main menu
 async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     const keyboard = new Keyboard()
-        .text("📝 Create New Entry")
+        .text("New Entry")
         .row()
-        .text("📚 View Journal History")
+        .text("Journal History")
         .row()
-        .text("💬 Chat About My Journal")
+        .text("Ask My Journal")
         .resized();
     
-    await ctx.reply(`<b>Hey ${user.name || user.firstName}!</b> 😊\n\nWhat's on your mind today?`, {
+    await ctx.reply(`So, ${user.name || user.firstName}… Wanna share something cool or just casually explore yourself? 😏`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -881,9 +686,9 @@ async function handleJournalEntry(ctx: JournalBotContext, user: IUser) {
     if ('text' in ctx.message) {
         const text = ctx.message.text || '';
         if (
-            text === "✅ Finish Entry" ||
-            text === "🔍 Go Deeper, Ask Me" ||
-            text === "❌ Cancel Entry" ||
+            text === "Save" ||
+            text === "Let's Go Deeper! Ask questions" ||
+            text === "Cancel" ||
             text === "✅ Finish Reflection"
         ) {
             return;
@@ -1264,11 +1069,11 @@ async function handleAnalyzeJournal(ctx: JournalBotContext) {
         
         // Show the same keyboard as initial entry
         const keyboard = new Keyboard()
-            .text("✅ Finish Entry")
+            .text("Save")
             .row()
-            .text("🔍 Go Deeper, Ask Me")
+            .text("Let's Go Deeper! Ask questions")
             .row()
-            .text("❌ Cancel Entry")
+            .text("Cancel")
             .resized();
         
         await ctx.reply(`<b>Feel free to share your thoughts on these questions</b>, or we can wrap up whenever you're ready!`, {
@@ -1607,11 +1412,11 @@ Format your response as a JSON object with the following structure:
         
         // Show the keyboard with options
         const keyboard = new Keyboard()
-            .text("✅ Finish Entry")
+            .text("Save")
             .row()
-            .text("🔍 Go Deeper, Ask Me")
+            .text("Let's Go Deeper! Ask questions")
             .row()
-            .text("❌ Cancel Entry")
+            .text("Cancel")
             .resized();
         
         await ctx.reply(`<b>What are your thoughts on these questions, ${user.name || user.firstName}?</b> Or would you like to wrap up this entry?`, {
@@ -1624,86 +1429,6 @@ Format your response as a JSON object with the following structure:
             parse_mode: 'HTML'
         });
         await showMainMenu(ctx, user);
-    }
-}
-
-// Helper function to parse bio information
-async function parseBioInformation(transcription: string): Promise<{
-    parsedBio: string;
-    structuredInfo: string;
-}> {
-    try {
-        // Create a prompt for OpenAI to extract structured information
-        const systemPrompt = `You are an assistant that extracts structured information from a user's introduction.
-Extract as many details as possible from the text about the following categories:
-- Location (where they're from, where they live now)
-- Travel (if they travel, where they've been, preferences)
-- Relationships (relationship status, family)
-- Sports/Activities (what physical activities they enjoy)
-- Hobbies/Interests (what they enjoy doing)
-- Dreams/Goals (what they aspire to)
-- Pets (if they have any, what kind)
-- Spiritual practices (if any)
-- Other interesting details
-
-Format your response as a JSON object with these categories as keys and the extracted information as values.
-If information for a category is not provided, use null as the value.
-Example: {"location": "Originally from Spain, now living in London", "travel": "Loves to travel, visited 20 countries", ...}`;
-
-        const chatMessages: ChatMessage[] = [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: transcription }
-        ];
-
-        // Call OpenAI API to extract structured information
-        const response = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: chatMessages,
-            temperature: 0.3,
-            max_tokens: 800,
-            response_format: { type: "json_object" }
-        });
-
-        const content = response.choices[0].message.content || "{}";
-        const parsedInfo = JSON.parse(content);
-
-        // Create a friendly summary of the extracted information
-        const systemPrompt2 = `You are a friendly, warm assistant that creates a personalized summary based on user information.
-Create a short, friendly paragraph that summarizes what you've learned about the user.
-Make it feel personal, warm, and conversational - like you're introducing a friend.
-Include specific details they've shared to show you've really listened.
-Keep it concise (3-5 sentences) but detailed and engaging.`;
-
-        const infoSummary = Object.entries(parsedInfo)
-            .filter(([_, value]) => value !== null)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('\n');
-
-        const chatMessages2: ChatMessage[] = [
-            { role: 'system', content: systemPrompt2 },
-            { role: 'user', content: infoSummary }
-        ];
-
-        // Call OpenAI API to create a friendly summary
-        const response2 = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: chatMessages2,
-            temperature: 0.7,
-            max_tokens: 400
-        });
-
-        const structuredInfo = response2.choices[0].message.content || "Thanks for sharing about yourself!";
-
-        return {
-            parsedBio: JSON.stringify(parsedInfo),
-            structuredInfo
-        };
-    } catch (error) {
-        console.error('Error parsing bio information:', error);
-        return {
-            parsedBio: transcription,
-            structuredInfo: "Thanks for sharing about yourself! I've saved your introduction."
-        };
     }
 }
 

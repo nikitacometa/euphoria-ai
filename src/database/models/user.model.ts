@@ -8,12 +8,10 @@ export interface IUser extends Document {
     username?: string;
     // Journal application specific fields
     name?: string; // Preferred name to call the user
-    age?: number;
+    age?: string;
     gender?: string;
-    religion?: string;
     occupation?: string;
     bio?: string; // User's detailed bio information
-    parsedBio?: string; // Structured bio information in JSON format
     onboardingCompleted?: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -46,14 +44,10 @@ const userSchema = new Schema<IUser>(
             required: false
         },
         age: {
-            type: Number,
-            required: false
-        },
-        gender: {
             type: String,
             required: false
         },
-        religion: {
+        gender: {
             type: String,
             required: false
         },
@@ -62,10 +56,6 @@ const userSchema = new Schema<IUser>(
             required: false
         },
         bio: {
-            type: String,
-            required: false
-        },
-        parsedBio: {
             type: String,
             required: false
         },
@@ -117,12 +107,10 @@ export async function updateUserProfile(
     telegramId: number,
     updates: {
         name?: string;
-        age?: number;
+        age?: string;
         gender?: string;
-        religion?: string;
         occupation?: string;
         bio?: string;
-        parsedBio?: string;
         onboardingCompleted?: boolean;
     }
 ): Promise<IUser | null> {

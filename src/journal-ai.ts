@@ -3,7 +3,7 @@ import { GPT_VERSION, OPENAI_API_KEY } from "./config";
 import { IMessage, MessageRole, MessageType } from "./database/models/message.model";
 import { IJournalEntry } from "./database/models/journal.model";
 import { IUser } from "./database/models/user.model";
-import { createLogger, LogLevel } from "./utils/logger";
+import { createLogger } from "./utils/logger";
 import { LOG_LEVEL } from "./config";
 
 // Create a logger for the journal AI
@@ -62,13 +62,12 @@ Focus on the most significant aspects: core emotions, key patterns, and main ins
 - Name: ${user.name || user.firstName}
 - Age: ${user.age || 'Unknown'}
 - Gender: ${user.gender || 'Unknown'}
-- Religion: ${user.religion || 'Unknown'}
 - Occupation: ${user.occupation || 'Unknown'}
 - Bio: ${user.bio || 'Unknown'}`;
 
         const chatMessages: ChatMessage[] = [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}\n\nPlease analyze this journal entry and provide the 3 most important insights as short bullet points.` }
+            { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}` }
         ];
         
         // Call OpenAI API
@@ -79,10 +78,10 @@ Focus on the most significant aspects: core emotions, key patterns, and main ins
             max_tokens: 300
         });
         
-        return response.choices[0].message.content || "Unable to generate analysis.";
+        return response.choices[0].message.content || "Could not generate insights.";
     } catch (error) {
         journalAiLogger.error('Error analyzing journal entry:', error);
-        return "Sorry, I encountered an error while analyzing your journal entry.";
+        return "Sorry, I encountered an error while analyzing your entry.";
     }
 }
 
@@ -131,13 +130,12 @@ Example format: {"questions": ["How did that make you feel?", "What would you do
 - Name: ${user.name || user.firstName}
 - Age: ${user.age || 'Unknown'}
 - Gender: ${user.gender || 'Unknown'}
-- Religion: ${user.religion || 'Unknown'}
 - Occupation: ${user.occupation || 'Unknown'}
 - Bio: ${user.bio || 'Unknown'}`;
 
         const chatMessages: ChatMessage[] = [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}\n\nPlease generate 2-3 thoughtful follow-up questions.` }
+            { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}` }
         ];
         
         // Call OpenAI API
@@ -145,45 +143,24 @@ Example format: {"questions": ["How did that make you feel?", "What would you do
             model: GPT_VERSION,
             messages: chatMessages,
             temperature: 0.7,
-            max_tokens: 500,
+            max_tokens: 300,
             response_format: { type: "json_object" }
         });
         
         const content = response.choices[0].message.content || "{}";
+        let parsedResponse;
         
         try {
-            const parsedResponse = JSON.parse(content);
-            
-            // Check if questions array exists and has items
-            if (parsedResponse.questions && Array.isArray(parsedResponse.questions) && parsedResponse.questions.length > 0) {
-                return parsedResponse.questions;
-            }
-            
-            // If no valid questions array, log and return default questions
-            journalAiLogger.warn('No valid questions array in response:', content);
-            return [
-                "What emotions came up for you while writing this?",
-                "How does this connect to other parts of your life?",
-                "What insights can you take from this experience?"
-            ];
-        } catch (e) {
-            journalAiLogger.error('Error parsing questions JSON:', e);
-            journalAiLogger.error('Raw content:', content);
-            
-            // Return default questions if parsing fails
-            return [
-                "What else would you like to share about this?", 
-                "How did this make you feel?", 
-                "What insights have you gained from this?"
-            ];
+            parsedResponse = JSON.parse(content);
+        } catch (error) {
+            journalAiLogger.error('Error parsing JSON response:', error);
+            return ["What else would you like to explore?"];
         }
+        
+        return parsedResponse.questions || ["What else would you like to explore?"];
     } catch (error) {
         journalAiLogger.error('Error generating journal questions:', error);
-        return [
-            "What else would you like to share?", 
-            "How are you feeling about this?", 
-            "Is there anything more you'd like to explore?"
-        ];
+        return ["What else would you like to explore?"];
     }
 }
 
@@ -242,7 +219,6 @@ Do not make up information or provide generic advice if the data is insufficient
 - Name: ${user.name || user.firstName}
 - Age: ${user.age || 'Unknown'}
 - Gender: ${user.gender || 'Unknown'}
-- Religion: ${user.religion || 'Unknown'}
 - Occupation: ${user.occupation || 'Unknown'}
 - Bio: ${user.bio || 'Unknown'}`;
 
@@ -267,9 +243,9 @@ Do not make up information or provide generic advice if the data is insufficient
             max_tokens: 300
         });
         
-        return response.choices[0].message.content || "Unable to generate insights.";
+        return response.choices[0].message.content || "I couldn't find any significant patterns in your entries yet.";
     } catch (error) {
         journalAiLogger.error('Error generating journal insights:', error);
-        return `Sorry ${user.name || user.firstName}, I encountered an error while generating insights from your journal entries.`;
+        return "Sorry, I encountered an error while analyzing your journal entries.";
     }
 } 
