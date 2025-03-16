@@ -75,7 +75,7 @@ function isValidGender(gender: string): boolean {
 // Helper function to send transcription as a reply
 async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
     // Reply to the original message with the transcription in a single message
-    await ctx.reply(`<b>Text:</b>\n\n<code>${transcription}</code>`, {
+    await ctx.reply(`<b>I've heard you said this:</b>\n\n<code>${transcription}</code>`, {
         reply_to_message_id: messageId,
         parse_mode: 'HTML'
     });
@@ -131,7 +131,7 @@ const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotCon
 bot.command('start', handleStartCommand);
 
 // Register main menu button handlers
-bot.hears("New Entry", async (ctx) => {
+bot.hears("📝 New Entry", async (ctx) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -149,11 +149,11 @@ bot.hears("New Entry", async (ctx) => {
         ctx.session.journalEntryId = activeEntry._id?.toString() || '';
         
         const keyboard = new Keyboard()
-            .text("Save")
+            .text("✅ Save")
             .row()
-            .text("Let's Go Deeper! Ask questions")
+            .text("🔍 Analyze & Suggest Questions")
             .row()
-            .text("Cancel")
+            .text("❌ Cancel")
             .resized();
         
         await ctx.reply(`<b>Hey ${user.name || user.firstName}!</b>\n\nYou already have an entry in progress. Want to continue where you left off? You can add more thoughts or choose an option below:`, {
@@ -166,11 +166,11 @@ bot.hears("New Entry", async (ctx) => {
         ctx.session.journalEntryId = entry._id?.toString() || '';
         
         const keyboard = new Keyboard()
-            .text("Save")
+            .text("✅ Save")
             .row()
-            .text("Let's Go Deeper! Ask questions")
+            .text("🔍 Analyze & Suggest Questions")
             .row()
-            .text("Cancel")
+            .text("❌ Cancel")
             .resized();
         
         await ctx.reply(`<b>Let's create a new journal entry, ${user.name || user.firstName}!</b> 📝✨\n\nShare whatever's on your mind - your thoughts, feelings, experiences... anything at all! You can send text, voice messages, or videos.\n\nI'm here to listen and help you reflect. When you're ready, just choose one of the options below:`, {
@@ -180,7 +180,7 @@ bot.hears("New Entry", async (ctx) => {
     }
 });
 
-bot.hears("Journal History", async (ctx) => {
+bot.hears("📚 Journal History", async (ctx) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -233,7 +233,7 @@ bot.hears("Journal History", async (ctx) => {
     });
 });
 
-bot.hears("Ask My Journal", async (ctx) => {
+bot.hears("🤔 Ask My Journal", async (ctx) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -269,7 +269,7 @@ bot.hears("Ask My Journal", async (ctx) => {
 });
 
 // Register entry action button handlers
-bot.hears("Save", async (ctx) => {
+bot.hears("✅ Save", async (ctx) => {
     if (!ctx.from || !ctx.session.journalEntryId) {
         await ctx.reply("No active journal entry found. Let's go back to the main menu.");
         if (ctx.from) {
@@ -294,20 +294,8 @@ bot.hears("Save", async (ctx) => {
     await finishJournalEntry(ctx, user);
 });
 
-bot.hears("Let's Go Deeper! Ask questions", async (ctx) => {
-    if (!ctx.from || !ctx.session.journalEntryId) {
-        await ctx.reply("No active journal entry found. Let's go back to the main menu.");
-        if (ctx.from) {
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
-            await showMainMenu(ctx, user);
-        }
-        return;
-    }
+bot.hears("🔍 Analyze & Suggest Questions", async (ctx) => {
+    if (!ctx.from) return;
     
     const user = await findOrCreateUser(
         ctx.from.id,
@@ -316,10 +304,73 @@ bot.hears("Let's Go Deeper! Ask questions", async (ctx) => {
         ctx.from.username
     );
     
-    await handleGoDeeper(ctx);
+    if (!ctx.session.journalEntryId) {
+        await ctx.reply(`<b>Hey ${user.name || user.firstName}</b>, you don't have an active journal entry yet. Let's create one first!`, {
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
+        return;
+    }
+    
+    try {
+        const entryId = new Types.ObjectId(ctx.session.journalEntryId);
+        const entry = await getJournalEntryById(entryId);
+        
+        if (!entry) {
+            ctx.session.journalEntryId = undefined;
+            await ctx.reply(`<b>Hmm, I can't seem to find your journal entry.</b> Let's start fresh!`, {
+                parse_mode: 'HTML'
+            });
+            await showMainMenu(ctx, user);
+            return;
+        }
+        
+        // Send wait message with sand clock emoji
+        const waitMsg = await ctx.reply("⏳");
+        
+        // Generate questions directly without analysis
+        const questions = await generateJournalQuestions(entry, user);
+        
+        // Update the journal entry with the questions
+        await updateJournalEntryQuestions(entryId, questions);
+        
+        // Delete wait message
+        if (ctx.chat) {
+            await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
+        }
+        
+        // Send questions in one message
+        if (questions.length > 0) {
+            const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
+            await ctx.reply(`<b>I've been thinking about what you shared, ${user.name || user.firstName}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n${questionsText}`, {
+                parse_mode: 'HTML'
+            });
+        }
+        
+        // Show the same keyboard as initial entry
+        const keyboard = new Keyboard()
+            .text("✅ Save")
+            .row()
+            .text("🔍 Analyze & Suggest Questions")
+            .row()
+            .text("❌ Cancel")
+            .resized();
+        
+        await ctx.reply(`Continue sharing your thoughts, or choose an option below:`, {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
+        
+    } catch (error) {
+        logger.error('Error in Analyze Journal handler:', error);
+        await ctx.reply(`<b>Oops!</b> My brain got a little fuzzy there. Let's try again later, ${user.name || user.firstName}!`, {
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
+    }
 });
 
-bot.hears("Cancel", async (ctx) => {
+bot.hears("❌ Cancel", async (ctx) => {
     if (!ctx.from || !ctx.session.journalEntryId) {
         await ctx.reply("No active journal entry found. Let's go back to the main menu.");
         if (ctx.from) {
@@ -557,12 +608,12 @@ bot.on('message', async (ctx) => {
     if ('text' in ctx.message) {
         const text = ctx.message.text || '';
         if (
-            text === "New Entry" ||
-            text === "Journal History" ||
-            text === "Ask My Journal" ||
-            text === "Save" ||
-            text === "Let's Go Deeper! Ask questions" ||
-            text === "Cancel" ||
+            text === "📝 New Entry" ||
+            text === "📚 Journal History" ||
+            text === "🤔 Ask My Journal" ||
+            text === "✅ Save" ||
+            text === "🔍 Analyze & Suggest Questions" ||
+            text === "❌ Cancel" ||
             text === "✅ Finish Reflection" ||
             text === "❌ Exit Chat Mode"
         ) {
@@ -645,11 +696,11 @@ async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
 // Show main menu
 async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     const keyboard = new Keyboard()
-        .text("New Entry")
+        .text("📝 New Entry")
         .row()
-        .text("Journal History")
+        .text("📚 Journal History")
         .row()
-        .text("Ask My Journal")
+        .text("🤔 Ask My Journal")
         .resized();
     
     await ctx.reply(`So, ${user.name || user.firstName}… Wanna share something cool or just casually explore yourself? 😏`, {
@@ -686,9 +737,9 @@ async function handleJournalEntry(ctx: JournalBotContext, user: IUser) {
     if ('text' in ctx.message) {
         const text = ctx.message.text || '';
         if (
-            text === "Save" ||
-            text === "Let's Go Deeper! Ask questions" ||
-            text === "Cancel" ||
+            text === "✅ Save" ||
+            text === "🔍 Analyze & Suggest Questions" ||
+            text === "❌ Cancel" ||
             text === "✅ Finish Reflection"
         ) {
             return;
@@ -1069,14 +1120,14 @@ async function handleAnalyzeJournal(ctx: JournalBotContext) {
         
         // Show the same keyboard as initial entry
         const keyboard = new Keyboard()
-            .text("Save")
+            .text("✅ Save")
             .row()
-            .text("Let's Go Deeper! Ask questions")
+            .text("🔍 Analyze & Suggest Questions")
             .row()
-            .text("Cancel")
+            .text("❌ Cancel")
             .resized();
         
-        await ctx.reply(`<b>Feel free to share your thoughts on these questions</b>, or we can wrap up whenever you're ready!`, {
+        await ctx.reply(`Continue sharing your thoughts, or choose an option below:`, {
             reply_markup: keyboard,
             parse_mode: 'HTML'
         });
@@ -1412,11 +1463,11 @@ Format your response as a JSON object with the following structure:
         
         // Show the keyboard with options
         const keyboard = new Keyboard()
-            .text("Save")
+            .text("✅ Save")
             .row()
-            .text("Let's Go Deeper! Ask questions")
+            .text("🔍 Analyze & Suggest Questions")
             .row()
-            .text("Cancel")
+            .text("❌ Cancel")
             .resized();
         
         await ctx.reply(`<b>What are your thoughts on these questions, ${user.name || user.firstName}?</b> Or would you like to wrap up this entry?`, {
