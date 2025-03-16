@@ -35,6 +35,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import OpenAI from 'openai';
+import { notificationService } from './services/notification.service';
 
 // Create OpenAI instance
 const openai = new OpenAI({
@@ -98,6 +99,7 @@ interface JournalBotSession {
     journalEntryId?: string;
     journalChatMode?: boolean;
     waitingForJournalQuestion?: boolean;
+    waitingForNotificationTime?: boolean;
 }
 
 // Define context type
@@ -144,6 +146,55 @@ bot.command('start', handleStartCommand);
 bot.hears("📝 New Entry", async (ctx) => {
     if (!ctx.from) return;
     
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    // Check if there's an active entry
+    const activeEntry = await getActiveJournalEntry(user._id as unknown as Types.ObjectId);
+    
+    if (activeEntry) {
+        ctx.session.journalEntryId = activeEntry._id?.toString() || '';
+        
+        const keyboard = new Keyboard()
+            .text("✅ Save")
+            .row()
+            .text("🔍 Analyze & Suggest Questions")
+            .row()
+            .text("❌ Cancel")
+            .resized();
+        
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, you have an unfinished entry. Would you like to continue? ✨`, {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
+    } else {
+        const entry = await createJournalEntry(user._id as unknown as Types.ObjectId);
+        ctx.session.journalEntryId = entry._id?.toString() || '';
+        
+        const keyboard = new Keyboard()
+            .text("✅ Save")
+            .row()
+            .text("🔍 Analyze & Suggest Questions")
+            .row()
+            .text("❌ Cancel")
+            .resized();
+        
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, share your thoughts through text, voice, or video ✨`, {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
+    }
+});
+
+// Handle notification Share button
+bot.hears("✅ Share", async (ctx) => {
+    if (!ctx.from) return;
+    
+    // Same functionality as "📝 New Entry" button
     const user = await findOrCreateUser(
         ctx.from.id,
         ctx.from.first_name,
@@ -276,6 +327,39 @@ bot.hears("🤔 Ask My Journal", async (ctx) => {
     });
 });
 
+// Settings handler
+bot.hears("⚙️ Settings", async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(
+        ctx.from.id,
+        ctx.from.first_name,
+        ctx.from.last_name,
+        ctx.from.username
+    );
+    
+    const keyboard = new InlineKeyboard()
+        .text(user.notificationsEnabled ? "🔔 Disable Notifications" : "🔔 Enable Notifications", "toggle_notifications")
+        .row()
+        .text("⏰ Set Notification Time", "set_notification_time")
+        .row()
+        .text("↩️ Back to Main Menu", "main_menu");
+    
+    const status = user.notificationsEnabled ? "enabled" : "disabled";
+    const time = user.notificationTime || "not set";
+    
+    await ctx.reply(
+        `<b>Settings</b> ⚙️\n\n` +
+        `Notifications: ${status}\n` +
+        `Time: ${time}\n\n` +
+        `What would you like to change?`,
+        {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        }
+    );
+});
+
 // Register entry action button handlers
 bot.hears("✅ Save", async (ctx) => {
     if (!ctx.from || !ctx.session.journalEntryId) {
@@ -379,19 +463,7 @@ bot.hears("🔍 Analyze & Suggest Questions", async (ctx) => {
 });
 
 bot.hears("❌ Cancel", async (ctx) => {
-    if (!ctx.from || !ctx.session.journalEntryId) {
-        await ctx.reply("No active journal entry found. Let's go back to the main menu.");
-        if (ctx.from) {
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
-            await showMainMenu(ctx, user);
-        }
-        return;
-    }
+    if (!ctx.from) return;
     
     const user = await findOrCreateUser(
         ctx.from.id,
@@ -400,10 +472,29 @@ bot.hears("❌ Cancel", async (ctx) => {
         ctx.from.username
     );
     
-    ctx.session.journalEntryId = undefined;
-    await ctx.reply(`Your entry has been cancelled, ${user.name || user.firstName}. We can start fresh anytime ✨`, {
-        parse_mode: 'HTML'
-    });
+    // If in journal entry mode, handle cancel normally
+    if (ctx.session.journalEntryId) {
+        // Call the existing cancel handler for journal entries
+        const entryId = ctx.session.journalEntryId;
+        ctx.session.journalEntryId = undefined;
+        await ctx.reply(`Your entry has been cancelled, ${user.name || user.firstName}. We can start fresh anytime ✨`, {
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
+        return;
+    }
+    
+    // If waiting for notification time, cancel that
+    if (ctx.session.waitingForNotificationTime) {
+        ctx.session.waitingForNotificationTime = false;
+        await ctx.reply(`No problem, ${user.name || user.firstName}. Your notification settings remain unchanged ✨`, {
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
+        return;
+    }
+    
+    // Default behavior - show main menu
     await showMainMenu(ctx, user);
 });
 
@@ -459,6 +550,67 @@ bot.on('callback_query:data', async (ctx) => {
     if (data === 'main_menu') {
         await ctx.answerCallbackQuery();
         await showMainMenu(ctx, user);
+        return;
+    }
+    
+    if (data === 'toggle_notifications') {
+        await ctx.answerCallbackQuery();
+        // Toggle notifications
+        const newStatus = !user.notificationsEnabled;
+        await notificationService.updateUserNotificationSettings(
+            user.telegramId,
+            newStatus
+        );
+        
+        // Refresh user data
+        const updatedUser = await findOrCreateUser(
+            ctx.from.id,
+            ctx.from.first_name,
+            ctx.from.last_name,
+            ctx.from.username
+        );
+        
+        // Refresh settings menu
+        const keyboard = new InlineKeyboard()
+            .text(newStatus ? "🔔 Disable Notifications" : "🔔 Enable Notifications", "toggle_notifications")
+            .row()
+            .text("⏰ Set Notification Time", "set_notification_time")
+            .row()
+            .text("↩️ Back to Main Menu", "main_menu");
+        
+        const status = newStatus ? "enabled" : "disabled";
+        const time = updatedUser.notificationTime || "not set";
+        
+        await ctx.editMessageText(
+            `<b>Settings</b> ⚙️\n\n` +
+            `Notifications: ${status}\n` +
+            `Time: ${time}\n\n` +
+            `What would you like to change?`,
+            {
+                reply_markup: keyboard,
+                parse_mode: 'HTML'
+            }
+        );
+        return;
+    }
+    
+    if (data === 'set_notification_time') {
+        await ctx.answerCallbackQuery();
+        ctx.session.waitingForNotificationTime = true;
+        
+        const keyboard = new Keyboard()
+            .text("❌ Cancel")
+            .resized();
+        
+        await ctx.reply(
+            `<b>Set Notification Time</b> ⏰\n\n` +
+            `Please enter the time in 24-hour format (HH:mm)\n` +
+            `For example: 09:00 or 21:00`,
+            {
+                reply_markup: keyboard,
+                parse_mode: 'HTML'
+            }
+        );
         return;
     }
     
@@ -612,6 +764,29 @@ bot.on('message', async (ctx) => {
         return;
     }
     
+    // Handle notification time input
+    if (ctx.session.waitingForNotificationTime && 'text' in ctx.message) {
+        const time = ctx.message.text;
+        if (time && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+            await notificationService.updateUserNotificationSettings(
+                user.telegramId,
+                true,
+                time
+            );
+            
+            ctx.session.waitingForNotificationTime = false;
+            await ctx.reply(`Great! I'll send you notifications at ${time} 🌟`);
+            await showMainMenu(ctx, user);
+            return;
+        } else {
+            await ctx.reply(
+                "Please enter a valid time in 24-hour format (HH:mm)\n" +
+                "For example: 09:00 or 21:00"
+            );
+            return;
+        }
+    }
+    
     // Skip text messages that are handled by specific hears() handlers
     if ('text' in ctx.message) {
         const text = ctx.message.text || '';
@@ -619,7 +794,9 @@ bot.on('message', async (ctx) => {
             text === "📝 New Entry" ||
             text === "📚 Journal History" ||
             text === "🤔 Ask My Journal" ||
+            text === "⚙️ Settings" ||
             text === "✅ Save" ||
+            text === "✅ Share" ||
             text === "🔍 Analyze & Suggest Questions" ||
             text === "❌ Cancel" ||
             text === "✅ Finish Reflection" ||
@@ -753,6 +930,8 @@ async function showMainMenu(ctx: JournalBotContext, user: IUser) {
         .text("📚 Journal History")
         .row()
         .text("🤔 Ask My Journal")
+        .row()
+        .text("⚙️ Settings")
         .resized();
     
     await ctx.reply(`Welcome back, ${user.name || user.firstName}! Ready to explore your thoughts? ✨`, {
@@ -1361,7 +1540,7 @@ async function handleJournalChat(ctx: JournalBotContext, user: IUser) {
             try {
                 transcription = await transcribeAudio(localFilePath);
             } catch (transcriptionError) {
-                journalBotLogger.error('Error transcribing video in chat mode:', transcriptionError);
+                journalBotLogger.error('Error transcribing video:', transcriptionError);
                 transcription = "Could not transcribe audio from video. The video might not have clear audio.";
             }
             
@@ -1545,6 +1724,12 @@ Format as JSON:
 bot.catch((err: Error) => {
     logger.error('Bot error:', err);
 });
+
+// Start the bot
+bot.start();
+
+// Start the notification service
+notificationService.start();
 
 // Export the bot
 export { bot as journalBot }; 

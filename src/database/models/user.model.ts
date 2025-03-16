@@ -13,6 +13,10 @@ export interface IUser extends Document {
     occupation?: string;
     bio?: string; // User's detailed bio information
     onboardingCompleted?: boolean;
+    // Notification settings
+    notificationsEnabled?: boolean;
+    notificationTime?: string; // Format: "HH:mm" (24-hour)
+    lastNotificationSent?: Date;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -62,6 +66,27 @@ const userSchema = new Schema<IUser>(
         onboardingCompleted: {
             type: Boolean,
             default: false
+        },
+        // Notification settings
+        notificationsEnabled: {
+            type: Boolean,
+            default: true
+        },
+        notificationTime: {
+            type: String,
+            default: "21:00",
+            required: false,
+            validate: {
+                validator: function(v: string) {
+                    if (!v) return true; // Allow empty string
+                    return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+                },
+                message: props => `${props.value} is not a valid time format! Use HH:mm (24-hour)`
+            }
+        },
+        lastNotificationSent: {
+            type: Date,
+            required: false
         }
     },
     {
