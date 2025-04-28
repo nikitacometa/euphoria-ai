@@ -8,10 +8,6 @@ import {
     saveTextMessage, 
     saveVoiceMessage,
     saveVideoMessage,
-    MessageType,
-    MessageRole,
-    IUser,
-    IMessage,
     createJournalEntry,
     getActiveJournalEntry,
     addMessageToJournalEntry,
@@ -21,21 +17,44 @@ import {
     updateJournalEntryInsights,
     completeJournalEntry,
     getUserJournalEntries,
-    JournalEntryStatus,
-    IJournalEntry,
     getJournalEntryById,
     updateJournalEntryFullText
 } from './database';
 import { Types } from 'mongoose';
 import { logger, createLogger } from './utils/logger';
 import { withCommandLogging } from './utils/command-logger';
-import { analyzeJournalEntry, generateJournalQuestions, generateJournalInsights } from './journal-ai';
-import { transcribeAudio } from './chatgpt';
+import { 
+    analyzeJournalEntry, 
+    generateJournalQuestions, 
+    generateJournalInsights 
+} from './services/ai/journal-ai.service';
+import { transcribeAudio } from './services/ai/openai.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import OpenAI from 'openai';
 import { notificationService } from './services/notification.service';
+
+// Import shared types
+import {
+    IUser, 
+    IMessage, 
+    IJournalEntry, 
+    JournalEntryStatus, 
+    MessageType, 
+    MessageRole
+} from './types/models';
+import { JournalBotSession, JournalBotContext } from './types/session';
+import { startOnboarding } from './features/onboarding/handlers';
+import { registerOnboardingHandlers } from './features/onboarding';
+import { registerJournalEntryHandlers } from './features/journal-entry';
+
+// Import the specific handlers/utils needed by remaining functions in this file
+import { 
+    finishJournalEntryHandler, 
+    analyzeAndSuggestQuestionsHandler 
+} from './features/journal-entry/handlers';
+import { sendTranscriptionReply } from './features/journal-entry/utils';
 
 // Create OpenAI instance
 const openai = new OpenAI({
@@ -51,60 +70,6 @@ interface ChatMessage {
 // Create a logger for the journal bot
 const journalBotLogger = createLogger('JournalBot', LOG_LEVEL);
 
-// Define age ranges and gender options
-const AGE_RANGES = [
-    "18-24",
-    "25-34",
-    "35-44",
-    "45-54",
-    "55+"
-];
-
-const GENDER_OPTIONS = [
-    "Male",
-    "Female",
-    "Non-binary",
-    "Prefer not to say"
-];
-
-// Create keyboards for onboarding
-const ageKeyboard = new Keyboard();
-AGE_RANGES.forEach(age => ageKeyboard.text(age).row());
-ageKeyboard.resized();
-
-const genderKeyboard = new Keyboard();
-GENDER_OPTIONS.forEach(gender => genderKeyboard.text(gender).row());
-genderKeyboard.resized();
-
-// Validation functions
-function isValidAgeRange(age: string): boolean {
-    return AGE_RANGES.includes(age);
-}
-
-function isValidGender(gender: string): boolean {
-    return GENDER_OPTIONS.includes(gender);
-}
-
-// Helper function to send transcription as a reply
-async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
-    await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${transcription}</code>`, {
-        reply_to_message_id: messageId,
-        parse_mode: 'HTML'
-    });
-}
-
-// Define session interface
-interface JournalBotSession {
-    onboardingStep?: 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'complete';
-    journalEntryId?: string;
-    journalChatMode?: boolean;
-    waitingForJournalQuestion?: boolean;
-    waitingForNotificationTime?: boolean;
-}
-
-// Define context type
-type JournalBotContext = Context & SessionFlavor<JournalBotSession>;
-
 // Create bot instance
 const bot = new Bot<JournalBotContext>(TELEGRAM_API_TOKEN);
 
@@ -116,6 +81,11 @@ bot.use(session({
 // Connect to MongoDB
 connectToDatabase().catch(error => journalBotLogger.error('Failed to connect to MongoDB:', error));
 
+// === FEATURE REGISTRATION ===
+registerOnboardingHandlers(bot);
+registerJournalEntryHandlers(bot);
+// ============================
+
 // Start command handler
 const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
@@ -124,122 +94,16 @@ const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotCon
     
     if (user.onboardingCompleted) {
         await showMainMenu(ctx, user);
-        return;
+    } else {
+        await startOnboarding(ctx);
     }
-
-    ctx.session.onboardingStep = 'name';
-    
-    const keyboard = new Keyboard()
-        .text(ctx.from.first_name)
-        .resized();
-
-    await ctx.reply("Hi! I'm Infinity, your personal guide to self-discovery ✨\nWhat shall I call you?", {
-        reply_markup: keyboard,
-        parse_mode: 'HTML'
-    });
 });
 
 // Register the start command
 bot.command('start', handleStartCommand);
 
-// Register main menu button handlers
-bot.hears("📝 New Entry", async (ctx) => {
-    if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    // Check if there's an active entry
-    const activeEntry = await getActiveJournalEntry(user._id as unknown as Types.ObjectId);
-    
-    if (activeEntry) {
-        ctx.session.journalEntryId = activeEntry._id?.toString() || '';
-        
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, you have an unfinished entry. Would you like to continue? ✨`, {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
-    } else {
-        const entry = await createJournalEntry(user._id as unknown as Types.ObjectId);
-        ctx.session.journalEntryId = entry._id?.toString() || '';
-        
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, share your thoughts through text, voice, or video ✨`, {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
-    }
-});
-
-// Handle notification Share button
-bot.hears("✅ Share", async (ctx) => {
-    if (!ctx.from) return;
-    
-    // Same functionality as "📝 New Entry" button
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    // Check if there's an active entry
-    const activeEntry = await getActiveJournalEntry(user._id as unknown as Types.ObjectId);
-    
-    if (activeEntry) {
-        ctx.session.journalEntryId = activeEntry._id?.toString() || '';
-        
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, you have an unfinished entry. Would you like to continue? ✨`, {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
-    } else {
-        const entry = await createJournalEntry(user._id as unknown as Types.ObjectId);
-        ctx.session.journalEntryId = entry._id?.toString() || '';
-        
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, share your thoughts through text, voice, or video ✨`, {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
-    }
-});
-
-bot.hears("📚 Journal History", async (ctx) => {
+// Keep handlers for features not yet extracted
+bot.hears("📚 Journal History", async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -292,7 +156,7 @@ bot.hears("📚 Journal History", async (ctx) => {
     });
 });
 
-bot.hears("🤔 Ask My Journal", async (ctx) => {
+bot.hears("🤔 Ask My Journal", async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -328,7 +192,7 @@ bot.hears("🤔 Ask My Journal", async (ctx) => {
 });
 
 // Settings handler
-bot.hears("⚙️ Settings", async (ctx) => {
+bot.hears("⚙️ Settings", async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -360,163 +224,8 @@ bot.hears("⚙️ Settings", async (ctx) => {
     );
 });
 
-// Register entry action button handlers
-bot.hears("✅ Save", async (ctx) => {
-    if (!ctx.from || !ctx.session.journalEntryId) {
-        await ctx.reply("No active journal entry found. Let's go back to the main menu.");
-        if (ctx.from) {
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
-            await showMainMenu(ctx, user);
-        }
-        return;
-    }
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    await finishJournalEntry(ctx, user);
-});
-
-bot.hears("🔍 Analyze & Suggest Questions", async (ctx) => {
-    if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    if (!ctx.session.journalEntryId) {
-        await ctx.reply(`<b>Hey ${user.name || user.firstName}</b>, you don't have an active journal entry yet. Let's create one first!`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    try {
-        const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-        const entry = await getJournalEntryById(entryId);
-        
-        if (!entry) {
-            ctx.session.journalEntryId = undefined;
-            await ctx.reply(`<b>Hmm, I can't seem to find your journal entry.</b> Let's start fresh!`, {
-                parse_mode: 'HTML'
-            });
-            await showMainMenu(ctx, user);
-            return;
-        }
-        
-        // Send wait message with sand clock emoji
-        const waitMsg = await ctx.reply("⏳");
-        
-        // Generate questions directly without analysis
-        const questions = await generateJournalQuestions(entry, user);
-        
-        // Update the journal entry with the questions
-        await updateJournalEntryQuestions(entryId, questions);
-        
-        // Delete wait message
-        if (ctx.chat) {
-            await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-        }
-        
-        // Send questions in one message
-        if (questions.length > 0) {
-            const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-            await ctx.reply(`<b>Mmm... ${user.name || user.firstName}, your thoughts are fascinating 🤔</b>\n\n<b>Let me tickle your mind with these:</b>\n\n${questionsText}`, {
-                parse_mode: 'HTML'
-            });
-        }
-        
-        // Show the same keyboard as initial entry
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`Keep sharing your inner world with me, or choose what's next... 💫`, {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
-        
-    } catch (error) {
-        logger.error('Error in Analyze Journal handler:', error);
-        await ctx.reply(`<b>Oops!</b> My brain got a little fuzzy there. Let's try again later, ${user.name || user.firstName}!`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-    }
-});
-
-bot.hears("❌ Cancel", async (ctx) => {
-    if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    // If in journal entry mode, handle cancel normally
-    if (ctx.session.journalEntryId) {
-        // Call the existing cancel handler for journal entries
-        const entryId = ctx.session.journalEntryId;
-        ctx.session.journalEntryId = undefined;
-        await ctx.reply(`Your entry has been cancelled, ${user.name || user.firstName}. We can start fresh anytime ✨`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    // If waiting for notification time, cancel that
-    if (ctx.session.waitingForNotificationTime) {
-        ctx.session.waitingForNotificationTime = false;
-        await ctx.reply(`No problem, ${user.name || user.firstName}. Your notification settings remain unchanged ✨`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    // Default behavior - show main menu
-    await showMainMenu(ctx, user);
-});
-
-// Handle "Finish Reflection" button
-bot.hears("✅ Finish Reflection", async (ctx) => {
-    if (!ctx.from || !ctx.session.journalEntryId) {
-        await ctx.reply("Something went wrong. Let's go back to the main menu.");
-        return;
-    }
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    await finishJournalEntry(ctx, user);
-});
-
-// Handle Exit Chat Mode button
-bot.hears("❌ Exit Chat Mode", async (ctx) => {
+// Keep Exit Chat Mode until Chat feature is extracted
+bot.hears("❌ Exit Chat Mode", async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
     
     const user = await findOrCreateUser(
@@ -534,10 +243,30 @@ bot.hears("❌ Exit Chat Mode", async (ctx) => {
     await showMainMenu(ctx, user);
 });
 
+// Helper function to safely get user ID as string
+function getUserIdString(user: IUser | Types.ObjectId): string {
+    if (user instanceof Types.ObjectId) {
+        return user.toString();
+    } else if (user && user._id) {
+        // Check if it's a populated IUser object
+        return user._id.toString();
+    } else {
+        // Handle unexpected cases or throw an error
+        logger.error("Could not determine user ID string from:", user);
+        throw new Error("Invalid user object provided"); 
+    }
+}
+
 // Handle callback queries for viewing entries
-bot.on('callback_query:data', async (ctx) => {
-    if (!ctx.from) return;
-    
+bot.on('callback_query:data', async (ctx: JournalBotContext) => {
+    // Ensure ctx.from and ctx.callbackQuery exist
+    if (!ctx.from || !ctx.callbackQuery || !ctx.callbackQuery.data) {
+        logger.warn('Callback query received without from or data');
+        // Attempt to answer anyway if possible, otherwise log and return
+        if (ctx.callbackQuery) await ctx.answerCallbackQuery({ text: "Error processing request" }).catch(e => logger.error("Failed to answer empty callback query", e));
+        return; 
+    }
+
     const user = await findOrCreateUser(
         ctx.from.id,
         ctx.from.first_name,
@@ -545,42 +274,126 @@ bot.on('callback_query:data', async (ctx) => {
         ctx.from.username
     );
     
-    const data = ctx.callbackQuery.data;
-    
-    if (data === 'main_menu') {
+    // Guaranteed to exist because of the check above
+    const data: string = ctx.callbackQuery.data; 
+
+    if (data.startsWith('view_entry:')) {
+        const entryIdStr = data.split(':')[1];
+        if (!entryIdStr) {
+            await ctx.answerCallbackQuery({ text: "Error: Invalid entry ID" });
+            return;
+        }
+
+        try {
+            const entryId = new Types.ObjectId(entryIdStr);
+            const entry = await getJournalEntryById(entryId);
+            if (!entry) {
+                await ctx.answerCallbackQuery({ text: "Error: Entry not found" });
+                return;
+            }
+
+            // Make sure entry belongs to the user using helper function
+            const entryUserId = getUserIdString(entry.user);
+            const currentUserId = getUserIdString(user); // Use user object directly
+
+            if (entryUserId !== currentUserId) {
+                await ctx.answerCallbackQuery({ text: "Error: Access denied" });
+                logger.warn(`User ${user.telegramId} tried to access entry ${entryIdStr} belonging to ${entryUserId}`);
+                return;
+            }
+
+            await ctx.answerCallbackQuery();
+            
+            const date = new Date(entry.createdAt);
+            const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+            let entryText = "";
+            if (entry.fullText) {
+                entryText = entry.fullText;
+            } else {
+                entryText = (entry.messages as IMessage[]) // Assume messages are populated
+                    .map(msg => msg.text || msg.transcription || `[${msg.type}]`)
+                    .join('\n---\n');
+            }
+
+            // Truncate if too long for a single message
+            const maxLength = 4000; 
+            if (entryText.length > maxLength) {
+                entryText = entryText.substring(0, maxLength) + "... [truncated]";
+            }
+
+            const keyboard = new InlineKeyboard()
+                .text("📚 Back to History", "journal_history")
+                .row()
+                .text("↩️ Back to Main Menu", "main_menu");
+
+            await ctx.editMessageText(
+                `<b>Reflection from ${formattedDate}</b> 📚\n\n${entryText}\n\n${entry.analysis ? `\n<b>Analysis:</b>\n${entry.analysis}` : ''}${entry.aiInsights ? `\n<b>Insights:</b>\n${entry.aiInsights}` : ''}`,
+                {
+                    reply_markup: keyboard,
+                    parse_mode: 'HTML'
+                }
+            );
+        } catch (error: any) {
+            logger.error(`Error fetching/displaying entry ${entryIdStr}:`, error);
+             // Check if it's a CastError (invalid ObjectId format)
+            if (error.name === 'CastError' && error.kind === 'ObjectId') {
+                 await ctx.answerCallbackQuery({ text: "Error: Invalid entry format." });
+            } else {
+                await ctx.answerCallbackQuery({ text: "Error displaying entry." });
+            }
+        }
+    } else if (data === 'journal_history') {
+        // TODO: Extract this logic into a reusable function
         await ctx.answerCallbackQuery();
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    if (data === 'toggle_notifications') {
+        const currentUserId = getUserIdString(user);
+        const entries = await getUserJournalEntries(new Types.ObjectId(currentUserId));
+        if (entries.length === 0) {
+            await ctx.editMessageText(`<b>${user.name || user.firstName}</b>, you haven't created any entries yet. Ready to start? ✨`, {
+                parse_mode: 'HTML',
+                reply_markup: new InlineKeyboard().text("↩️ Back to Main Menu", "main_menu")
+            });
+            return;
+        }
+        const historyKeyboard = new InlineKeyboard();
+        entries.slice(0, 10).forEach((entry) => {
+            const date = new Date(entry.createdAt);
+            const formattedDate = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}]`;
+            let textSnippet = "";
+             if (entry.fullText) {
+                textSnippet = entry.fullText.substring(0, 15) + (entry.fullText.length > 15 ? "..." : "");
+            } else if (Array.isArray(entry.messages)) {
+                 // Check if messages is an array before trying to find
+                const messages = entry.messages as IMessage[]; // Assuming messages are populated
+                const firstTextMessage = messages.find(msg => msg.type === MessageType.TEXT && msg.text);
+                if (firstTextMessage && firstTextMessage.text) {
+                    textSnippet = firstTextMessage.text.substring(0, 15) + (firstTextMessage.text.length > 15 ? "..." : "");
+                } else {
+                    textSnippet = "Entry";
+                }
+            } else {
+                textSnippet = "Entry"; // Fallback if messages aren't populated or not an array
+            }
+            historyKeyboard.text(`${formattedDate} ${textSnippet}`, `view_entry:${entry._id}`).row();
+        });
+        historyKeyboard.text("↩️ Back to Main Menu", "main_menu");
+        await ctx.editMessageText(`<b>${user.name || user.firstName}</b>, here are your past reflections 📚`, {
+            reply_markup: historyKeyboard,
+            parse_mode: 'HTML'
+        });
+
+    } else if (data === 'toggle_notifications') {
         await ctx.answerCallbackQuery();
-        // Toggle notifications
-        const newStatus = !user.notificationsEnabled;
-        await notificationService.updateUserNotificationSettings(
-            user.telegramId,
-            newStatus
-        );
-        
-        // Refresh user data
-        const updatedUser = await findOrCreateUser(
-            ctx.from.id,
-            ctx.from.first_name,
-            ctx.from.last_name,
-            ctx.from.username
-        );
-        
-        // Refresh settings menu
+        user.notificationsEnabled = !user.notificationsEnabled;
+        await user.save();
+        const status = user.notificationsEnabled ? "enabled" : "disabled";
+        const time = user.notificationTime || "not set";
         const keyboard = new InlineKeyboard()
-            .text(newStatus ? "🔔 Disable Notifications" : "🔔 Enable Notifications", "toggle_notifications")
+            .text(user.notificationsEnabled ? "🔔 Disable Notifications" : "🔔 Enable Notifications", "toggle_notifications")
             .row()
             .text("⏰ Set Notification Time", "set_notification_time")
             .row()
             .text("↩️ Back to Main Menu", "main_menu");
-        
-        const status = newStatus ? "enabled" : "disabled";
-        const time = updatedUser.notificationTime || "not set";
-        
         await ctx.editMessageText(
             `<b>Settings</b> ⚙️\n\n` +
             `Notifications: ${status}\n` +
@@ -591,152 +404,58 @@ bot.on('callback_query:data', async (ctx) => {
                 parse_mode: 'HTML'
             }
         );
-        return;
-    }
-    
-    if (data === 'set_notification_time') {
+    } else if (data === 'set_notification_time') {
         await ctx.answerCallbackQuery();
         ctx.session.waitingForNotificationTime = true;
-        
-        const keyboard = new Keyboard()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(
-            `<b>Set Notification Time</b> ⏰\n\n` +
-            `Please enter the time in 24-hour format (HH:mm)\n` +
-            `For example: 09:00 or 21:00`,
-            {
-                reply_markup: keyboard,
-                parse_mode: 'HTML'
-            }
-        );
-        return;
-    }
-    
-    if (data.startsWith('view_entry:')) {
-        const entryId = data.split(':')[1];
-        await ctx.answerCallbackQuery();
-        
+        const cancelKeyboard = new Keyboard().text("❌ Cancel").resized().oneTime();
+        await ctx.reply(`Please enter your preferred notification time in HH:mm format (24-hour clock, e.g., 21:00 for 9 PM) ✨`, {
+            reply_markup: cancelKeyboard
+        });
         try {
-            const entry = await getJournalEntryById(new Types.ObjectId(entryId));
-            
-            if (!entry) {
-                await ctx.reply("Entry not found.");
-                return;
-            }
-            
-            // Format entry content
-            const messages = entry.messages as IMessage[];
-            const entryContent = messages.map(message => {
-                let content = '';
-                
-                if (message.type === MessageType.TEXT) {
-                    content = message.text || '';
-                } else if (message.type === MessageType.VOICE) {
-                    content = `🎙️ <b>Voice:</b> ${message.transcription || 'No transcription available'}`;
-                } else if (message.type === MessageType.VIDEO) {
-                    content = `🎥 <b>Video:</b> ${message.transcription || 'No transcription available'}`;
-                }
-                
-                return content;
-            }).filter(content => content.length > 0).join('\n\n');
-            
-            const date = new Date(entry.createdAt).toLocaleDateString();
-            const time = new Date(entry.createdAt).toLocaleTimeString();
-            
-            // Create back button
-            const keyboard = new InlineKeyboard()
-                .text("Back to Journal History", "view_history")
-                .row()
-                .text("Back to Main Menu", "main_menu");
-            
-            // Send entry content
-            await ctx.reply(`<b>📝 Journal Entry</b> (${date} at ${time}):\n\n${entryContent}\n\n<b>📊 Analysis:</b>\n${entry.analysis || 'No analysis available'}`, {
-                reply_markup: keyboard,
-                parse_mode: 'HTML'
-            });
-        } catch (error) {
-            journalBotLogger.error('Error viewing entry:', error);
-            await ctx.reply("Sorry, I encountered an error while retrieving your journal entry.");
+            await ctx.deleteMessage(); 
+        } catch (e) {
+            logger.warn("Could not delete settings message after prompt, maybe already deleted?");
         }
-    }
-    
-    if (data === 'view_history') {
+
+    } else if (data === 'main_menu') {
         await ctx.answerCallbackQuery();
-        
-        // Get user's journal entries
-        const entries = await getUserJournalEntries(user._id as unknown as Types.ObjectId);
-        
-        if (entries.length === 0) {
-            await ctx.reply("<b>You don't have any journal entries yet.</b> Start journaling to build your history!", {
-                parse_mode: 'HTML'
-            });
-            await showMainMenu(ctx, user);
-            return;
+        try {
+             await ctx.deleteMessage();
+        } catch (e) {
+            logger.warn("Could not delete message before showing main menu, maybe already deleted?");
         }
-        
-        // Create inline keyboard with entries
-        const keyboard = new InlineKeyboard();
-        
-        entries.slice(0, 10).forEach((entry) => {
-            const date = new Date(entry.createdAt);
-            const formattedDate = `[${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}]`;
-            
-            // Get text snippet from entry
-            let textSnippet = "";
-            if (entry.fullText) {
-                textSnippet = entry.fullText.substring(0, 15) + (entry.fullText.length > 15 ? "..." : "");
-            } else {
-                const messages = entry.messages as IMessage[];
-                const firstTextMessage = messages.find(msg => msg.type === MessageType.TEXT && msg.text);
-                if (firstTextMessage && firstTextMessage.text) {
-                    textSnippet = firstTextMessage.text.substring(0, 15) + (firstTextMessage.text.length > 15 ? "..." : "");
-                } else {
-                    textSnippet = "Entry";
-                }
-            }
-            
-            keyboard.text(`${formattedDate} ${textSnippet}`, `view_entry:${entry._id}`).row();
-        });
-        
-        keyboard.text("Back to Main Menu", "main_menu");
-        
-        await ctx.reply("<b>Here are your most recent journal entries:</b>", {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
+        await showMainMenu(ctx, user);
+    } else {
+        await ctx.answerCallbackQuery({text: "Action not recognized"}); // Acknowledge other callbacks 
+        logger.info(`Unhandled callback_query data: ${data}`);
     }
 });
 
 // Register button handlers
-bot.callbackQuery("analyze_journal", async (ctx) => {
+bot.callbackQuery("analyze_journal", async (ctx: JournalBotContext) => {
     await ctx.answerCallbackQuery();
-    await handleAnalyzeJournal(ctx);
-});
-
-bot.callbackQuery("go_deeper", async (ctx) => {
-    await ctx.answerCallbackQuery();
-    await handleGoDeeper(ctx);
-});
-
-bot.callbackQuery("finish_journal", async (ctx) => {
-    await ctx.answerCallbackQuery();
-    
+    // This callback seems redundant if the button is handled by hears()?
+    // But keeping the call for now, assuming it might be triggered differently.
     if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    await finishJournalEntry(ctx, user);
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    await analyzeAndSuggestQuestionsHandler(ctx, user); // Use imported handler
 });
 
-// Handle onboarding process and general messages (should be last)
-bot.on('message', async (ctx) => {
+bot.callbackQuery("go_deeper", async (ctx: JournalBotContext) => {
+    await ctx.answerCallbackQuery();
+    await handleGoDeeper(ctx); // Use local handleGoDeeper for now
+});
+
+bot.callbackQuery("finish_journal", async (ctx: JournalBotContext) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.from) return;
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    await finishJournalEntryHandler(ctx, user); // Use imported handler
+});
+
+// Handle remaining messages (AFTER feature-specific handlers)
+// Onboarding and Journal Entry inputs are now handled by their respective middlewares
+bot.on('message', async (ctx: JournalBotContext) => {
     if (!ctx.from || !ctx.message) return;
     
     const user = await findOrCreateUser(
@@ -746,33 +465,24 @@ bot.on('message', async (ctx) => {
         ctx.from.username
     );
     
-    // If user is in onboarding process
-    if (ctx.session.onboardingStep) {
-        await handleOnboarding(ctx, user);
+    // If user is in journal chat mode (to be moved later)
+    if (ctx.session?.journalChatMode) {
+        await handleJournalChat(ctx, user); // Uses local handleJournalChat
         return;
     }
     
-    // If user is in journal entry mode
-    if (ctx.session.journalEntryId) {
-        await handleJournalEntry(ctx, user);
-        return;
-    }
-    
-    // If user is in journal chat mode
-    if (ctx.session.journalChatMode) {
-        await handleJournalChat(ctx, user);
-        return;
-    }
-    
-    // Handle notification time input
-    if (ctx.session.waitingForNotificationTime && 'text' in ctx.message) {
+    // Handle notification time input (to be moved later)
+    if (ctx.session?.waitingForNotificationTime && 'text' in ctx.message) {
         const time = ctx.message.text;
         if (time && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+            // TODO: Move notificationService call to settings feature
             await notificationService.updateUserNotificationSettings(
                 user.telegramId,
-                true,
+                user.notificationsEnabled ?? true, // Assume true if unset?
                 time
             );
+            // Also update user model directly for immediate feedback
+            await updateUserProfile(user.telegramId, { notificationTime: time });
             
             ctx.session.waitingForNotificationTime = false;
             await ctx.reply(`Great! I'll send you notifications at ${time} 🌟`);
@@ -783,144 +493,29 @@ bot.on('message', async (ctx) => {
                 "Please enter a valid time in 24-hour format (HH:mm)\n" +
                 "For example: 09:00 or 21:00"
             );
-            return;
+            // Keep waitingForNotificationTime = true
+            return; 
         }
     }
     
-    // Skip text messages that are handled by specific hears() handlers
+    // Skip text messages handled by specific hears() handlers for REMAINING features
     if ('text' in ctx.message) {
         const text = ctx.message.text || '';
         if (
-            text === "📝 New Entry" ||
+            // Keep checks for hears handlers still in this file
             text === "📚 Journal History" ||
             text === "🤔 Ask My Journal" ||
             text === "⚙️ Settings" ||
-            text === "✅ Save" ||
-            text === "✅ Share" ||
-            text === "🔍 Analyze & Suggest Questions" ||
-            text === "❌ Cancel" ||
-            text === "✅ Finish Reflection" ||
             text === "❌ Exit Chat Mode"
         ) {
-            return;
+            return; // Let bot.hears handle these
         }
     }
     
-    // Default: show main menu for unhandled messages
+    // Default: show main menu for unhandled messages if not handled by any feature
+    logger.debug(`Unhandled message type received for user ${user.telegramId}, showing main menu.`);
     await showMainMenu(ctx, user);
 });
-
-// Handle onboarding process
-async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
-    if (!ctx.message || !ctx.from) return;
-    
-    const step = ctx.session.onboardingStep;
-    const text = ctx.message?.text || '';
-
-    switch (step) {
-        case 'name': {
-            const userWithName = await updateUserProfile(ctx.from.id, { name: text });
-            ctx.session.onboardingStep = 'age';
-            await ctx.reply(`${text}, what a lovely name 💫\nWhich age range resonates with you?`, {
-                reply_markup: ageKeyboard,
-                parse_mode: 'HTML'
-            });
-            break;
-        }
-        case 'age': {
-            if (!isValidAgeRange(text)) {
-                await ctx.reply("Please choose from the options provided ✨");
-                return;
-            }
-            const userWithAge = await updateUserProfile(ctx.from.id, { age: text });
-            ctx.session.onboardingStep = 'gender';
-            await ctx.reply("How do you identify yourself? 🌟", {
-                reply_markup: genderKeyboard,
-                parse_mode: 'HTML'
-            });
-            break;
-        }
-        case 'gender': {
-            if (!isValidGender(text)) {
-                await ctx.reply("Let's pick from the options I suggested 💫");
-                return;
-            }
-            const userWithGender = await updateUserProfile(ctx.from.id, { gender: text });
-            ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("What do you do in life? 🌟", {
-                reply_markup: { remove_keyboard: true },
-                parse_mode: 'HTML'
-            });
-            break;
-        }
-        case 'occupation': {
-            const userWithOccupation = await updateUserProfile(ctx.from.id, { occupation: text });
-            ctx.session.onboardingStep = 'bio';
-            await ctx.reply("Tell me about yourself ✨\n\n<i>Some ideas:\n• What drives you?\n• Your passions?\n• Life philosophy?\n• What makes you unique?</i>\n\nFeel free to type, or send a voice/video message.", {
-                parse_mode: 'HTML'
-            });
-            break;
-        }
-        case 'bio': {
-            let bioText = text;
-            
-            // Handle voice/video transcription if present
-            if ('voice' in ctx.message || 'video' in ctx.message || 'video_note' in ctx.message) {
-                await ctx.reply("✨ One moment, processing your message...");
-                try {
-                    const fileId = 'voice' in ctx.message ? ctx.message.voice?.file_id :
-                                 'video' in ctx.message ? ctx.message.video?.file_id :
-                                 ctx.message.video_note?.file_id;
-                    
-                    if (fileId) {
-                        const file = await ctx.api.getFile(fileId);
-                        const filePath = file.file_path;
-                        
-                        if (filePath) {
-                            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-                            const tempDir = path.join(os.tmpdir(), 'journal-bot');
-                            
-                            if (!fs.existsSync(tempDir)) {
-                                fs.mkdirSync(tempDir, { recursive: true });
-                            }
-                            
-                            const localFilePath = path.join(tempDir, `bio_${Date.now()}.${filePath.split('.').pop()}`);
-                            
-                            const response = await fetch(fileUrl);
-                            const buffer = await response.arrayBuffer();
-                            fs.writeFileSync(localFilePath, Buffer.from(buffer));
-                            
-                            bioText = await transcribeAudio(localFilePath);
-                            fs.unlinkSync(localFilePath);
-                        }
-                    }
-                } catch (error) {
-                    logger.error('Error processing voice/video bio:', error);
-                    await ctx.reply("I couldn't process your message. Could you type it instead? 🎧");
-                    return;
-                }
-            }
-
-            const user = await updateUserProfile(ctx.from.id, { bio: bioText, onboardingCompleted: true });
-            if (!user) return;
-
-            ctx.session.onboardingStep = undefined;
-            
-            // Generate a warm, personalized summary
-            const summary = `<b>Here's what I know about you:</b>\n\n✨ ${user.name}, ${user.age}\n🌟 ${(user.gender || '').toLowerCase()}\n💫 ${user.occupation}\n\n<i>${generatePersonalizedBioSummary(user.bio || '')}</i>`;
-            
-            await ctx.reply(summary, { parse_mode: 'HTML' });
-            await showMainMenu(ctx, user);
-            break;
-        }
-    }
-}
-
-// Helper function to generate a warm, personalized bio summary
-function generatePersonalizedBioSummary(bio: string): string {
-    const shortBio = bio.slice(0, 100).trim();
-    return `${shortBio}${bio.length > 100 ? '...' : ''}\n\nLooking forward to our conversations ✨`;
-}
 
 // Show main menu with shorter, more elegant messages
 async function showMainMenu(ctx: JournalBotContext, user: IUser) {
@@ -938,451 +533,6 @@ async function showMainMenu(ctx: JournalBotContext, user: IUser) {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
-}
-
-// Helper function to extract text from messages
-async function extractFullText(entry: IJournalEntry): Promise<string> {
-    const messages = entry.messages as IMessage[];
-    const entryContent = messages.map(message => {
-        let content = '';
-        
-        if (message.type === MessageType.TEXT) {
-            content = message.text || '';
-        } else if (message.type === MessageType.VOICE) {
-            content = message.transcription || '';
-        } else if (message.type === MessageType.VIDEO) {
-            content = message.transcription || '';
-        }
-        
-        return content;
-    }).filter(content => content.length > 0).join('\n\n');
-    
-    return entryContent;
-}
-
-// Handle journal entry messages
-async function handleJournalEntry(ctx: JournalBotContext, user: IUser) {
-    if (!ctx.message || !ctx.from || !ctx.session.journalEntryId) return;
-    
-    // Handle entry completion buttons - skip as they're handled by specific hears() handlers
-    if ('text' in ctx.message) {
-        const text = ctx.message.text || '';
-        if (
-            text === "✅ Save" ||
-            text === "🔍 Analyze & Suggest Questions" ||
-            text === "❌ Cancel" ||
-            text === "✅ Finish Reflection"
-        ) {
-            return;
-        }
-    }
-    
-    // Get the active journal entry
-    const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-    const entry = await getActiveJournalEntry(user._id as unknown as Types.ObjectId);
-    
-    if (!entry) {
-        ctx.session.journalEntryId = undefined;
-        await ctx.reply(`<b>Oops!</b> Looks like our connection got a bit fuzzy there... 🌫️\n\nShall we start a fresh journey together? 💫`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    // Handle different message types
-    if ('text' in ctx.message) {
-        // Handle text message
-        const message = await saveTextMessage(
-            user._id as unknown as Types.ObjectId,
-            entryId,
-            ctx.message.message_id,
-            ctx.message.text || '',
-            MessageRole.USER
-        );
-        
-        await addMessageToJournalEntry(entryId, message._id as unknown as Types.ObjectId);
-        
-        // Update the entry with the refreshed messages
-        const updatedEntry = await getJournalEntryById(entryId);
-        if (updatedEntry) {
-            const fullText = await extractFullText(updatedEntry);
-            await updateJournalEntryFullText(entryId, fullText);
-        }
-        
-        await ctx.react("👍");
-    } else if ('voice' in ctx.message && ctx.message.voice) {
-        // Handle voice message
-        try {
-            await ctx.react("👍");
-            
-            // Download voice message
-            const fileId = ctx.message.voice.file_id;
-            const file = await ctx.api.getFile(fileId);
-            const filePath = file.file_path;
-            
-            if (!filePath) {
-                throw new Error('File path not found');
-            }
-            
-            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-            const tempDir = path.join(os.tmpdir(), 'journal-bot');
-            
-            // Create temp directory if it doesn't exist
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-            
-            const localFilePath = path.join(tempDir, `voice_${Date.now()}.oga`);
-            
-            // Download file
-            const response = await fetch(fileUrl);
-            const buffer = await response.arrayBuffer();
-            fs.writeFileSync(localFilePath, Buffer.from(buffer));
-            
-            // Send wait message with sand clock emoji
-            const waitMsg = await ctx.reply("⏳");
-            
-            // Transcribe audio
-            const transcription = await transcribeAudio(localFilePath);
-            
-            // Delete wait message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-            }
-            
-            // Save voice message to database
-            const message = await saveVoiceMessage(
-                user._id as unknown as Types.ObjectId,
-                entryId,
-                ctx.message.message_id,
-                fileId,
-                localFilePath,
-                transcription,
-                MessageRole.USER
-            );
-            
-            await addMessageToJournalEntry(entryId, message._id as unknown as Types.ObjectId);
-            
-            // Update the entry with the refreshed messages
-            const updatedEntry = await getJournalEntryById(entryId);
-            if (updatedEntry) {
-                const fullText = await extractFullText(updatedEntry);
-                await updateJournalEntryFullText(entryId, fullText);
-            }
-            
-            // Send transcription to user with better formatting
-            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
-            
-            // Clean up
-            fs.unlinkSync(localFilePath);
-        } catch (error) {
-            // Error handling for voice messages
-            journalBotLogger.error('Error processing voice message:', error);
-            await ctx.reply(`<b>Aww ${user.name || user.firstName}</b>, your voice is lovely but something went wrong in my ears 🎧\n\nCan you try again or maybe share your thoughts in text? I promise to listen extra carefully this time! 💫`, {
-                parse_mode: 'HTML'
-            });
-        }
-    } else if (('video_note' in ctx.message && ctx.message.video_note) || ('video' in ctx.message && ctx.message.video)) {
-        // Handle video message
-        try {
-            await ctx.react("👍");
-            
-            // Get file details
-            const fileId = 'video_note' in ctx.message && ctx.message.video_note 
-                ? ctx.message.video_note.file_id 
-                : (ctx.message.video ? ctx.message.video.file_id : '');
-                
-            if (!fileId) {
-                throw new Error('File ID not found');
-            }
-            
-            const file = await ctx.api.getFile(fileId);
-            const filePath = file.file_path;
-            
-            if (!filePath) {
-                throw new Error('File path not found');
-            }
-            
-            const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-            const tempDir = path.join(os.tmpdir(), 'journal-bot');
-            
-            // Create temp directory if it doesn't exist
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true });
-            }
-            
-            const localFilePath = path.join(tempDir, `video_${Date.now()}.mp4`);
-            
-            // Download file
-            const response = await fetch(fileUrl);
-            const buffer = await response.arrayBuffer();
-            fs.writeFileSync(localFilePath, Buffer.from(buffer));
-            
-            // Send wait message with sand clock emoji
-            const waitMsg = await ctx.reply("⏳");
-            
-            // Extract audio and transcribe it
-            let transcription;
-            try {
-                transcription = await transcribeAudio(localFilePath);
-            } catch (transcriptionError) {
-                journalBotLogger.error('Error transcribing video:', transcriptionError);
-                transcription = "Could not transcribe audio from video. The video might not have clear audio.";
-            }
-            
-            // Delete wait message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-            }
-            
-            // Save video message to database
-            const message = await saveVideoMessage(
-                user._id as unknown as Types.ObjectId,
-                entryId,
-                ctx.message.message_id,
-                fileId,
-                localFilePath,
-                transcription,
-                MessageRole.USER
-            );
-            
-            await addMessageToJournalEntry(entryId, message._id as unknown as Types.ObjectId);
-            
-            // Update the entry with the refreshed messages
-            const updatedEntry = await getJournalEntryById(entryId);
-            if (updatedEntry) {
-                const fullText = await extractFullText(updatedEntry);
-                await updateJournalEntryFullText(entryId, fullText);
-            }
-            
-            // Send transcription to user with better formatting
-            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
-            
-            // Clean up
-            fs.unlinkSync(localFilePath);
-        } catch (error) {
-            // Error handling for video messages
-            journalBotLogger.error('Error processing video message:', error);
-            await ctx.reply(`<b>Oh my!</b> Your video was probably amazing, but my eyes got a bit crossed there 🎥\n\nWant to try again or whisper your thoughts to me in text? I'm all attention! ✨`, {
-                parse_mode: 'HTML'
-            });
-        }
-    } else {
-        await ctx.reply(`<b>Darling</b>, while I'd love to explore every way you express yourself, I can only process text, voice messages, and videos right now... 💫\n\nLet's stick to those for our deep conversations! 😊`, {
-            parse_mode: 'HTML'
-        });
-    }
-}
-
-// Finish journal entry
-async function finishJournalEntry(ctx: JournalBotContext, user: IUser) {
-    if (!ctx.session.journalEntryId) return;
-    
-    const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-    const entry = await getActiveJournalEntry(user._id as unknown as Types.ObjectId);
-    
-    if (!entry) {
-        ctx.session.journalEntryId = undefined;
-        await ctx.reply("Could not find your active journal entry.");
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    // Send wait message with sand clock emoji
-    const waitMsg = await ctx.reply("⏳");
-    
-    try {
-        // Generate a concise 1-sentence summary
-        const systemPrompt = `You are Infinity, an insightful and supportive guide.
-Your personality:
-- Warm and empathetic
-- Clear and perceptive
-- Professional with a gentle touch
-- Focused on personal growth
-- Uses minimal emojis (✨ 🌟 💫)
-
-Based on the user's journal entry, generate:
-1. A single-sentence summary that captures the key insight
-2. One thought-provoking question for deeper reflection
-
-Format as JSON:
-{
-  "summary": "Your insightful summary",
-  "question": "Your thought-provoking question?"
-}`;
-
-        const messages = entry.messages as IMessage[];
-        const entryContent = messages.map(message => {
-            let content = '';
-            
-            if (message.type === MessageType.TEXT) {
-                content = message.text || '';
-            } else if (message.type === MessageType.VOICE) {
-                content = message.transcription || '';
-            } else if (message.type === MessageType.VIDEO) {
-                content = message.transcription || '';
-            }
-            
-            return content;
-        }).filter(content => content.length > 0).join('\n\n');
-
-        const userInfo = `User Information:
-- Name: ${user.name || user.firstName}
-- Age: ${user.age || 'Unknown'}
-- Gender: ${user.gender || 'Unknown'}
-- Occupation: ${user.occupation || 'Unknown'}`;
-
-        const chatMessages: ChatMessage[] = [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}\n\nPlease provide a one-sentence summary and one thoughtful question.` }
-        ];
-        
-        // Call OpenAI API
-        const response = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: chatMessages,
-            temperature: 0.7,
-            max_tokens: 300,
-            response_format: { type: "json_object" }
-        });
-        
-        const content = response.choices[0].message.content || "{}";
-        let parsedResponse;
-        
-        try {
-            parsedResponse = JSON.parse(content);
-        } catch (error) {
-            journalBotLogger.error('Error parsing JSON response:', error);
-            parsedResponse = {
-                summary: "Thank you for sharing your thoughts.",
-                question: "What else would you like to reflect on?"
-            };
-        }
-        
-        const summary = parsedResponse.summary || "Thank you for sharing your thoughts.";
-        const question = parsedResponse.question || "What else would you like to reflect on?";
-        
-        // Complete the entry
-        await completeJournalEntry(entryId, summary, question);
-        
-        // Delete wait message
-        if (ctx.chat) {
-            await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-        }
-        
-        // Send a single formatted message with summary and question
-        const formattedMessage = `<b>Mmm... that was deep, ${user.name || user.firstName}! 💫</b>\n\n<b>Here's what I gathered:</b>\n${summary}\n\n<b>And here's something to ponder, darling:</b>\n<i>${question}</i>`;
-        
-        await ctx.reply(formattedMessage, {
-            parse_mode: 'HTML'
-        });
-        
-        // Reset session
-        ctx.session.journalEntryId = undefined;
-        
-        // Show main menu
-        await showMainMenu(ctx, user);
-    } catch (error) {
-        journalBotLogger.error('Error finishing journal entry:', error);
-        
-        // Delete wait message
-        if (ctx.chat) {
-            await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-        }
-        
-        await ctx.reply("I encountered an error while analyzing your journal entry. Your entry has been saved, but I couldn't generate a detailed analysis.");
-        
-        // Complete the entry with basic message
-        await completeJournalEntry(
-            entryId, 
-            "Analysis not available due to an error.", 
-            "Thank you for sharing your thoughts. Keep journaling regularly to build a meaningful record of your experiences and growth."
-        );
-        
-        // Reset session
-        ctx.session.journalEntryId = undefined;
-        
-        // Show main menu
-        await showMainMenu(ctx, user);
-    }
-}
-
-// Handle "Analyze & Ask Questions" button
-async function handleAnalyzeJournal(ctx: JournalBotContext) {
-    if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(
-        ctx.from.id,
-        ctx.from.first_name,
-        ctx.from.last_name,
-        ctx.from.username
-    );
-    
-    if (!ctx.session.journalEntryId) {
-        await ctx.reply(`<b>Hey ${user.name || user.firstName}</b>, you don't have an active journal entry yet. Let's create one first!`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-        return;
-    }
-    
-    try {
-        const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-        const entry = await getJournalEntryById(entryId);
-        
-        if (!entry) {
-            ctx.session.journalEntryId = undefined;
-            await ctx.reply(`<b>Hmm, I can't seem to find your journal entry.</b> Let's start fresh!`, {
-                parse_mode: 'HTML'
-            });
-            await showMainMenu(ctx, user);
-            return;
-        }
-        
-        // Send wait message with sand clock emoji
-        const waitMsg = await ctx.reply("⏳");
-        
-        // Generate questions directly without analysis
-        const questions = await generateJournalQuestions(entry, user);
-        
-        // Update the journal entry with the questions
-        await updateJournalEntryQuestions(entryId, questions);
-        
-        // Delete wait message
-        if (ctx.chat) {
-            await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
-        }
-        
-        // Send questions in one message
-        if (questions.length > 0) {
-            const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-            await ctx.reply(`<b>Mmm... ${user.name || user.firstName}, your thoughts are fascinating 🤔</b>\n\n<b>Let me tickle your mind with these:</b>\n\n${questionsText}`, {
-                parse_mode: 'HTML'
-            });
-        }
-        
-        // Show the same keyboard as initial entry
-        const keyboard = new Keyboard()
-            .text("✅ Save")
-            .row()
-            .text("🔍 Analyze & Suggest Questions")
-            .row()
-            .text("❌ Cancel")
-            .resized();
-        
-        await ctx.reply(`Keep sharing your inner world with me, or choose what's next... 💫`, {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        });
-        
-    } catch (error) {
-        logger.error('Error in Analyze Journal handler:', error);
-        await ctx.reply(`<b>Oops!</b> My brain got a little fuzzy there. Let's try again later, ${user.name || user.firstName}!`, {
-            parse_mode: 'HTML'
-        });
-        await showMainMenu(ctx, user);
-    }
 }
 
 // Handle journal chat

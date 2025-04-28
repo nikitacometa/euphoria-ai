@@ -1,37 +1,20 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import { IUser } from './user.model';
-import { IConversation } from './conversation.model';
+import { IConversation } from '../../types/models';
+import { 
+    IMessage, 
+    MessageType, 
+    MessageRole, 
+    IUser 
+} from '../../types/models';
 
 // Message type enum
-export enum MessageType {
-    TEXT = 'text',
-    VOICE = 'voice',
-    IMAGE = 'image',
-    VIDEO = 'video'
-}
+// export enum MessageType { ... }
 
 // Message role enum
-export enum MessageRole {
-    USER = 'user',
-    ASSISTANT = 'assistant'
-}
+// export enum MessageRole { ... }
 
 // Message interface
-export interface IMessage extends Document {
-    user: Types.ObjectId | IUser;
-    conversation: Types.ObjectId | IConversation;
-    telegramMessageId: number;
-    type: MessageType;
-    role: MessageRole;
-    text?: string;
-    transcription?: string;
-    imageUrl?: string;
-    imagePrompt?: string;
-    fileId?: string;
-    filePath?: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
+// export interface IMessage extends Document { ... }
 
 // Message schema
 const messageSchema = new Schema<IMessage>(

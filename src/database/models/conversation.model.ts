@@ -1,13 +1,9 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import { IUser } from './user.model';
+// import { IUser } from './user.model'; // Removed
+import { IConversation, IUser } from '../../types/models'; // Added import
 
 // Conversation interface
-export interface IConversation extends Document {
-    user: Types.ObjectId | IUser;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-}
+// export interface IConversation extends Document { ... } // Removed
 
 // Conversation schema
 const conversationSchema = new Schema<IConversation>(

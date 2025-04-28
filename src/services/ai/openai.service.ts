@@ -1,7 +1,7 @@
 import OpenAI from "openai";
-import { GPT_VERSION, OPENAI_API_KEY } from "./config";
+import { GPT_VERSION, OPENAI_API_KEY } from "../../config";
 import { createReadStream } from "fs";
-import { IMessage, MessageRole, MessageType } from "./database/models/message.model";
+import { IMessage, MessageRole, MessageType } from "../../types/models";
 import fs from "fs";
 
 const openai = new OpenAI({

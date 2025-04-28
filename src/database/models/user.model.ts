@@ -1,25 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { IUser } from '../../types/models'; // Updated import
 
 // User interface
-export interface IUser extends Document {
-    telegramId: number;
-    firstName: string;
-    lastName?: string;
-    username?: string;
-    // Journal application specific fields
-    name?: string; // Preferred name to call the user
-    age?: string;
-    gender?: string;
-    occupation?: string;
-    bio?: string; // User's detailed bio information
-    onboardingCompleted?: boolean;
-    // Notification settings
-    notificationsEnabled?: boolean;
-    notificationTime?: string; // Format: "HH:mm" (24-hour)
-    lastNotificationSent?: Date;
-    createdAt: Date;
-    updatedAt: Date;
-}
+// export interface IUser extends Document { ... } // Removed
 
 // User schema
 const userSchema = new Schema<IUser>(
@@ -130,14 +113,7 @@ export async function getAllUsers(): Promise<IUser[]> {
 // Journal application specific functions
 export async function updateUserProfile(
     telegramId: number,
-    updates: {
-        name?: string;
-        age?: string;
-        gender?: string;
-        occupation?: string;
-        bio?: string;
-        onboardingCompleted?: boolean;
-    }
+    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime'>> // Use Partial<Pick<IUser, ...>> for updates
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(
         { telegramId },

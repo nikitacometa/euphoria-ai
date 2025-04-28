@@ -1,28 +1,16 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import { IUser } from './user.model';
-import { IMessage } from './message.model';
+import { 
+    IJournalEntry, 
+    JournalEntryStatus, 
+    IMessage, 
+    IUser 
+} from '../../types/models';
 
 // Journal entry status enum
-export enum JournalEntryStatus {
-    IN_PROGRESS = 'in_progress',
-    ANALYZING = 'analyzing',
-    ASKING_QUESTIONS = 'asking_questions',
-    COMPLETED = 'completed'
-}
+// export enum JournalEntryStatus { ... } // Removed
 
 // Journal entry interface
-export interface IJournalEntry extends Document {
-    user: Types.ObjectId | IUser;
-    title?: string;
-    messages: Types.ObjectId[] | IMessage[];
-    status: JournalEntryStatus;
-    analysis?: string;
-    aiQuestions?: string[];
-    aiInsights?: string;
-    fullText?: string; // Full text of all messages
-    createdAt: Date;
-    updatedAt: Date;
-}
+// export interface IJournalEntry extends Document { ... } // Removed
 
 // Journal entry schema
 const journalEntrySchema = new Schema<IJournalEntry>(

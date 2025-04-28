@@ -1,10 +1,7 @@
 import OpenAI from "openai";
-import { GPT_VERSION, OPENAI_API_KEY } from "./config";
-import { IMessage, MessageRole, MessageType } from "./database/models/message.model";
-import { IJournalEntry } from "./database/models/journal.model";
-import { IUser } from "./database/models/user.model";
-import { createLogger } from "./utils/logger";
-import { LOG_LEVEL } from "./config";
+import { GPT_VERSION, OPENAI_API_KEY, LOG_LEVEL } from "../../config";
+import { IMessage, MessageType, IJournalEntry, IUser } from "../../types/models";
+import { createLogger } from "../../utils/logger";
 
 // Create a logger for the journal AI
 const journalAiLogger = createLogger('JournalAI', LOG_LEVEL);
