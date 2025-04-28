@@ -23,31 +23,16 @@ import {
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply, extractFullText } from './utils';
 import { journalActionKeyboard } from './keyboards';
-// import { showMainMenu } from '../core/handlers'; // Temporarily remove import
+import { showMainMenu } from '../core/handlers'; // Restore import
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import OpenAI from 'openai'; // Needed for finishJournalEntry AI call
 import { TELEGRAM_API_TOKEN, GPT_VERSION } from '../../config'; // Needed for file downloads and AI
 
-// TEMPORARY: Copy showMainMenu here until core module is created
-// TODO: Remove this duplication later
-async function showMainMenu(ctx: JournalBotContext, user: IUser) {
-    const keyboard = new Keyboard()
-        .text("📝 New Entry")
-        .row()
-        .text("📚 Journal History")
-        .row()
-        .text("🤔 Ask My Journal")
-        .row()
-        .text("⚙️ Settings")
-        .resized();
-    
-    await ctx.reply(`Welcome back, ${user.name || user.firstName}! Ready to explore your thoughts? ✨`, {
-        reply_markup: keyboard,
-        parse_mode: 'HTML'
-    });
-}
+// TEMPORARY: Copy showMainMenu here until core module is created - REMOVED
+// TODO: Remove this duplication later - REMOVED
+// async function showMainMenu(ctx: JournalBotContext, user: IUser) { ... } // REMOVED
 
 // Temporary OpenAI client (consider DI later)
 const openai = new OpenAI({
@@ -89,7 +74,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
         await ctx.reply(`<b>Oops!</b> Looks like that reflection session ended. Let's start fresh! 💫`, {
             parse_mode: 'HTML'
         });
-        await showMainMenu(ctx, user); // Use showMainMenu from core
+        await showMainMenu(ctx, user); // Use imported showMainMenu
         return;
     }
 

@@ -4,8 +4,8 @@ import { Context, SessionFlavor } from 'grammy';
 export interface JournalBotSession {
     onboardingStep?: 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'complete';
     journalEntryId?: string;
-    journalChatMode?: boolean;
-    waitingForJournalQuestion?: boolean;
+    journalChatMode: boolean;
+    waitingForJournalQuestion: boolean;
     waitingForNotificationTime?: boolean;
 }
 
