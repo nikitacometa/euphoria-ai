@@ -104,9 +104,7 @@ async function createStorytelling(bio: string): Promise<string> {
     
     try {
         // Create the prompt for the storytelling
-        const prompt = `Create as short as possible, funny story with intelligent jokes based on this bio: "${bio}". 
-Keep it under 150 words, make it witty and slightly irreverent but kind. 2 paragraphs max.
-If appropriate, include humorous observations about their interests, profession, or life experiences mentioned in the bio.`;
+        const prompt = `format the bio into a list of facts ${bio}`;
         
         // Call the OpenAI service
         const story = await promptText(prompt);
@@ -137,7 +135,6 @@ If appropriate, include humorous observations about their interests, profession,
 function generateWelcomeGuide(name: string): string {
     return `
 <b>Welcome to Infinity, ${name} 😘</b>
-
 
 • <b>Notifications</b> - Turn on daily journaling reminders
 • <b>Reminder Time</b> - Set when you want to be reminded
@@ -171,7 +168,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`<b>${text}</b>, what a lovely name! 😊\n\nTo personalize your experience, I'd love to know your age range:`, {
+            await ctx.reply(`<b>${text}</b>, what a lovely name 😘\n\nYour age range?`, {
                 reply_markup: ageKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -184,7 +181,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { age: text });
             ctx.session.onboardingStep = 'gender';
-            await ctx.reply("<b>Thank you!</b>\n\nHow do you identify yourself? This helps me personalize our conversations:", {
+            await ctx.reply("<b>Good, good 😏</b>\n\nHow do you identify yourself?", {
                 reply_markup: genderKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -197,7 +194,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { gender: text });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("<b>Excellent!</b>\n\nWhat is your main occupation or what keeps you busy most days?", {
+            await ctx.reply("<b>Got it!</b>\n\nWhat is your main occupation or main focus in life?", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -210,7 +207,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("<b>Almost done!</b> 🎉\n\nTell me more about yourself — the more you share, the better I can understand you!\n\n<b>Some ideas:</b>\n• <i>What are your hobbies or interests?</i>\n• <i>What energizes or inspires you?</i>\n• <i>Important relationships in your life?</i>\n• <i>What are you passionate about?</i>\n• <i>Any life philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 Feel free to type, or send a voice/video message.", {
+            await ctx.reply("<b>Almost done</b> 🎉\n\nPlease, tell me more about yourself! The more you share, the better I will understand you!\n\n<b>Possible questions:</b>\n• <i>What are your hobbies or interests?</i>\n• <i>What energizes or inspires you?</i>\n• <i>Important relationships in your life?</i>\n• <i>What are you passionate about?</i>\n• <i>Any life philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 <i>Feel free to send a voice/video message.</i>", {
                 parse_mode: 'HTML'
             });
             break;
@@ -329,7 +326,7 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("✨ <b>Welcome to Infinity!</b> ✨\n\nI'm your personal AI journal companion, here to help you reflect, explore thoughts, and gain insights.\n\nFirst, tell me how you'd like me to address you:", {
+    await ctx.reply("<b>Welcome to Infinity</b> ✨\n\nI'm your AI friend and will help you reflect, explore thoughts, and gain insights.\n\nFirst, tell me how you'd like me to address you:", {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });
