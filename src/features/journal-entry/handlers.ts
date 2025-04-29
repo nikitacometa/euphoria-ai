@@ -13,12 +13,15 @@ import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { TELEGRAM_API_TOKEN, MAX_VOICE_MESSAGE_LENGTH_SECONDS } from '../../config';
+import { TELEGRAM_API_TOKEN } from '../../config';
 import { openAIService } from "../../services/ai/openai-client.service";
 import { journalPrompts } from "../../config/ai-prompts";
 import { AIError } from "../../types/errors";
 import { errorService } from "../../services/error.service";
 import { journalEntryService } from "../../services/journal-entry.service";
+
+// Define a constant for max voice message duration
+export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = 300; // 5 minutes
 
 /**
  * Handles incoming messages (text, voice, video) during an active journal entry session.
@@ -68,6 +71,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 return;
             }
             
+            // Send transcription progress indicator
+            const progressMsg = await ctx.reply("⏳");
+            
             const file = await ctx.api.getFile(fileId);
             const filePath = file.file_path;
             if (!filePath) throw new Error('Voice file path not found');
@@ -75,6 +81,12 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             const localFilePath = await downloadTelegramFile(filePath, 'voice');
             const transcription = await transcribeAudio(localFilePath);
             fs.unlinkSync(localFilePath); // Clean up temp file
+            
+            // Delete progress indicator message
+            if (ctx.chat) {
+                await ctx.api.deleteMessage(ctx.chat.id, progressMsg.message_id)
+                    .catch(e => logger.warn("Failed to delete transcription progress message", e));
+            }
 
             await journalEntryService.addVoiceMessage(
                 user._id as Types.ObjectId,
@@ -100,6 +112,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             const fileId = ('video_note' in ctx.message ? ctx.message.video_note?.file_id : ctx.message.video?.file_id) || ''; 
             if (!fileId) throw new Error('Video file ID not found');
 
+            // Send transcription progress indicator
+            const progressMsg = await ctx.reply("⏳");
+            
             const file = await ctx.api.getFile(fileId);
             const filePath = file.file_path;
             if (!filePath) throw new Error('Video file path not found');
@@ -113,6 +128,12 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 transcription = "[Could not transcribe audio]";
             }
             fs.unlinkSync(localFilePath); // Clean up temp file
+            
+            // Delete progress indicator message
+            if (ctx.chat) {
+                await ctx.api.deleteMessage(ctx.chat.id, progressMsg.message_id)
+                    .catch(e => logger.warn("Failed to delete transcription progress message", e));
+            }
 
             await journalEntryService.addVideoMessage(
                 user._id as Types.ObjectId,
@@ -232,7 +253,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         await journalEntryService.completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>You did great! Now it is in my memory...</b>\n\n${sanitizedSummary}\n\n<i>🤌 Tonight instead of sleep think about the following random thing:</i>\n\n<code>${sanitizedQuestion}</code>`;
+        const formattedMessage = `<b>Good job! Now in my memory...</b>\n\n${sanitizedSummary}\n\n<i>🤌 Tonight instead of sleep think about the following random thing:</i>\n\n<code>${sanitizedQuestion}</code>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
