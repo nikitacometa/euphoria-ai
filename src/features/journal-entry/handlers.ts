@@ -18,7 +18,16 @@ import { openAIService } from "../../services/ai/openai-client.service";
 import { journalPrompts } from "../../config/ai-prompts";
 import { AIError } from "../../types/errors";
 import { errorService } from "../../services/error.service";
-import { journalEntryService } from "../../services/journal-entry.service";
+import { 
+    addTextMessage, 
+    addVideoMessage, 
+    addVoiceMessage, 
+    completeEntry, 
+    generateQuestionsForEntry, 
+    getEntryById,
+    getOrCreateActiveEntry,
+    updateEntryAnalysisAndQuestions
+} from '../../services/journal-entry.service';
 
 // Define a constant for max voice message duration
 export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = 300; // 5 minutes
@@ -31,7 +40,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
 
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
     // Re-fetch entry to ensure it's still active and get populated messages if needed
-    const entry = await journalEntryService.getEntryById(entryId);
+    const entry = await getEntryById(entryId);
 
     if (!entry || entry.status === 'completed') { // Check if entry was somehow completed or deleted
         logger.warn(`Journal entry ${ctx.session.journalEntryId} not found or already completed for user ${user.telegramId}. Clearing session.`);
@@ -46,7 +55,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
     let messageSaved = false;
     try {
         if ('text' in ctx.message) {
-            await journalEntryService.addTextMessage(
+            await addTextMessage(
                 user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
@@ -88,7 +97,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                     .catch(e => logger.warn("Failed to delete transcription progress message", e));
             }
 
-            await journalEntryService.addVoiceMessage(
+            await addVoiceMessage(
                 user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
@@ -135,7 +144,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                     .catch(e => logger.warn("Failed to delete transcription progress message", e));
             }
 
-            await journalEntryService.addVideoMessage(
+            await addVideoMessage(
                 user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
@@ -192,7 +201,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
      }
     
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-    const entry = await journalEntryService.getEntryById(entryId); // Fetch entry with populated messages
+    const entry = await getEntryById(entryId); // Fetch entry with populated messages
     
     if (!entry) {
         logger.warn(`Could not find journal entry ${ctx.session.journalEntryId} to finish for user ${user.telegramId}.`);
@@ -209,10 +218,10 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         if (!entryContent) {
              logger.warn(`Entry ${entryId} has no content to analyze.`);
              // Complete without AI analysis if empty
-             await journalEntryService.completeEntry(
+             await completeEntry(
                  entryId, 
-                 "Entry was empty.", 
-                 "What would you like to write about next time?"
+                 "Entry was empty.",
+                 "Are you dead inside?"
              );
              if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
              await ctx.reply("Your journal entry seems to be empty, but I've saved it. ✨");
@@ -250,7 +259,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         const sanitizedSummary = sanitizeHtmlForTelegram(summary);
         const sanitizedQuestion = sanitizeHtmlForTelegram(question);
         
-        await journalEntryService.completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
+        await completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
         const formattedMessage = `<b>Good job! Now in my memory...</b>\n\n${sanitizedSummary}\n\n<i>🤌 Tonight instead of sleep think about the following random thing:</i>\n\n<code>${sanitizedQuestion}</code>`;
@@ -280,7 +289,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         
         // Attempt to complete entry even if AI fails
         try {
-            await journalEntryService.completeEntry(entryId, "Analysis failed.", "Error during analysis.");
+            await completeEntry(entryId, "Analysis failed.", "Error during analysis.");
         } catch (dbError) {
              logger.error(`Failed to mark entry ${entryId} as complete after AI error:`, dbError);
         }
@@ -302,7 +311,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
     
     try {
         const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-        const entry = await journalEntryService.getEntryById(entryId);
+        const entry = await getEntryById(entryId);
         
         if (!entry) {
             logger.warn(`Entry ${ctx.session.journalEntryId} not found for analysis by user ${user.telegramId}`);
@@ -324,7 +333,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         const waitMsg = await ctx.reply("⏳");
         
         try {
-            const questions = await journalEntryService.generateQuestionsForEntry(entryId, user);
+            const questions = await generateQuestionsForEntry(entryId, user);
             
             if (ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => {
@@ -406,7 +415,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
  */
 export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
-        const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
+        const entry = await getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
         await ctx.reply(`<b>${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry!</b> Send your text, voice or video messages.\n\n<i>Use buttons to save or to ask me for assistance with digging deeper, right into the abyss...</i>`, {
             reply_markup: journalActionKeyboard,
@@ -488,7 +497,7 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
     
     try {
         const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-        const entry = await journalEntryService.getEntryById(entryId);
+        const entry = await getEntryById(entryId);
         
         if (!entry) {
             ctx.session.journalEntryId = undefined;
@@ -558,7 +567,7 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         const sanitizedQuestions = deeperQuestions.map(q => sanitizeHtmlForTelegram(q));
         
         // Update the journal entry with the deeper analysis and questions
-        await journalEntryService.updateEntryAnalysisAndQuestions(
+        await updateEntryAnalysisAndQuestions(
             entryId,
             `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis}`,
             sanitizedQuestions
