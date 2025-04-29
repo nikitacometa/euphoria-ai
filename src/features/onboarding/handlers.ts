@@ -4,7 +4,7 @@ import { IUser } from '../../types/models';
 import { updateUserProfile } from '../../database'; // Assuming updateUserProfile is exported from database index
 import { ageKeyboard, genderKeyboard } from './keyboards';
 import { isValidAgeRange, isValidGender } from './utils';
-import { transcribeAudio } from '../../services/ai/openai.service'; // Import transcription service
+import { transcribeAudio, promptText } from '../../services/ai/openai.service'; // Import AI services
 import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
 import { TELEGRAM_API_TOKEN } from '../../config';
@@ -96,29 +96,56 @@ function extractInterestingFacts(bio: string): string[] {
     return facts.slice(0, 3);
 }
 
+// Helper function to create a short story with jokes from the user's bio
+async function createStorytelling(bio: string): Promise<string> {
+    if (!bio || bio.length < 20) {
+        return "Once upon a time, there was a mysteriously enigmatic person who believed bios were optional. Bold strategy. Let's see if it pays off! 🧙‍♂️";
+    }
+    
+    try {
+        // Create the prompt for the storytelling
+        const prompt = `Create as short as possible, funny story with intelligent jokes based on this bio: "${bio}". 
+Keep it under 150 words, make it witty and slightly irreverent but kind. 2 paragraphs max.
+If appropriate, include humorous observations about their interests, profession, or life experiences mentioned in the bio.`;
+        
+        // Call the OpenAI service
+        const story = await promptText(prompt);
+        return story;
+    } catch (error) {
+        // Log the error but provide a fallback response
+        logger.error('Error generating story from bio:', error);
+        
+        // Fallback: create a simple story with elements from the bio
+        let fallbackStory = "The tale of this fascinating human could fill volumes, but the AI storyteller seems to be on coffee break right now. ";
+        
+        // Extract simple patterns for the fallback
+        if (bio.match(/hobby|hobbies|enjoy|love|passion|like/i)) {
+            fallbackStory += "They have passions that mere mortals can only dream of. ";
+        }
+        
+        if (bio.match(/work|job|profession|career/i)) {
+            fallbackStory += "Their career path would make LinkedIn executives weep with joy. ";
+        }
+        
+        fallbackStory += "Legend says they're so interesting, ChatGPT once asked THEM for advice.";
+        
+        return fallbackStory;
+    }
+}
+
 // Generate a personalized welcome guide message
 function generateWelcomeGuide(name: string): string {
     return `
-<b>✨ Welcome to Infinity, ${name}! ✨</b>
+<b>Welcome to Infinity, ${name} 😘</b>
 
-I'm your personal AI journal companion. Here's what you should know:
 
-<b>🛠️ Settings You Can Customize:</b>
 • <b>Notifications</b> - Turn on daily journaling reminders
 • <b>Reminder Time</b> - Set when you want to be reminded
 • <b>Transcriptions</b> - Show/hide text from your voice messages
 • <b>Language</b> - Switch between English and Russian
 
-<b>💬 How I Can Help:</b>
-• <i>Record journal entries via text, voice, or video</i>
-• <i>Review your past entries in History</i>
-• <i>Chat with your journal to explore insights</i>
-• <i>Get personalized reflections on your entries</i>
-
-
+/settings - Customize your settings
 /help - See all available commands
-
-<i>I'm here for the hardcore reflection. I'm here to listen. Let's gooo ❤️</i>
 `;
 }
 
@@ -264,12 +291,11 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
 
             ctx.session.onboardingStep = undefined; // Clear onboarding step
             
-            // Extract interesting facts from bio
-            const interestingFacts = extractInterestingFacts(bioText);
-            const factsText = interestingFacts.map(fact => `• ${fact}`).join('\n');
+            // Create a storytelling from the bio
+            const story = await createStorytelling(bioText);
             
-            // Generate a warm, personalized summary with the extracted facts
-            const summary = `<b>🌟 Perfect! Here's what I've learned about you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>And from your story, I can tell:</b>\n${factsText}`;
+            // Generate a warm, personalized summary with the storytelling
+            const summary = `<b>🌟 Perfect! Here's what I've learned about you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Your Story:</b>\n${story}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
             
