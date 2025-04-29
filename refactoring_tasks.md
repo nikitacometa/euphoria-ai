@@ -52,10 +52,10 @@ Specifically:
 
 ## Task 6: Add Service Layer for Business Logic
 **Priority: Low**
-- [ ] Create service files for each feature domain (e.g., `journal-entry.service.ts`)
-- [ ] Move business logic from handlers to service files
+- [x] Create service files for each feature domain (e.g., `journal-entry.service.ts`)
+- [x] Move business logic from handlers to service files
 - [ ] Ensure handlers only handle bot interaction, delegating business logic to services
-- [ ] Add proper error handling and logging in service methods
+- [x] Add proper error handling and logging in service methods
 
 ## Task 7: Improve Configuration Management
 **Priority: Low**

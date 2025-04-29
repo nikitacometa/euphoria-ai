@@ -4,45 +4,21 @@ import { JournalBotContext } from '../../types/session';
 import { IUser, IJournalEntry, IMessage, MessageType, MessageRole, IChatMessage } from '../../types/models';
 import { logger } from '../../utils/logger';
 import {
-    saveTextMessage,
-    saveVoiceMessage,
-    saveVideoMessage,
-    addMessageToJournalEntry,
-    getActiveJournalEntry,
-    getJournalEntryById,
-    updateJournalEntryFullText,
-    completeJournalEntry,
-    updateJournalEntryQuestions,
     findOrCreateUser, // Need this for hears handlers
-    createJournalEntry, // Need this for hears handlers
-    updateJournalEntryAnalysis
 } from '../../database';
-import {
-    generateJournalQuestions,
-    analyzeJournalEntry // Assuming analyzeJournalEntry is needed for finishJournalEntry logic if moved here
-} from '../../services/ai/journal-ai.service';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply, extractFullText } from './utils';
 import { journalActionKeyboard } from './keyboards';
-import { showMainMenu } from '../core/handlers'; // Restore import
+import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import OpenAI from 'openai'; // Needed for finishJournalEntry AI call
-import { TELEGRAM_API_TOKEN, GPT_VERSION } from '../../config'; // Needed for file downloads and AI
+import { TELEGRAM_API_TOKEN } from '../../config';
 import { openAIService } from "../../services/ai/openai-client.service";
 import { journalPrompts } from "../../config/ai-prompts";
 import { AIError } from "../../types/errors";
 import { errorService } from "../../services/error.service";
-
-// TEMPORARY: Copy showMainMenu here until core module is created - REMOVED
-// TODO: Remove this duplication later - REMOVED
-// async function showMainMenu(ctx: JournalBotContext, user: IUser) { ... } // REMOVED
-
-// Temporary OpenAI client (consider DI later)
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+import { journalEntryService } from "../../services/journal-entry.service";
 
 /**
  * Handles incoming messages (text, voice, video) during an active journal entry session.
@@ -52,7 +28,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
 
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
     // Re-fetch entry to ensure it's still active and get populated messages if needed
-    const entry = await getJournalEntryById(entryId);
+    const entry = await journalEntryService.getEntryById(entryId);
 
     if (!entry || entry.status === 'completed') { // Check if entry was somehow completed or deleted
         logger.warn(`Journal entry ${ctx.session.journalEntryId} not found or already completed for user ${user.telegramId}. Clearing session.`);
@@ -67,14 +43,12 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
     let messageSaved = false;
     try {
         if ('text' in ctx.message) {
-            const message = await saveTextMessage(
-                user._id as Types.ObjectId, // Cast user._id
+            await journalEntryService.addTextMessage(
+                user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
-                ctx.message.text || '',
-                MessageRole.USER
+                ctx.message.text || ''
             );
-            await addMessageToJournalEntry(entryId, message._id as Types.ObjectId); // Cast message._id
             messageSaved = true;
             await ctx.react("👍").catch(e => logger.warn("Failed to react", e)); // React optimistically
 
@@ -88,19 +62,17 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             const localFilePath = await downloadTelegramFile(filePath, 'voice');
             const waitMsg = await ctx.reply("⏳ Transcribing voice...");
             const transcription = await transcribeAudio(localFilePath);
-             if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait message", e));
+            if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait message", e));
             fs.unlinkSync(localFilePath); // Clean up temp file
 
-            const message = await saveVoiceMessage(
+            await journalEntryService.addVoiceMessage(
                 user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
                 fileId,
                 localFilePath, // Path might be invalid now, consider saving only fileId?
-                transcription,
-                MessageRole.USER
+                transcription
             );
-            await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
             messageSaved = true;
             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
 
@@ -118,43 +90,45 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             const waitMsg = await ctx.reply("⏳ Transcribing video...");
             let transcription = "";
             try {
-                 transcription = await transcribeAudio(localFilePath);
+                transcription = await transcribeAudio(localFilePath);
             } catch (transcriptionError) {
-                 logger.error('Error transcribing video:', transcriptionError);
-                 transcription = "[Could not transcribe audio]";
+                logger.error('Error transcribing video:', transcriptionError);
+                transcription = "[Could not transcribe audio]";
             }
             if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait message", e));
             fs.unlinkSync(localFilePath); // Clean up temp file
 
-             const message = await saveVideoMessage(
+            await journalEntryService.addVideoMessage(
                 user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
                 fileId,
                 localFilePath, // Path might be invalid now
-                transcription,
-                MessageRole.USER
+                transcription
             );
-             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
-             messageSaved = true;
-             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
+            messageSaved = true;
+            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
 
         } else {
             await ctx.reply(`Darling, I can only process text, voice, or video for journal entries right now. 💫`);
         }
 
-        // Update full text only if a new message was actually saved
-        if (messageSaved) {
-             // Refetch entry to get all messages including the new one
-             const updatedEntry = await getJournalEntryById(entryId);
-             if (updatedEntry) {
-                 const fullText = await extractFullText(updatedEntry);
-                 await updateJournalEntryFullText(entryId, fullText);
-             }
-        }
-
     } catch (error) {
-        logger.error(`Error processing journal entry input for user ${user.telegramId}:`, error);
+        errorService.logError(
+            error instanceof AIError 
+                ? error 
+                : new AIError(
+                    'Error processing journal entry input', 
+                    { 
+                        userId: user._id?.toString(),
+                        entryId: entryId.toString(),
+                        messageType: ctx.message.voice ? 'voice' : ctx.message.video ? 'video' : 'text'
+                    },
+                    error instanceof Error ? error : undefined
+                ),
+            {},
+            'error'
+        );
         await ctx.reply(`<b>Oops!</b> Something went wrong while adding that to your journal. Please try again.`, { parse_mode: 'HTML' });
     }
 }
@@ -171,7 +145,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
      }
     
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-    const entry = await getJournalEntryById(entryId); // Fetch entry with populated messages
+    const entry = await journalEntryService.getEntryById(entryId); // Fetch entry with populated messages
     
     if (!entry) {
         logger.warn(`Could not find journal entry ${ctx.session.journalEntryId} to finish for user ${user.telegramId}.`);
@@ -188,7 +162,11 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         if (!entryContent) {
              logger.warn(`Entry ${entryId} has no content to analyze.`);
              // Complete without AI analysis if empty
-             await completeJournalEntry(entryId, "Entry was empty.", "What would you like to write about next time?");
+             await journalEntryService.completeEntry(
+                 entryId, 
+                 "Entry was empty.", 
+                 "What would you like to write about next time?"
+             );
              if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
              await ctx.reply("Your journal entry seems to be empty, but I've saved it. ✨");
              ctx.session.journalEntryId = undefined;
@@ -221,7 +199,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         const summary = parsedResponse.summary || "Thank you for sharing.";
         const question = parsedResponse.question || "What stood out to you?";
         
-        await completeJournalEntry(entryId, summary, question);
+        await journalEntryService.completeEntry(entryId, summary, question);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
         const formattedMessage = `<b>Reflection complete! 💫</b>\n\n<b>Summary:</b> ${summary}\n\n<b>A question for later:</b>\n<i>${question}</i>`;
@@ -251,7 +229,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         
         // Attempt to complete entry even if AI fails
         try {
-            await completeJournalEntry(entryId, "Analysis failed.", "Error during analysis.");
+            await journalEntryService.completeEntry(entryId, "Analysis failed.", "Error during analysis.");
         } catch (dbError) {
              logger.error(`Failed to mark entry ${entryId} as complete after AI error:`, dbError);
         }
@@ -273,7 +251,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
     
     try {
         const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-        const entry = await getJournalEntryById(entryId);
+        const entry = await journalEntryService.getEntryById(entryId);
         
         if (!entry) {
             logger.warn(`Entry ${ctx.session.journalEntryId} not found for analysis by user ${user.telegramId}`);
@@ -295,8 +273,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         const waitMsg = await ctx.reply("⏳ Generating questions...");
         
         try {
-            const questions = await generateJournalQuestions(entry, user);
-            await updateJournalEntryQuestions(entryId, questions);
+            const questions = await journalEntryService.generateQuestionsForEntry(entryId, user);
             
             if (ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => {
@@ -374,22 +351,29 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
  * Handles the "New Entry" command or button press.
  */
 export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
-     // Check if there's an active entry
-    const activeEntry = await getActiveJournalEntry(user._id as Types.ObjectId);
-    
-    if (activeEntry) {
-        ctx.session.journalEntryId = activeEntry._id?.toString() || '';
-        await ctx.reply(`You have an unfinished entry. Continue writing or use the buttons below. ✨`, {
-            reply_markup: journalActionKeyboard,
-            parse_mode: 'HTML'
-        });
-    } else {
-        const entry = await createJournalEntry(user._id as Types.ObjectId);
+    try {
+        const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`New reflection started! Share your thoughts (text, voice, video). ✨`, {
+        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing' : 'New'} reflection started! Share your thoughts (text, voice, video). ✨`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });
+    } catch (error) {
+        errorService.logError(
+            error instanceof AIError 
+                ? error 
+                : new AIError(
+                    'Error creating new journal entry', 
+                    { userId: user._id?.toString() },
+                    error instanceof Error ? error : undefined
+                ),
+            {},
+            'error'
+        );
+        await ctx.reply(`<b>Oops!</b> I had trouble starting a new entry. Please try again.`, { 
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
     }
 }
 
@@ -450,7 +434,7 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
     
     try {
         const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-        const entry = await getJournalEntryById(entryId);
+        const entry = await journalEntryService.getEntryById(entryId);
         
         if (!entry) {
             ctx.session.journalEntryId = undefined;
@@ -516,8 +500,11 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         const deeperQuestions = parsedResponse.questions;
         
         // Update the journal entry with the deeper analysis and questions
-        await updateJournalEntryAnalysis(entryId, `${previousAnalysis}\n\nDeeper Analysis: ${deeperAnalysis}`);
-        await updateJournalEntryQuestions(entryId, deeperQuestions);
+        await journalEntryService.updateEntryAnalysisAndQuestions(
+            entryId,
+            `${previousAnalysis}\n\nDeeper Analysis: ${deeperAnalysis}`,
+            deeperQuestions
+        );
         
         // Delete wait message
         if (ctx.chat) {
