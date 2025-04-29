@@ -41,12 +41,12 @@ class NotificationService {
     private async checkAndSendNotifications(): Promise<void> {
         try {
             const now = new Date();
-            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const currentUTCTime = `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')}`;
 
             // Find users who should receive notifications
             const users = await User.find({
                 notificationsEnabled: true,
-                notificationTime: currentTime,
+                notificationTime: currentUTCTime,
                 $or: [
                     { lastNotificationSent: { $exists: false } },
                     { lastNotificationSent: { $lt: new Date(now.setDate(now.getDate() - 1)) } }
@@ -98,6 +98,7 @@ class NotificationService {
             const update: any = { notificationsEnabled: enabled };
             if (time !== undefined) {
                 update.notificationTime = time;
+                notificationLogger.info(`Setting notification time for user ${telegramId} to ${time} UTC`);
             }
 
             await User.findOneAndUpdate(

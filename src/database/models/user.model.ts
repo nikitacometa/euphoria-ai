@@ -64,7 +64,7 @@ const userSchema = new Schema<IUser>(
                     if (!v) return true; // Allow empty string
                     return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
                 },
-                message: props => `${props.value} is not a valid time format! Use HH:mm (24-hour)`
+                message: props => `${props.value} is not a valid time format! Use HH:mm (24-hour) in UTC timezone`
             }
         },
         lastNotificationSent: {

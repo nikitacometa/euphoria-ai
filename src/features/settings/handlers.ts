@@ -12,14 +12,14 @@ import { showMainMenu } from '../core/handlers';
  */
 function formatSettingsText(user: IUser): string {
     const notificationStatus = user.notificationsEnabled ? "✅" : "❌";
-    const notificationTime = user.notificationTime || "⏱️ Not set";
+    const notificationTime = user.notificationTime ? `${user.notificationTime} UTC` : "⏱️ Not set";
     const transcriptionStatus = user.showTranscriptions === true ? "✅" : "❌";
     const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
     
     return `🔔 <b>Notify every day:</b> ${notificationStatus}\n\n` +
            `⏰ <b>Notify at:</b> ${notificationTime}\n\n` +
            `📝 <b>Show transcribed text for Voices/Videos:</b> ${transcriptionStatus}\n\n` +
-           `🌐 <b>In AI Chat prefer:</b> ${languageStatus}\n\n` +
+           `🌐 <b>For AI Chat prefer:</b> ${languageStatus}\n\n` +
            `<i>What would you like to customize today?</i>`;
 }
 
@@ -130,7 +130,7 @@ export async function setNotificationTimeHandler(ctx: JournalBotContext) {
         .resized();
     
     await ctx.reply(
-        `Please enter a time for your daily journaling reminder in 24-hour format (e.g., '21:00' for 9 PM).`,
+        `Please enter a time for your daily journaling reminder in UTC timezone (GMT+0) using 24-hour format.\n\nExample: '21:00' for 9 PM UTC. Your local time may differ based on your timezone.`,
         { reply_markup: cancelKeyboard }
     );
 }
@@ -155,7 +155,7 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
              if (!updatedUser) throw new Error("Failed to update user profile with time");
 
             ctx.session.waitingForNotificationTime = false;
-            await ctx.reply(`Great! I'll send you notifications at ${time} 🌟`, {reply_markup: {remove_keyboard: true}});
+            await ctx.reply(`Great! I'll send you notifications at ${time} UTC (GMT+0) 🌟`, {reply_markup: {remove_keyboard: true}});
             await showMainMenu(ctx, updatedUser); // Show main menu again
         } catch(error) {
              logger.error(`Error setting notification time for user ${user.telegramId}:`, error);
@@ -168,6 +168,6 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
         await ctx.reply("Time setting cancelled.", {reply_markup: {remove_keyboard: true}});
         await showMainMenu(ctx, user);
     } else {
-        await ctx.reply("Please enter a valid time in 24-hour format (e.g., '21:00'). Or click '❌ Cancel' to exit.");
+        await ctx.reply("Please enter a valid time in 24-hour format (e.g., '21:00') in UTC timezone. Or click '❌ Cancel' to exit.");
     }
 }
