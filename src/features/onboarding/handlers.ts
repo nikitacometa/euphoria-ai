@@ -5,31 +5,13 @@ import { updateUserProfile } from '../../database'; // Assuming updateUserProfil
 import { ageKeyboard, genderKeyboard } from './keyboards';
 import { isValidAgeRange, isValidGender } from './utils';
 import { transcribeAudio } from '../../services/ai/openai.service'; // Import transcription service
-// import { showMainMenu } from '../core/handlers'; // Temporarily remove import
+import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
 import { TELEGRAM_API_TOKEN } from '../../config';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-// TEMPORARY: Copy showMainMenu here until core module is created
-// TODO: Remove this duplication later
-async function showMainMenu(ctx: JournalBotContext, user: IUser) {
-    const keyboard = new Keyboard()
-        .text("📝 New Entry")
-        .row()
-        .text("📚 Journal History")
-        .row()
-        .text("🤔 Ask My Journal")
-        .row()
-        .text("⚙️ Settings")
-        .resized();
-    
-    await ctx.reply(`Hello, ${user.name || user.firstName}! Time for some self-reflection? 😏`, {
-        reply_markup: keyboard,
-        parse_mode: 'HTML'
-    });
-}
 
 // Helper function (remains local to this feature for now)
 function generatePersonalizedBioSummary(bio: string): string {
@@ -202,7 +184,7 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("Hi! I'm Mirror, your friend and AI journal 💁‍♀️\n\nTell me how to call you.", {
+    await ctx.reply("Hi! I'm Infinity, your friend and AI journal 💁‍♀️\n\nTell me how to call you.", {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });
