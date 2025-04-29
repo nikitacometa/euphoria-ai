@@ -30,6 +30,10 @@ import * as path from 'path';
 import * as os from 'os';
 import OpenAI from 'openai'; // Needed for finishJournalEntry AI call
 import { TELEGRAM_API_TOKEN, GPT_VERSION } from '../../config'; // Needed for file downloads and AI
+import { openAIService } from "../../services/ai/openai-client.service";
+import { journalPrompts } from "../../config/ai-prompts";
+import { AIError } from "../../types/errors";
+import { errorService } from "../../services/error.service";
 
 // TEMPORARY: Copy showMainMenu here until core module is created - REMOVED
 // TODO: Remove this duplication later - REMOVED
@@ -180,13 +184,6 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
     const waitMsg = await ctx.reply("⏳ Analyzing your reflection...");
     
     try {
-        const systemPrompt = `You are Infinity, an insightful and supportive guide...
-Format as JSON:
-{
-  "summary": "Your insightful summary",
-  "question": "Your thought-provoking question?"
-}`; // Keep prompt concise for brevity
-
         const entryContent = await extractFullText(entry); // Use utility
         if (!entryContent) {
              logger.warn(`Entry ${entryId} has no content to analyze.`);
@@ -202,25 +199,24 @@ Format as JSON:
         const userInfo = `User: ${user.name || user.firstName}`; // Simplified user info
 
         const chatMessages: IChatMessage[] = [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: journalPrompts.completionSystemPrompt },
             { role: 'user', content: `${userInfo}\n\nEntry:\n${entryContent}\n\nProvide summary & question.` }
         ];
         
-        const response = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: chatMessages,
+        // Call OpenAI API through our centralized service
+        const response = await openAIService.createChatCompletion(chatMessages, {
             temperature: 0.7,
             max_tokens: 300,
             response_format: { type: "json_object" }
         });
         
         const content = response.choices[0].message.content || "{}";
-        let parsedResponse = { summary: "Thank you for sharing.", question: "What stood out to you?" }; // Default
-        try {
-            parsedResponse = JSON.parse(content);
-        } catch (error) {
-            logger.error('Error parsing analysis JSON response:', error);
-        }
+        
+        // Use our helper to parse JSON safely
+        const parsedResponse = openAIService.parseJsonResponse(
+            content,
+            { summary: "Thank you for sharing.", question: "What stood out to you?" }
+        );
         
         const summary = parsedResponse.summary || "Thank you for sharing.";
         const question = parsedResponse.question || "What stood out to you?";
@@ -235,7 +231,21 @@ Format as JSON:
         await showMainMenu(ctx, user);
 
     } catch (error) {
-        logger.error(`Error finishing journal entry ${entryId} for user ${user.telegramId}:`, error);
+        errorService.logError(
+            error instanceof AIError 
+                ? error 
+                : new AIError(
+                    'Error finishing journal entry', 
+                    { 
+                        entryId: entryId.toString(),
+                        userId: user._id?.toString() 
+                    },
+                    error instanceof Error ? error : undefined
+                ),
+            {},
+            'error'
+        );
+        
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         await ctx.reply("I encountered an error analyzing your entry. It has been saved, but without detailed analysis.");
         
@@ -304,8 +314,21 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                     parse_mode: 'HTML'
                 });
             }
-        } catch (questionError) {
-            logger.error(`Error generating questions for entry ${entryId}:`, questionError);
+        } catch (error) {
+            errorService.logError(
+                error instanceof AIError 
+                    ? error 
+                    : new AIError(
+                        'Error generating questions', 
+                        { 
+                            entryId: entryId.toString(),
+                            userId: user._id?.toString() 
+                        },
+                        error instanceof Error ? error : undefined
+                    ),
+                {},
+                'error'
+            );
             
             if (ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => {
@@ -325,7 +348,21 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         });
         
     } catch (error) {
-        logger.error(`Error in Analyze Journal handler for user ${user.telegramId}:`, error);
+        errorService.logError(
+            error instanceof AIError 
+                ? error 
+                : new AIError(
+                    'Error in Analyze Journal handler', 
+                    { 
+                        userId: user._id?.toString(),
+                        entryId: ctx.session.journalEntryId
+                    },
+                    error instanceof Error ? error : undefined
+                ),
+            {},
+            'error'
+        );
+        
         await ctx.reply(`<b>Oops!</b> My question generator is feeling shy. Let's try again later!`, {
             parse_mode: 'HTML',
             reply_markup: journalActionKeyboard // Always show keyboard even after error
@@ -448,66 +485,35 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         const previousQuestions = entry.aiQuestions || '';
         const previousAnalysis = entry.analysis || '';
         
-        // Generate deeper analysis
-        const deeperAnalysisPrompt = `You are Infinity, an insightful and supportive guide.
-Your personality:
-- Warm and empathetic
-- Clear and perceptive
-- Professional with a gentle touch
-- Focused on personal growth
-- Uses minimal emojis (✨ 🌟 💫)
-
-Based on the user's responses and previous analysis, provide:
-1. A brief analysis identifying key patterns or insights
-2. Two questions for deeper reflection
-
-Format as JSON:
-{
-  "analysis": "Your insightful analysis",
-  "questions": [
-    "First question about personal growth?",
-    "Second question about deeper insights?"
-  ]
-}`;
-
+        // Use the chatMessages format from our central type
         const chatMessages: IChatMessage[] = [
-            { role: 'system', content: deeperAnalysisPrompt },
+            { role: 'system', content: journalPrompts.deeperAnalysisPrompt },
             { 
                 role: 'user', 
                 content: `User's Journal Entry and Responses:\n${userResponses}\n\nPrevious Questions:\n${previousQuestions}\n\nPrevious Analysis:\n${previousAnalysis}\n\nPlease generate a deeper analysis and more probing questions.` 
             }
         ];
         
-        // Call OpenAI API
-        const response = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: chatMessages,
+        // Call OpenAI API through our centralized service
+        const response = await openAIService.createChatCompletion(chatMessages, {
             temperature: 0.7,
             max_tokens: 800,
             response_format: { type: "json_object" }
         });
         
         const responseContent = response.choices[0].message.content || '';
-        let parsedResponse;
         
-        try {
-            parsedResponse = JSON.parse(responseContent);
-        } catch (error) {
-            logger.error('Error parsing JSON response:', error);
-            
-            // Delete wait message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
+        // Use our helper to parse JSON safely
+        const parsedResponse = openAIService.parseJsonResponse(
+            responseContent,
+            { 
+                analysis: "Looking deeper at your reflections...",
+                questions: ["What else would you like to explore about this experience?"]
             }
-            
-            await ctx.reply(`<b>Oops!</b> My brain got a little tangled there. Let's try again later, ${user.name || user.firstName}!`, {
-                parse_mode: 'HTML'
-            });
-            return;
-        }
+        );
         
-        const deeperAnalysis = parsedResponse.analysis || "Looking deeper at your reflections...";
-        const deeperQuestions = parsedResponse.questions || ["What else would you like to explore about this experience?"];
+        const deeperAnalysis = parsedResponse.analysis;
+        const deeperQuestions = parsedResponse.questions;
         
         // Update the journal entry with the deeper analysis and questions
         await updateJournalEntryAnalysis(entryId, `${previousAnalysis}\n\nDeeper Analysis: ${deeperAnalysis}`);
@@ -531,7 +537,21 @@ Format as JSON:
         });
         
     } catch (error) {
-        logger.error('Error in Go Deeper handler:', error);
+        errorService.logError(
+            error instanceof AIError 
+                ? error 
+                : new AIError(
+                    'Error in Go Deeper handler', 
+                    { 
+                        userId: user._id?.toString(),
+                        entryId: ctx.session.journalEntryId
+                    },
+                    error instanceof Error ? error : undefined
+                ),
+            {},
+            'error'
+        );
+        
         await ctx.reply(`<b>Oh sweetie</b>, seems like my third eye got a bit cloudy there 👁️\n\nLet's take a breath and try again when the energy aligns... 🌟`, {
             parse_mode: 'HTML'
         });
