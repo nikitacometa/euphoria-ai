@@ -10,5 +10,5 @@ if [[ "$1" == "-f" || "$1" == "--follow" ]]; then
   FOLLOW="--follow"
 fi
 
-# Show logs with or without follow flag
-docker compose logs $FOLLOW app 
+# TODO: name take from envs
+docker-compose logs $FOLLOW mirror-ai_bot_1

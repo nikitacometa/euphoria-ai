@@ -19,7 +19,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: ./redeploy [-v|--volumes] [-b|--build]"
+      echo "Usage: ./redeploy.sh [-v|--volumes] [-b|--build]"
       exit 1
       ;;
   esac
@@ -31,10 +31,10 @@ git pull
 
 # Stop the current Docker environment
 echo "Stopping Docker environment..."
-./scripts/stop $VOLUMES
+./scripts/stop.sh $VOLUMES
 
 # Start Docker environment again
 echo "Starting Docker environment..."
-./scripts/start $BUILD
+./scripts/start.sh $BUILD
 
 echo "Redeploy completed." 

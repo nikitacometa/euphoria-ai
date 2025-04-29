@@ -11,4 +11,4 @@ if [[ "$1" == "-v" || "$1" == "--volumes" ]]; then
 fi
 
 # Stop Docker Compose with or without removing volumes
-docker compose down $VOLUMES 
+docker-compose down $VOLUMES

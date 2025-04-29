@@ -11,4 +11,4 @@ if [[ "$1" == "-b" || "$1" == "--build" ]]; then
 fi
 
 # Start Docker Compose with or without build flag
-docker compose up -d $BUILD 
+docker-compose up -d $BUILD
