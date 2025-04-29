@@ -5,6 +5,8 @@ import {
 } from './database';
 import { logger, createLogger } from './utils/logger';
 import { notificationService } from './services/notification.service';
+import { errorService } from './services/error.service';
+import { AppError } from './types/errors';
 
 // Import shared types
 import { JournalBotContext, JournalBotSession } from './types/session';
@@ -42,8 +44,17 @@ registerSettingsHandlers(bot);
 // ============================
 
 // Handle error cases with Infinity's personality
-bot.catch((err: Error) => {
-    logger.error('Bot error:', err);
+bot.catch((err) => {
+    // Use the error service instead of direct logging
+    if (err.error instanceof AppError) {
+        errorService.handleBotError(err.ctx, err.error);
+    } else {
+        // For non-AppErrors, provide context that this is unhandled
+        errorService.handleBotError(err.ctx, err.error as Error, { 
+            source: 'global_error_handler',
+            unhandled: true 
+        });
+    }
 });
 
 // Start the bot
