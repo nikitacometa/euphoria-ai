@@ -11,7 +11,7 @@ export function createSettingsKeyboard(user: IUser): InlineKeyboard {
         .row()
         .text("⏰ Set Notification Time", "set_notification_time")
         .row()
-        .text(user.showTranscriptions ? "🔇 Hide Transcriptions" : "🔊 Show Transcriptions", "toggle_transcriptions")
+        .text(user.showTranscriptions === true ? "🔇 Hide Transcriptions" : "🔊 Show Transcriptions", "toggle_transcriptions")
         .row()
         .text(user.aiLanguage === 'en' ? "🇬🇧 Switch to Russian" : "🇷🇺 Switch to English", "toggle_language")
         .row()

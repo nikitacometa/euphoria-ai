@@ -162,7 +162,7 @@ export const config: AppConfig = {
  * These will be gradually phased out as code is updated to use the config object
  */
 export const TELEGRAM_API_TOKEN = config.telegram.apiToken;
-export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = config.telegram.maxVoiceMessageLengthSeconds;
+export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = config.telegram.maxVoiceMessageLengthSeconds || 300;
 export const OPENAI_API_KEY = config.openai.apiKey;
 export const GPT_VERSION = config.openai.gptVersion;
 export const MONGODB_HOST = config.database.host;

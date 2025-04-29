@@ -112,7 +112,10 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
                     // User sent text AND media, maybe clarify or just use media?
                     logger.info(`User ${ctx.from.id} sent both text and media for bio. Using media.`);
                 }
-                await ctx.reply("✨ One moment, processing your message...");
+                
+                // Add eyes reaction to indicate processing instead of sending a message
+                await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
+                
                 try {
                     const file = await ctx.api.getFile(mediaFileId);
                     const filePath = file.file_path;
@@ -134,11 +137,22 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
                         
                         bioText = await transcribeAudio(localFilePath);
                         fs.unlinkSync(localFilePath); // Clean up immediately
+                        
+                        // Replace eyes reaction with thumbs up - don't try to delete the old one
+                        await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
+                        
                         // Consider removing tempDir if empty, or have a separate cleanup process
                     } else {
                          throw new Error("File path not found after fetching file info.");
                     }
                 } catch (error) {
+                    // If we failed, try to add an error reaction
+                    try {
+                        await ctx.react("😢").catch(e => logger.warn("Failed to react with error symbol", e));
+                    } catch (e) {
+                        logger.warn("Failed to add error reaction", e);
+                    }
+                    
                     logger.error('Error processing voice/video bio:', error);
                     await ctx.reply("I couldn't process your message. Could you type it instead? 🎧");
                     return; // Don't proceed if media processing failed

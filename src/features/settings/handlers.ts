@@ -14,7 +14,7 @@ export async function showSettingsHandler(ctx: JournalBotContext, user: IUser) {
     const keyboard = createSettingsKeyboard(user); // Use the keyboard generator
     const status = user.notificationsEnabled ? "enabled" : "disabled";
     const time = user.notificationTime || "not set";
-    const transcriptions = user.showTranscriptions ? "enabled" : "disabled";
+    const transcriptions = user.showTranscriptions === true ? "enabled" : "disabled";
     const language = user.aiLanguage === 'en' ? "English" : "Russian";
     
     await ctx.reply(
@@ -76,9 +76,17 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
 export async function toggleTranscriptionsHandler(ctx: JournalBotContext, user: IUser) {
     await ctx.answerCallbackQuery();
     try {
-        const newStatus = !user.showTranscriptions;
-        // Update directly via DB function
-        const updatedUser = await updateUserProfile(user.telegramId, { showTranscriptions: newStatus });
+        // Explicitly determine the current and new status
+        const currentStatus = user.showTranscriptions !== false;
+        const newStatus = !currentStatus;
+        
+        // Log the status change
+        logger.info(`Toggling transcriptions for user ${user.telegramId}: ${currentStatus} -> ${newStatus}`);
+        
+        // Update directly via DB function with explicit boolean value
+        const updatedUser = await updateUserProfile(user.telegramId, { 
+            showTranscriptions: newStatus 
+        });
         
         if (!updatedUser) throw new Error("Failed to update user profile");
 
@@ -86,7 +94,7 @@ export async function toggleTranscriptionsHandler(ctx: JournalBotContext, user: 
         const keyboard = createSettingsKeyboard(updatedUser);
         const notificationStatus = updatedUser.notificationsEnabled ? "enabled" : "disabled";
         const timeText = updatedUser.notificationTime || "not set";
-        const transcriptions = updatedUser.showTranscriptions ? "enabled" : "disabled";
+        const transcriptions = updatedUser.showTranscriptions === true ? "enabled" : "disabled";
         const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
 
         await ctx.editMessageText(

@@ -50,27 +50,14 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 ctx.message.text || ''
             );
             messageSaved = true;
-            await ctx.react("👀").catch(e => logger.warn("Failed to react", e)); // React optimistically
             
-            // Send encouraging response with keyboard
-            const responses = [
-                "Profound thoughts... 💭 Anything else to add?",
-                "Wise words! Would you like to explore this more?",
-                "I appreciate your reflection. Want to continue?",
-                "Fascinating insight! What else is on your mind?",
-                "That's a great point. Care to elaborate?",
-                "Beautiful reflection! Anything more to share?",
-                "Just wow...",
-                "So wise..."
-            ];
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            await ctx.reply(randomResponse, {
-                parse_mode: 'HTML',
-                reply_markup: journalActionKeyboard
-            });
-
+            // Just react with thumbs up - no messages
+            await ctx.react("👍").catch(e => logger.warn("Failed to react with thumbs up", e));
+            
         } else if ('voice' in ctx.message && ctx.message.voice) {
-            await ctx.react("👀").catch(e => logger.warn("Failed to react", e)); // React optimistically
+            // React with eyes first to indicate processing
+            await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
+            
             const fileId = ctx.message.voice.file_id;
             
             // Check duration - use configuration constant
@@ -86,9 +73,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             if (!filePath) throw new Error('Voice file path not found');
 
             const localFilePath = await downloadTelegramFile(filePath, 'voice');
-            const waitMsg = await ctx.reply("⏳");
             const transcription = await transcribeAudio(localFilePath);
-            if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait message", e));
             fs.unlinkSync(localFilePath); // Clean up temp file
 
             await journalEntryService.addVoiceMessage(
@@ -100,10 +85,17 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 transcription
             );
             messageSaved = true;
+            
+            // Send transcription if user wants it
             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription, user);
+            
+            // Simply replace the eyes reaction with thumbs up
+            await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
 
         } else if (('video_note' in ctx.message && ctx.message.video_note) || ('video' in ctx.message && ctx.message.video)) {
-            await ctx.react("👀").catch(e => logger.warn("Failed to react", e));
+            // React with eyes first to indicate processing
+            await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
+            
             // Use optional chaining for video_note
             const fileId = ('video_note' in ctx.message ? ctx.message.video_note?.file_id : ctx.message.video?.file_id) || ''; 
             if (!fileId) throw new Error('Video file ID not found');
@@ -113,7 +105,6 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             if (!filePath) throw new Error('Video file path not found');
 
             const localFilePath = await downloadTelegramFile(filePath, 'video');
-            const waitMsg = await ctx.reply("⏳");
             let transcription = "";
             try {
                 transcription = await transcribeAudio(localFilePath);
@@ -121,7 +112,6 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 logger.error('Error transcribing video:', transcriptionError);
                 transcription = "[Could not transcribe audio]";
             }
-            if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait message", e));
             fs.unlinkSync(localFilePath); // Clean up temp file
 
             await journalEntryService.addVideoMessage(
@@ -133,7 +123,12 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 transcription
             );
             messageSaved = true;
+            
+            // Send transcription if user wants it
             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription, user);
+            
+            // Simply replace the eyes reaction with thumbs up
+            await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
 
         } else {
             await ctx.reply(`Darling, I can only process text, voice, or video for journal entries right now. 💫`, {
@@ -237,7 +232,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         await journalEntryService.completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>Amazing, I've written it all down ✍️</b>\n\n ${sanitizedSummary}\n\n<b>Random question for later...</b>\n\n<i>${sanitizedQuestion}</i>`;
+        const formattedMessage = `<b>You did great! Now it is in my memory...</b>\n\n${sanitizedSummary}\n\n<i>🤌 Tonight instead of sleep think about the following random thing:</i>\n\n<code>${sanitizedQuestion}</code>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
@@ -392,7 +387,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry! Send any text/voice (max ${MAX_VOICE_MESSAGE_LENGTH_SECONDS}s)/video messages.\n\nAsk me to assist you with questions and insights ✍️`, {
+        await ctx.reply(`<b>${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry!</b> Send your text, voice or video messages.\n\n<i>Use buttons to save or to ask me for assistance with digging deeper, right into the abyss...</i>`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });

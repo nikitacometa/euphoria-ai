@@ -6,6 +6,7 @@ import { showMainMenu } from '../core/handlers';
 import { chatKeyboard } from './keyboards';
 import { generateJournalInsights } from '../../services/ai/journal-ai.service';
 import { transcribeAudio } from '../../services/ai/openai.service';
+import { sendTranscriptionReply } from '../journal-entry/utils';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -73,16 +74,13 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
     try {
         // --- Handle Voice Message ---
         if (ctx.message.voice) {
-            const waitMsg = await ctx.reply("⏳", { reply_markup: chatKeyboard });
-            waitMsgId = waitMsg.message_id;
-
+            // React with eyes first to indicate processing
+            await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
+            
             const fileId = ctx.message.voice.file_id;
             
             // Check duration - use configuration constant
             if (ctx.message.voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
-                if (ctx.chat && waitMsgId) {
-                    await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
-                }
                 await ctx.reply(`Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`, {
                     reply_markup: chatKeyboard
                 });
@@ -95,18 +93,12 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
 
             localFilePath = await downloadTelegramFile(filePath, 'voice');
             questionText = await transcribeAudio(localFilePath);
+            
+            // Send transcription if user wants it
+            await sendTranscriptionReply(ctx, ctx.message.message_id, questionText, user, chatKeyboard);
 
-            // Show the transcription to the user if they have that setting enabled
-            if (user.showTranscriptions !== false) {
-                await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${questionText}</code>`, {
-                    reply_to_message_id: ctx.message.message_id,
-                    parse_mode: 'HTML'
-                });
-            }
-
-            if (ctx.chat && waitMsgId) {
-                await ctx.api.editMessageText(ctx.chat.id, waitMsgId, `⏳`);
-            }
+            // Simply replace the eyes reaction with thumbs up
+            await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
 
         // --- Handle Text Message ---
         } else if (ctx.message.text) {
@@ -117,6 +109,9 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
                 await exitJournalChatHandler(ctx);
                 return;
             }
+            
+            // React with thumbs up to acknowledge message received
+            await ctx.react("👍").catch(e => logger.warn("Failed to react with thumbs up", e));
             
             const waitMsg = await ctx.reply(`⏳`, { reply_markup: chatKeyboard });
             waitMsgId = waitMsg.message_id;
@@ -155,11 +150,12 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
         await ctx.reply("😵‍💫 Oops! Something went wrong while processing your question. Please try again.", { reply_markup: chatKeyboard });
     } finally {
         // Clean up temp voice file
-        if (localFilePath) {
-            fs.unlink(localFilePath, (err) => {
-                if (err) logger.warn(`Failed to delete temp audio file: ${localFilePath}`, err);
-                else logger.debug(`Deleted temp audio file: ${localFilePath}`);
-            });
+        if (localFilePath && fs.existsSync(localFilePath)) {
+            try {
+                fs.unlinkSync(localFilePath);
+            } catch (err) {
+                logger.warn(`Failed to delete temp audio file: ${localFilePath}`, err);
+            }
         }
     }
 }
@@ -177,20 +173,27 @@ export async function exitJournalChatHandler(ctx: JournalBotContext) {
     await showMainMenu(ctx, user);
 }
 
-async function downloadTelegramFile(filePath: string, type: 'voice' | 'video'): Promise<string> {
+/**
+ * Downloads a file from Telegram's servers
+ * @param filePath The path of the file on Telegram's servers
+ * @param fileType The type of file (voice, video, etc.)
+ * @returns Local path to the downloaded file
+ */
+async function downloadTelegramFile(filePath: string, fileType: string): Promise<string> {
     const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-    const tempDir = path.join(os.tmpdir(), 'journal-chat-downloads');
+    const tempDir = path.join(os.tmpdir(), 'journal-bot-' + fileType);
+    
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
     }
-    const extension = filePath.split('.').pop() || (type === 'voice' ? 'oga' : 'mp4');
-    const localFilePath = path.join(tempDir, `${type}_${Date.now()}.${extension}`);
+    
+    const localFilePath = path.join(tempDir, `${fileType}_${Date.now()}.${filePath.split('.').pop() || 'mp3'}`);
     
     const response = await fetch(fileUrl);
-    if (!response.ok) throw new Error(`Failed to download file: ${response.statusText} (${response.status})`);
+    if (!response.ok) throw new Error(`Failed to download file: ${response.statusText}`);
     const buffer = await response.arrayBuffer();
     fs.writeFileSync(localFilePath, Buffer.from(buffer));
-    logger.debug(`Downloaded ${type} file to ${localFilePath}`);
+    
     return localFilePath;
 }
 

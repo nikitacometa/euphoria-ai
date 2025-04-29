@@ -112,16 +112,37 @@ class OpenAIClientService {
         try {
             return JSON.parse(jsonString) as T;
         } catch (error) {
-            errorService.logError(
-                new AIError(
-                    "Failed to parse JSON response from OpenAI",
-                    { response: jsonString },
-                    error instanceof Error ? error : undefined
-                ),
-                {},
-                'warn'
-            );
-            return defaultValue;
+            // Attempt to fix common JSON parsing issues
+            try {
+                // Fix unterminated strings by adding missing quotes and braces
+                let fixedJson = jsonString;
+                
+                // Find unterminated JSON properties by regex pattern matching
+                const propertyPattern = /"(\w+)"\s*:\s*"([^"]*?)$/gm;
+                fixedJson = fixedJson.replace(propertyPattern, '"$1": "$2"');
+                
+                // Check for missing closing braces and add them
+                const openBraces = (fixedJson.match(/{/g) || []).length;
+                const closeBraces = (fixedJson.match(/}/g) || []).length;
+                if (openBraces > closeBraces) {
+                    fixedJson += '}'.repeat(openBraces - closeBraces);
+                }
+                
+                // Try parsing the fixed JSON
+                return JSON.parse(fixedJson) as T;
+            } catch (fixError) {
+                // If fixing failed, log the error and return default
+                errorService.logError(
+                    new AIError(
+                        "Failed to parse JSON response from OpenAI",
+                        { response: jsonString },
+                        error instanceof Error ? error : undefined
+                    ),
+                    {},
+                    'warn'
+                );
+                return defaultValue;
+            }
         }
     }
 
