@@ -14,11 +14,15 @@ export async function showSettingsHandler(ctx: JournalBotContext, user: IUser) {
     const keyboard = createSettingsKeyboard(user); // Use the keyboard generator
     const status = user.notificationsEnabled ? "enabled" : "disabled";
     const time = user.notificationTime || "not set";
+    const transcriptions = user.showTranscriptions ? "enabled" : "disabled";
+    const language = user.aiLanguage === 'en' ? "English" : "Russian";
     
     await ctx.reply(
         `<b>Settings</b> ⚙️\n\n` +
         `Notifications: ${status}\n` +
-        `Time: ${time}\n\n` +
+        `Time: ${time}\n` +
+        `Show Transcriptions: ${transcriptions}\n` +
+        `AI Language: ${language}\n\n` +
         `What would you like to change?`,
         {
             reply_markup: keyboard,
@@ -45,11 +49,15 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
         const keyboard = createSettingsKeyboard(updatedUser);
         const statusText = updatedUser.notificationsEnabled ? "enabled" : "disabled";
         const timeText = updatedUser.notificationTime || "not set";
+        const transcriptions = updatedUser.showTranscriptions ? "enabled" : "disabled";
+        const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
 
         await ctx.editMessageText(
             `<b>Settings</b> ⚙️\n\n` +
             `Notifications: ${statusText}\n` +
-            `Time: ${timeText}\n\n` +
+            `Time: ${timeText}\n` +
+            `Show Transcriptions: ${transcriptions}\n` +
+            `AI Language: ${language}\n\n` +
             `What would you like to change?`,
             {
                 reply_markup: keyboard,
@@ -63,22 +71,99 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
 }
 
 /**
+ * Handles the `toggle_transcriptions` callback query.
+ */
+export async function toggleTranscriptionsHandler(ctx: JournalBotContext, user: IUser) {
+    await ctx.answerCallbackQuery();
+    try {
+        const newStatus = !user.showTranscriptions;
+        // Update directly via DB function
+        const updatedUser = await updateUserProfile(user.telegramId, { showTranscriptions: newStatus });
+        
+        if (!updatedUser) throw new Error("Failed to update user profile");
+
+        // Update the message with the new state
+        const keyboard = createSettingsKeyboard(updatedUser);
+        const notificationStatus = updatedUser.notificationsEnabled ? "enabled" : "disabled";
+        const timeText = updatedUser.notificationTime || "not set";
+        const transcriptions = updatedUser.showTranscriptions ? "enabled" : "disabled";
+        const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
+
+        await ctx.editMessageText(
+            `<b>Settings</b> ⚙️\n\n` +
+            `Notifications: ${notificationStatus}\n` +
+            `Time: ${timeText}\n` +
+            `Show Transcriptions: ${transcriptions}\n` +
+            `AI Language: ${language}\n\n` +
+            `What would you like to change?`,
+            {
+                reply_markup: keyboard,
+                parse_mode: 'HTML'
+            }
+        );
+    } catch (error) {
+        logger.error(`Error toggling transcriptions for user ${user.telegramId}:`, error);
+        await ctx.reply("Sorry, something went wrong updating your display settings.");
+    }
+}
+
+/**
+ * Handles the `toggle_language` callback query.
+ */
+export async function toggleLanguageHandler(ctx: JournalBotContext, user: IUser) {
+    await ctx.answerCallbackQuery();
+    try {
+        const newLanguage = user.aiLanguage === 'en' ? 'ru' : 'en';
+        // Update directly via DB function
+        const updatedUser = await updateUserProfile(user.telegramId, { aiLanguage: newLanguage });
+        
+        if (!updatedUser) throw new Error("Failed to update user profile");
+
+        // Update the message with the new state
+        const keyboard = createSettingsKeyboard(updatedUser);
+        const notificationStatus = updatedUser.notificationsEnabled ? "enabled" : "disabled";
+        const timeText = updatedUser.notificationTime || "not set";
+        const transcriptions = updatedUser.showTranscriptions ? "enabled" : "disabled";
+        const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
+
+        await ctx.editMessageText(
+            `<b>Settings</b> ⚙️\n\n` +
+            `Notifications: ${notificationStatus}\n` +
+            `Time: ${timeText}\n` +
+            `Show Transcriptions: ${transcriptions}\n` +
+            `AI Language: ${language}\n\n` +
+            `What would you like to change?`,
+            {
+                reply_markup: keyboard,
+                parse_mode: 'HTML'
+            }
+        );
+    } catch (error) {
+        logger.error(`Error toggling language for user ${user.telegramId}:`, error);
+        await ctx.reply("Sorry, something went wrong updating your language settings.");
+    }
+}
+
+/**
  * Handles the `set_notification_time` callback query.
  */
 export async function setNotificationTimeHandler(ctx: JournalBotContext) {
     await ctx.answerCallbackQuery();
-    ctx.session.waitingForNotificationTime = true;
-    // Use a simple cancel keyboard from grammy itself or define one
-    const cancelKeyboard = new Keyboard().text("❌ Cancel").resized().oneTime();
-    await ctx.reply(`Please enter your preferred notification time in HH:mm format (24-hour clock, e.g., 21:00 for 9 PM) ✨`, {
-        reply_markup: cancelKeyboard
-    });
-    try {
-        // Delete the original settings message with the inline keyboard
-        await ctx.deleteMessage(); 
-    } catch (e) {
-        logger.warn("Could not delete settings message after prompt, maybe already deleted?", e);
+    
+    // Add this flag so we know user is setting time
+    if (ctx.session) {
+        ctx.session.waitingForNotificationTime = true;
     }
+    
+    // Custom keyboard for time input or cancel
+    const cancelKeyboard = new Keyboard()
+        .text('❌ Cancel')
+        .resized();
+    
+    await ctx.reply(
+        `Please enter a time for your daily journaling reminder in 24-hour format (e.g., '21:00' for 9 PM).`,
+        { reply_markup: cancelKeyboard }
+    );
 }
 
 /**
@@ -110,15 +195,10 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
              await showMainMenu(ctx, user); 
         }
     } else if (time === '❌ Cancel') {
-         // User explicitly cancelled via button
-         ctx.session.waitingForNotificationTime = false;
-         await ctx.reply(`Notification time setting cancelled. ✨`, { reply_markup: { remove_keyboard: true } });
-         await showMainMenu(ctx, user); // Show main menu
+        ctx.session.waitingForNotificationTime = false;
+        await ctx.reply("Time setting cancelled.", {reply_markup: {remove_keyboard: true}});
+        await showMainMenu(ctx, user);
     } else {
-        // Invalid format, re-prompt
-        await ctx.reply(
-            "Please enter a valid time in 24-hour format (HH:mm), like 09:00 or 21:00, or press Cancel. ✨"
-        );
-        // Keep waitingForNotificationTime = true
+        await ctx.reply("Please enter a valid time in 24-hour format (e.g., '21:00'). Or click '❌ Cancel' to exit.");
     }
 }

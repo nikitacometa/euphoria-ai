@@ -66,8 +66,14 @@ export async function analyzeJournalEntry(
         
         // Create prompt for analysis
         const userInfo = formatUserInfo(user);
+        
+        // Add language instruction based on user preference
+        const languageInstruction = user.aiLanguage === 'ru' ? 
+            '\nPlease respond in Russian language.' : 
+            '\nPlease respond in English language.';
+        
         const messages: IChatMessage[] = [
-            { role: 'system', content: journalPrompts.analysisSystemPrompt },
+            { role: 'system', content: journalPrompts.analysisSystemPrompt + languageInstruction },
             { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}` }
         ];
         
@@ -112,8 +118,14 @@ export async function generateJournalQuestions(
         
         // Create prompt for question generation
         const userInfo = formatUserInfo(user);
+        
+        // Add language instruction based on user preference
+        const languageInstruction = user.aiLanguage === 'ru' ? 
+            '\nPlease respond in Russian language.' : 
+            '\nPlease respond in English language.';
+            
         const messages: IChatMessage[] = [
-            { role: 'system', content: journalPrompts.questionsSystemPrompt },
+            { role: 'system', content: journalPrompts.questionsSystemPrompt + languageInstruction },
             { role: 'user', content: `${userInfo}\n\nJournal Entry:\n${entryContent}` }
         ];
         
@@ -182,8 +194,13 @@ export async function generateJournalInsights(
         }
         userPrompt += `format output as html, use paragraphs for each sentense, separating with two newlines, highlight rare only important wrods with <b> for bold, <i> for italic`;
         
+        // Add language instruction based on user preference
+        const languageInstruction = user.aiLanguage === 'ru' ? 
+            '\nPlease respond in Russian language.' : 
+            '\nPlease respond in English language.';
+        
         const messages: IChatMessage[] = [
-            { role: 'system', content: journalPrompts.insightsSystemPrompt },
+            { role: 'system', content: journalPrompts.insightsSystemPrompt + languageInstruction },
             { role: 'user', content: userPrompt }
         ];
         

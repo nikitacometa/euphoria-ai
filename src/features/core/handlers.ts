@@ -117,13 +117,6 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 <code>/stop</code> - Identical to /cancel but sounds more dramatic. Your choice.
 <code>/help</code> - You're reading it. Congratulations on finding the help command... to learn about the help command.
 
-<b>Buttons For The Keyboard-Phobic</b>
-
-• <b>New Entry</b> - Type words. Receive artificial validation. Feel better.
-• <b>Journal History</b> - Revisit your past questionable thoughts
-• <b>Ask My Journal</b> - Interrogate your own words as if they're sentient
-• <b>Settings</b> - Pretend you'll customize something meaningful
-
 <i>I'm literally just an algorithm trained to pretend I care about your feelings. But hey, that's more than most humans offer these days, right?</i>
 `;
 

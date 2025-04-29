@@ -111,6 +111,50 @@ class NotificationService {
             throw error;
         }
     }
+
+    /**
+     * Updates the user's display settings
+     * @param telegramId User's Telegram ID
+     * @param showTranscriptions Whether to show transcriptions to the user
+     */
+    public async updateUserDisplaySettings(
+        telegramId: number,
+        showTranscriptions: boolean
+    ): Promise<void> {
+        try {
+            await User.findOneAndUpdate(
+                { telegramId },
+                { $set: { showTranscriptions } }
+            );
+
+            notificationLogger.info(`Updated display settings for user ${telegramId}`);
+        } catch (error) {
+            notificationLogger.error(`Error updating display settings for user ${telegramId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Updates the user's language settings
+     * @param telegramId User's Telegram ID
+     * @param aiLanguage Language for AI interactions ('en' or 'ru')
+     */
+    public async updateUserLanguageSettings(
+        telegramId: number,
+        aiLanguage: string
+    ): Promise<void> {
+        try {
+            await User.findOneAndUpdate(
+                { telegramId },
+                { $set: { aiLanguage } }
+            );
+
+            notificationLogger.info(`Updated language settings for user ${telegramId}`);
+        } catch (error) {
+            notificationLogger.error(`Error updating language settings for user ${telegramId}:`, error);
+            throw error;
+        }
+    }
 }
 
 export const notificationService = NotificationService.getInstance(); 

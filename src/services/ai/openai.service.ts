@@ -34,18 +34,22 @@ export async function generateImage(prompt: string): Promise<{ url: string; revi
  * Generate a chat response with conversation history
  * @param currentMessage The current user message
  * @param conversationHistory Array of previous messages in the conversation
+ * @param userLanguage Optional language preference ('en' or 'ru')
  * @returns Generated response text
  */
 export async function promptWithConversationHistory(
     currentMessage: string, 
-    conversationHistory: IMessage[]
+    conversationHistory: IMessage[],
+    userLanguage?: string
 ): Promise<string> {
     try {
         // Convert conversation history to IChatMessage format
         const messages: IChatMessage[] = [
             {
                 role: 'system',
-                content: chatPrompts.conversationSystemPrompt
+                content: chatPrompts.conversationSystemPrompt + (userLanguage === 'ru' ? 
+                    '\nPlease respond in Russian language.' : 
+                    '\nPlease respond in English language.')
             }
         ];
 
@@ -102,11 +106,17 @@ export async function promptWithConversationHistory(
 /**
  * Generate a response to a single text prompt
  * @param text Text prompt
+ * @param userLanguage Optional language preference ('en' or 'ru')
  * @returns Generated response text
  */
-export async function promptText(text: string): Promise<string> {
+export async function promptText(text: string, userLanguage?: string): Promise<string> {
     try {
+        const languageInstruction = userLanguage === 'ru' ? 
+            'Please respond in Russian language. ' : 
+            'Please respond in English language. ';
+            
         const chatCompletion = await openAIService.createChatCompletion([
+            { role: 'system', content: languageInstruction },
             { role: 'user', content: text }
         ]);
         

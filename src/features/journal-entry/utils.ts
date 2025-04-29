@@ -1,11 +1,16 @@
 import { Context } from 'grammy';
-import { IMessage, IJournalEntry, MessageType } from '../../types/models';
+import { IMessage, IJournalEntry, MessageType, IUser } from '../../types/models';
 import { journalActionKeyboard } from './keyboards';
 
 /**
- * Sends the transcription text as a reply to the original message.
+ * Sends the transcription text as a reply to the original message if user has it enabled.
  */
-export async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
+export async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string, user?: IUser): Promise<void> {
+    // If user is provided and showTranscriptions is explicitly false, don't send
+    if (user && user.showTranscriptions === false) {
+        return;
+    }
+    
     await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${transcription}</code>`, {
         reply_to_message_id: messageId,
         parse_mode: 'HTML',

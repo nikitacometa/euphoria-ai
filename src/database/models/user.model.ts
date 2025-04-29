@@ -70,6 +70,17 @@ const userSchema = new Schema<IUser>(
         lastNotificationSent: {
             type: Date,
             required: false
+        },
+        // Display settings
+        showTranscriptions: {
+            type: Boolean,
+            default: true
+        },
+        // Language settings
+        aiLanguage: {
+            type: String,
+            enum: ['en', 'ru'],
+            default: 'en'
         }
     },
     {
@@ -113,7 +124,7 @@ export async function getAllUsers(): Promise<IUser[]> {
 // Journal application specific functions
 export async function updateUserProfile(
     telegramId: number,
-    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime'>> // Use Partial<Pick<IUser, ...>> for updates
+    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'showTranscriptions' | 'aiLanguage'>> // Use Partial<Pick<IUser, ...>> for updates
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(
         { telegramId },

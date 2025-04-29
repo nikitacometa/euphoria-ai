@@ -15,6 +15,8 @@ export interface IUser extends Document {
     notificationsEnabled?: boolean;
     notificationTime?: string; // Format: "HH:mm" (24-hour)
     lastNotificationSent?: Date;
+    showTranscriptions?: boolean; // Whether to show transcription texts to the user
+    aiLanguage?: string; // 'en' or 'ru' for AI interactions
     createdAt: Date;
     updatedAt: Date;
 }

@@ -96,6 +96,14 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             localFilePath = await downloadTelegramFile(filePath, 'voice');
             questionText = await transcribeAudio(localFilePath);
 
+            // Show the transcription to the user if they have that setting enabled
+            if (user.showTranscriptions !== false) {
+                await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${questionText}</code>`, {
+                    reply_to_message_id: ctx.message.message_id,
+                    parse_mode: 'HTML'
+                });
+            }
+
             if (ctx.chat && waitMsgId) {
                 await ctx.api.editMessageText(ctx.chat.id, waitMsgId, `⏳`);
             }

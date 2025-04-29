@@ -100,7 +100,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 transcription
             );
             messageSaved = true;
-            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
+            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription, user);
 
         } else if (('video_note' in ctx.message && ctx.message.video_note) || ('video' in ctx.message && ctx.message.video)) {
             await ctx.react("👀").catch(e => logger.warn("Failed to react", e));
@@ -133,7 +133,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 transcription
             );
             messageSaved = true;
-            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
+            await sendTranscriptionReply(ctx, ctx.message.message_id, transcription, user);
 
         } else {
             await ctx.reply(`Darling, I can only process text, voice, or video for journal entries right now. 💫`, {
