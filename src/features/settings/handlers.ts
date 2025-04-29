@@ -8,26 +8,30 @@ import { updateUserProfile } from '../../database'; // Direct user profile updat
 import { showMainMenu } from '../core/handlers';
 
 /**
+ * Formats the settings text based on user settings
+ */
+function formatSettingsText(user: IUser): string {
+    const notificationStatus = user.notificationsEnabled ? "✅" : "❌";
+    const notificationTime = user.notificationTime || "⏱️ Not set";
+    const transcriptionStatus = user.showTranscriptions === true ? "✅" : "❌";
+    const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
+    
+    return `🔔 <b>Notify every day:</b> ${notificationStatus}\n\n` +
+           `⏰ <b>Notify at:</b> ${notificationTime}\n\n` +
+           `📝 <b>Show transcribed text for Voices/Videos:</b> ${transcriptionStatus}\n\n` +
+           `🌐 <b>In AI Chat prefer:</b> ${languageStatus}\n\n` +
+           `<i>What would you like to customize today?</i>`;
+}
+
+/**
  * Displays the settings menu to the user.
  */
 export async function showSettingsHandler(ctx: JournalBotContext, user: IUser) {
-    const keyboard = createSettingsKeyboard(user); // Use the keyboard generator
-    const notificationStatus = user.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
-    const notificationTime = user.notificationTime || "⏱️ Not set";
-    const transcriptionStatus = user.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
-    const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
-    
-    await ctx.reply(
-        `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
-        `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
-        `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
-        `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
-        `<i>What would you like to customize today?</i>`,
-        {
-            reply_markup: keyboard,
-            parse_mode: 'HTML'
-        }
-    );
+    const keyboard = createSettingsKeyboard(user);
+    await ctx.reply(formatSettingsText(user), {
+        reply_markup: keyboard,
+        parse_mode: 'HTML'
+    });
 }
 
 /**
@@ -44,25 +48,11 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
         
         if (!updatedUser) throw new Error("Failed to update user profile");
 
-        // Update the message with the new state
         const keyboard = createSettingsKeyboard(updatedUser);
-        const notificationStatus = updatedUser.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
-        const notificationTime = updatedUser.notificationTime || "⏱️ Not set";
-        const transcriptionStatus = updatedUser.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
-        const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
-
-        await ctx.editMessageText(
-            `<b>✨ Your Personal Settings ✨</b>\n\n` +
-            `🔔 <b>Notifications:</b> ${notificationStatus}\n` +
-            `⏰ <b>Reminder Time:</b> ${notificationTime}\n` +
-            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n` +
-            `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
-            `<i>What would you like to customize today?</i>`,
-            {
-                reply_markup: keyboard,
-                parse_mode: 'HTML'
-            }
-        );
+        await ctx.editMessageText(formatSettingsText(updatedUser), {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
      } catch (error) {
          logger.error(`Error toggling notifications for user ${user.telegramId}:`, error);
          await ctx.reply("Sorry, something went wrong updating your notification settings.");
@@ -89,24 +79,11 @@ export async function toggleTranscriptionsHandler(ctx: JournalBotContext, user: 
         
         if (!updatedUser) throw new Error("Failed to update user profile");
 
-        // Update the message with the new state
         const keyboard = createSettingsKeyboard(updatedUser);
-        const notificationStatus = updatedUser.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
-        const notificationTime = updatedUser.notificationTime || "⏱️ Not set";
-        const transcriptionStatus = updatedUser.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
-        const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
-
-        await ctx.editMessageText(
-            `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
-            `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
-            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
-            `🌐 <b>AI Chat Language:</b> ${languageStatus}\n\n` +
-            `<i>What would you like to customize today?</i>`,
-            {
-                reply_markup: keyboard,
-                parse_mode: 'HTML'
-            }
-        );
+        await ctx.editMessageText(formatSettingsText(updatedUser), {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
     } catch (error) {
         logger.error(`Error toggling transcriptions for user ${user.telegramId}:`, error);
         await ctx.reply("Sorry, something went wrong updating your display settings.");
@@ -125,24 +102,11 @@ export async function toggleLanguageHandler(ctx: JournalBotContext, user: IUser)
         
         if (!updatedUser) throw new Error("Failed to update user profile");
 
-        // Update the message with the new state
         const keyboard = createSettingsKeyboard(updatedUser);
-        const notificationStatus = updatedUser.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
-        const notificationTime = updatedUser.notificationTime || "⏱️ Not set";
-        const transcriptionStatus = updatedUser.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
-        const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
-
-        await ctx.editMessageText(
-            `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
-            `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
-            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
-            `🌐 <b>AI Chat Language:</b> ${languageStatus}\n\n` +
-            `<i>What would you like to customize today?</i>`,
-            {
-                reply_markup: keyboard,
-                parse_mode: 'HTML'
-            }
-        );
+        await ctx.editMessageText(formatSettingsText(updatedUser), {
+            reply_markup: keyboard,
+            parse_mode: 'HTML'
+        });
     } catch (error) {
         logger.error(`Error toggling language for user ${user.telegramId}:`, error);
         await ctx.reply("Sorry, something went wrong updating your language settings.");
