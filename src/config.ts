@@ -18,3 +18,5 @@ export const MONGODB_URI = MONGODB_PASSWORD ?
 export const LOG_LEVEL = process.env.LOG_LEVEL ?
     parseInt(process.env.LOG_LEVEL) as LogLevel :
     LogLevel.INFO;
+export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = process.env.MAX_VOICE_MESSAGE_LENGTH_SECONDS ?
+    parseInt(process.env.MAX_VOICE_MESSAGE_LENGTH_SECONDS) : 300; // 5 minutes
