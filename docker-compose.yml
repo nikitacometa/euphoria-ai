@@ -24,21 +24,21 @@ services:
             - LOG_LEVEL=${LOG_LEVEL}
         restart: always
         networks:
-            - app-network
+            - mirror-network
 
     mongodb:
         image: mongo:latest
         ports:
-            - "${MONGODB_PORT:-27017}:27017"
+            - "${MONGODB_PORT:-27420}:27420"
         volumes:
-            - mongodb_data:/data/db
+            - mirror_mongodb_data:/data/db
         environment:
             MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-admin}
             MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-password}
-            MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-euphoria}
+            MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-mirror}
         restart: always
         networks:
-            - app-network
+            - mirror-network
 
     mongo-express:
         image: mongo-express:latest
@@ -52,11 +52,13 @@ services:
             - mongodb
         restart: always
         networks:
-            - app-network
+            - mirror-network
 
 volumes:
-    mongodb_data:
+    mirror_mongodb_data:
+        name: "mirror_mongodb_data"
 
 networks:
-    app-network:
+    mirror-network:
+        name: "mirror_network"
         driver: bridge
