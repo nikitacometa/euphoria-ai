@@ -9,7 +9,7 @@ import { transcribeAudio } from '../../services/ai/openai.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { TELEGRAM_API_TOKEN } from '../../config';
+import { TELEGRAM_API_TOKEN, MAX_VOICE_MESSAGE_LENGTH_SECONDS } from '../../config';
 import { Bot } from "grammy";
 import { JournalBotContext } from "../../types/session";
 import { findOrCreateUser } from '../../database';
@@ -34,7 +34,7 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.journalChatMode = true;
     ctx.session.waitingForJournalQuestion = true;
     
-    await ctx.reply(`Hey, ${user.name || user.firstName}! Ask your journal anything 🤌\n\n<i>• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals</i>\n\nOf course, you can use voice/videos to ask things.`, {
+    await ctx.reply(`Hey, ${user.name || user.firstName}! Ask your journal anything 🤌\n\n<i>• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals</i>\n\nOf course, you can use voice/videos to ask things (voice messages must be under ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds).`, {
         reply_markup: chatKeyboard,
         parse_mode: 'HTML'
     });
@@ -77,6 +77,18 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             waitMsgId = waitMsg.message_id;
 
             const fileId = ctx.message.voice.file_id;
+            
+            // Check duration - use configuration constant
+            if (ctx.message.voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
+                if (ctx.chat && waitMsgId) {
+                    await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
+                }
+                await ctx.reply(`Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`, {
+                    reply_markup: chatKeyboard
+                });
+                return;
+            }
+            
             const file = await ctx.api.getFile(fileId);
             const filePath = file.file_path;
             if (!filePath) throw new Error('Voice file path not found');

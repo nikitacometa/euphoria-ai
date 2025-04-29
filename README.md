@@ -6,7 +6,7 @@ A Telegram bot that serves as a personal journal application, allowing users to 
 
 - **User Onboarding**: Collects user information (age, gender, religion, occupation) to personalize the journaling experience
 - **Journal Entry Creation**: Users can create entries using text, voice messages, and videos
-- **Voice Transcription**: Automatically transcribes voice messages for easy reference
+- **Voice Transcription**: Automatically transcribes voice messages for easy reference (limited to MAX_VOICE_MESSAGE_LENGTH_SECONDS, default: 300 seconds)
 - **AI Analysis**: Analyzes journal entries and provides personalized insights
 - **Follow-up Questions**: Generates thoughtful questions based on journal entries to encourage deeper reflection
 - **Journal History**: View past journal entries with their content and analysis
@@ -146,3 +146,4 @@ The following environment variables need to be set:
 
 ## Optional Variables
 - `LOG_LEVEL`: Logging level (default: INFO)
+- `MAX_VOICE_MESSAGE_LENGTH_SECONDS`: Maximum allowed duration for voice messages in seconds (default: 300)

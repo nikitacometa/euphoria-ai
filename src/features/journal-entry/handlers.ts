@@ -13,7 +13,7 @@ import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { TELEGRAM_API_TOKEN } from '../../config';
+import { TELEGRAM_API_TOKEN, MAX_VOICE_MESSAGE_LENGTH_SECONDS } from '../../config';
 import { openAIService } from "../../services/ai/openai-client.service";
 import { journalPrompts } from "../../config/ai-prompts";
 import { AIError } from "../../types/errors";
@@ -72,6 +72,15 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
         } else if ('voice' in ctx.message && ctx.message.voice) {
             await ctx.react("👀").catch(e => logger.warn("Failed to react", e)); // React optimistically
             const fileId = ctx.message.voice.file_id;
+            
+            // Check duration - use configuration constant
+            if (ctx.message.voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
+                await ctx.reply(`Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`, {
+                    reply_markup: journalActionKeyboard
+                });
+                return;
+            }
+            
             const file = await ctx.api.getFile(fileId);
             const filePath = file.file_path;
             if (!filePath) throw new Error('Voice file path not found');
@@ -383,7 +392,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry! Send any text/voice/video messages.\n\nAsk me to assist you with questions and insights ✍️`, {
+        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry! Send any text/voice (max ${MAX_VOICE_MESSAGE_LENGTH_SECONDS}s)/video messages.\n\nAsk me to assist you with questions and insights ✍️`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });

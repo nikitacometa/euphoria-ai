@@ -4,6 +4,7 @@ import { openAIService } from "./openai-client.service";
 import { chatPrompts } from "../../config/ai-prompts";
 import { errorService } from "../error.service";
 import { AIError } from "../../types/errors";
+import { MAX_VOICE_MESSAGE_LENGTH_SECONDS } from "../../config";
 
 /**
  * Generate an image based on a text prompt using DALL-E
@@ -163,6 +164,8 @@ export async function transcribeAudio(filePath: string): Promise<string> {
                 return "Sorry, I couldn't transcribe your audio message. The file is empty.";
             } else if (error.message.includes('too large')) {
                 return "Sorry, I couldn't transcribe your audio message. The file is too large (max 25MB).";
+            } else if (error.message.includes('exceeds duration limit')) {
+                return `Sorry, I couldn't transcribe your audio message. Voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`;
             }
             
             errorService.logError(error, {}, 'error');
@@ -185,7 +188,7 @@ export async function transcribeAudio(filePath: string): Promise<string> {
             } else if (error.message.includes('size')) {
                 return "Sorry, I couldn't transcribe your audio. The file size exceeds the limit.";
             } else if (error.message.includes('duration')) {
-                return "Sorry, I couldn't transcribe your audio. The audio duration exceeds the limit.";
+                return `Sorry, I couldn't transcribe your audio. Voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`;
             }
         }
         

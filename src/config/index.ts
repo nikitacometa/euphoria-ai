@@ -31,6 +31,10 @@ export interface AppConfig {
          * Telegram Bot API token
          */
         apiToken: string;
+        /**
+         * Maximum voice message length in seconds
+         */
+        maxVoiceMessageLengthSeconds: number;
     };
 
     /**
@@ -122,7 +126,8 @@ export const config: AppConfig = {
     env: NODE_ENV,
 
     telegram: {
-        apiToken: getEnv('TELEGRAM_API_TOKEN')
+        apiToken: getEnv('TELEGRAM_API_TOKEN'),
+        maxVoiceMessageLengthSeconds: parseInt(getEnv('MAX_VOICE_MESSAGE_LENGTH_SECONDS', '300', false))
     },
 
     openai: {
@@ -157,6 +162,7 @@ export const config: AppConfig = {
  * These will be gradually phased out as code is updated to use the config object
  */
 export const TELEGRAM_API_TOKEN = config.telegram.apiToken;
+export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = config.telegram.maxVoiceMessageLengthSeconds;
 export const OPENAI_API_KEY = config.openai.apiKey;
 export const GPT_VERSION = config.openai.gptVersion;
 export const MONGODB_HOST = config.database.host;
