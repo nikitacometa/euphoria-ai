@@ -13,6 +13,115 @@ import * as path from 'path';
 import * as os from 'os';
 
 
+// Helper function to extract interesting facts from user bio
+function extractInterestingFacts(bio: string): string[] {
+    // Check if bio is too short to extract meaningful facts
+    if (!bio || bio.length < 20) {
+        return ["You're quite mysterious! I like that about you."];
+    }
+
+    const facts: string[] = [];
+    
+    // Look for hobbies
+    if (bio.match(/hobby|hobbies|enjoy|love|passion|like/i)) {
+        const hobbyMatch = bio.match(/(?:hobby|hobbies|enjoy|love|passion|like)s?\s+(?:to\s+)?([^,.!?]+)/i);
+        if (hobbyMatch && hobbyMatch[1]) {
+            facts.push(`You seem to enjoy ${hobbyMatch[1].trim()}`);
+        }
+    }
+    
+    // Look for profession or work
+    if (bio.match(/work|job|profession|career|study|student|studying/i)) {
+        const workMatch = bio.match(/(?:work|job|profession|career)(?:ing|ed)?\s+(?:as|at|in|with)?\s+([^,.!?]+)/i) || 
+                          bio.match(/(?:study|student|studying)\s+([^,.!?]+)/i);
+        if (workMatch && workMatch[1]) {
+            facts.push(`Your path in life involves ${workMatch[1].trim()}`);
+        }
+    }
+    
+    // Look for relationships
+    if (bio.match(/married|wife|husband|partner|relationship|dating|boyfriend|girlfriend/i)) {
+        facts.push("Relationships seem to be meaningful in your life");
+    }
+    
+    // Look for travel
+    if (bio.match(/travel|trip|journey|explore|adventure|country|countries|city|cities/i)) {
+        facts.push("You have a wanderlust spirit");
+    }
+    
+    // Look for creative expressions
+    if (bio.match(/write|author|book|novel|music|play|sing|art|paint|draw|create|creative/i)) {
+        facts.push("You have a creative soul");
+    }
+    
+    // Look for analytical mind
+    if (bio.match(/think|analyze|solve|problem|science|math|logic|data|research/i)) {
+        facts.push("You have an analytical mind");
+    }
+    
+    // If we couldn't extract specific facts, add some general observations
+    if (facts.length === 0) {
+        const bioLength = bio.length;
+        if (bioLength > 200) {
+            facts.push("You're quite thorough in sharing about yourself");
+        }
+        
+        const sentenceCount = bio.split(/[.!?]+/).filter(Boolean).length;
+        if (sentenceCount >= 5) {
+            facts.push("You're expressive and detailed in your communication");
+        }
+        
+        const questionCount = (bio.match(/\?/g) || []).length;
+        if (questionCount > 1) {
+            facts.push("You're inquisitive and thoughtful");
+        }
+        
+        // Emotional tone indicators
+        const positiveWords = (bio.match(/happy|joy|love|excited|passion|great|amazing|wonderful/gi) || []).length;
+        const negativeWords = (bio.match(/sad|angry|upset|frustrat|disappoint|worry|anxious|stress/gi) || []).length;
+        
+        if (positiveWords > negativeWords && positiveWords > 2) {
+            facts.push("You radiate positive energy");
+        } else if (negativeWords > positiveWords && negativeWords > 2) {
+            facts.push("You're in touch with life's complexities");
+        }
+        
+        // Add a fallback if still no facts
+        if (facts.length === 0) {
+            facts.push("You've shared something unique about yourself");
+        }
+    }
+    
+    // Only return up to 3 facts to keep it concise
+    return facts.slice(0, 3);
+}
+
+// Generate a personalized welcome guide message
+function generateWelcomeGuide(name: string): string {
+    return `
+<b>✨ Welcome to Infinity, ${name}! ✨</b>
+
+I'm your personal AI journal companion. Here's what you should know:
+
+<b>🛠️ Settings You Can Customize:</b>
+• <b>Notifications</b> - Turn on daily journaling reminders
+• <b>Reminder Time</b> - Set when you want to be reminded
+• <b>Transcriptions</b> - Show/hide text from your voice messages
+• <b>Language</b> - Switch between English and Russian
+
+<b>💬 How I Can Help:</b>
+• <i>Record journal entries via text, voice, or video</i>
+• <i>Review your past entries in History</i>
+• <i>Chat with your journal to explore insights</i>
+• <i>Get personalized reflections on your entries</i>
+
+
+/help - See all available commands
+
+<i>I'm here for the hardcore reflection. I'm here to listen. Let's gooo ❤️</i>
+`;
+}
+
 // Helper function (remains local to this feature for now)
 function generatePersonalizedBioSummary(bio: string): string {
     const shortBio = bio.slice(0, 100).trim();
@@ -35,7 +144,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`${text}, what a lovely name 😏\n\nYour age?`, {
+            await ctx.reply(`<b>${text}</b>, what a lovely name! 😊\n\nTo personalize your experience, I'd love to know your age range:`, {
                 reply_markup: ageKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -48,7 +157,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { age: text });
             ctx.session.onboardingStep = 'gender';
-            await ctx.reply("How do you identify yourself? 🌟", {
+            await ctx.reply("<b>Thank you!</b>\n\nHow do you identify yourself? This helps me personalize our conversations:", {
                 reply_markup: genderKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -61,7 +170,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { gender: text });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("What is your occupation, work? Or main activity in life? 🌟", {
+            await ctx.reply("<b>Excellent!</b>\n\nWhat is your main occupation or what keeps you busy most days?", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -74,7 +183,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("Tell me anything about yourself! The more details you share, the better I will understand you ✨\n\nSome ideas:<i>\n• Your hobbies?\n• What drives you?\n• Interesting friends or romantic partners?\n• Your passions?\n• Life philosophy?\n• What makes you unique?</i>\n\nFeel free to type, or send a voice/video message.", {
+            await ctx.reply("<b>Almost done!</b> 🎉\n\nTell me more about yourself — the more you share, the better I can understand you!\n\n<b>Some ideas:</b>\n• <i>What are your hobbies or interests?</i>\n• <i>What energizes or inspires you?</i>\n• <i>Important relationships in your life?</i>\n• <i>What are you passionate about?</i>\n• <i>Any life philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 Feel free to type, or send a voice/video message.", {
                 parse_mode: 'HTML'
             });
             break;
@@ -155,11 +264,21 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
 
             ctx.session.onboardingStep = undefined; // Clear onboarding step
             
-            // Generate a warm, personalized summary
-            const summary = `<b>Here's what I know about you:</b>\n\n✨ ${updatedUser.name || updatedUser.firstName}, ${updatedUser.age || 'age not specified'}\n🌟 ${(updatedUser.gender || 'gender not specified').toLowerCase()}\n💫 ${updatedUser.occupation || 'occupation not specified'}\n\n<i>${generatePersonalizedBioSummary(updatedUser.bio || '')}</i>`;
+            // Extract interesting facts from bio
+            const interestingFacts = extractInterestingFacts(bioText);
+            const factsText = interestingFacts.map(fact => `• ${fact}`).join('\n');
+            
+            // Generate a warm, personalized summary with the extracted facts
+            const summary = `<b>🌟 Perfect! Here's what I've learned about you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>And from your story, I can tell:</b>\n${factsText}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
-            await showMainMenu(ctx, updatedUser); // Use local copy for now
+            
+            // Send welcome guide message
+            const welcomeGuide = generateWelcomeGuide(updatedUser.name || updatedUser.firstName);
+            await ctx.reply(welcomeGuide, { parse_mode: 'HTML' });
+            
+            // Show main menu after onboarding completion
+            await showMainMenu(ctx, updatedUser);
             break;
         }
          default: {
@@ -184,7 +303,7 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("Hi! I'm Infinity, your friend and AI journal 💁‍♀️\n\nTell me how to call you.", {
+    await ctx.reply("✨ <b>Welcome to Infinity!</b> ✨\n\nI'm your personal AI journal companion, here to help you reflect, explore thoughts, and gain insights.\n\nFirst, tell me how you'd like me to address you:", {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });

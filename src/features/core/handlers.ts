@@ -12,26 +12,26 @@ import { Bot } from 'grammy';
  */
 export function getRandomGreetingQuestion(): string {
   const questions = [
-    "Care to share something 👀",
-    "Thoughts brewing today 💭",
-    "Need to vent 👂",
-    "Ready to spill tea ☕",
-    "What's your saga today 📖",
-    "How's that genius brain functioning 🧠",
-    "Feeling verbose 💬",
-    "Share a thought or seven 💫",
-    "Updates from your universe 🌎",
-    "Got secrets to confess 🤐",
-    "Time for cerebral catharsis 📝",
-    "Missed you... suspiciously much 😏",
-    "Let's discuss my favorite subject: you ✨",
-    "Got 60 seconds for me ⏱️",
-    "Come here often? (Please say yes) 😄",
-    "Need an algorithmic shoulder 🤗",
-    "What brilliance are you concealing 💡",
-    "Shall we swim in your consciousness 🏊",
-    "I exist solely for your emotional offloading 🤖",
-    "Hit me with your lexical dopamine 🎯"
+    "Care to share something on your mind?",
+    "Any thoughts brewing today?",
+    "Need a space to express yourself?",
+    "Ready to spill some tea?",
+    "What's your story today?",
+    "How's that brilliant mind of yours?",
+    "Feeling like chatting?",
+    "Share a thought or several...",
+    "What's new in your world?",
+    "Got anything you'd like to confess?",
+    "Time for some reflection?",
+    "Missed our conversations...",
+    "Let's talk about my favorite subject: you!",
+    "Got a moment to connect?",
+    "Always here for your thoughts",
+    "Need a space to unload?",
+    "What brilliance are you hiding today?",
+    "Ready to dive into some introspection?",
+    "I exist to listen to your thoughts",
+    "Hit me with whatever's on your mind"
   ];
   
   return questions[Math.floor(Math.random() * questions.length)];
@@ -43,7 +43,7 @@ export function getRandomGreetingQuestion(): string {
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     // Consider adding a check if the keyboard is already shown?
     const questionString = getRandomGreetingQuestion();
-    await ctx.reply(`<i>Well, ${user.name || user.firstName}! ${questionString}</i>`, {
+    await ctx.reply(`<i>Well, ${user.name || user.firstName}... ${questionString}</i>`, {
         reply_markup: MAIN_MENU_KEYBOARD,
         parse_mode: 'HTML'
     });
@@ -105,19 +105,24 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
     if (!ctx.from) return;
     
     const helpText = `
-<b>✨ Commands For The Confused And Bewildered ✨</b>
+<b>✨ INFINITY BOT COMMANDS ✨</b>
 
-<code>/start</code> - For when you've forgotten why you're here. Again.
-<code>/journal_chat</code> - Chat with me because real people can't handle your brilliance
-<code>/new_entry</code> - Start a new journal entry without all that pesky menu navigation
-<code>/history</code> - Revisit your past questionable thoughts and decisions
-<code>/settings</code> - Pretend you'll customize something meaningful
-<code>/cancel</code> - Running away from your emotions? Tap this.
-<code>/reset</code> - Erase your mistakes (if only it worked for life decisions)
-<code>/stop</code> - Identical to /cancel but sounds more dramatic. Your choice.
-<code>/help</code> - You're reading it. Congratulations on finding the help command... to learn about the help command.
+<code>/start</code> - <i>Restart the bot or return to main menu</i>
+<code>/journal_chat</code> - <i>Have a conversation with your journal AI</i>
+<code>/new_entry</code> - <i>Create a new journal entry immediately</i>
+<code>/history</code> - <i>Browse your past journal entries</i>
+<code>/settings</code> - <i>Customize notifications, language & more</i>
+<code>/cancel</code> - <i>Exit current operation (for the commitment-phobic)</i>
+<code>/reset</code> - <i>Same as cancel but sounds more dramatic</i>
+<code>/help</code> - <i>You're reading it now! Mind-blowing, right?</i>
 
-<i>I'm literally just an algorithm trained to pretend I care about your feelings. But hey, that's more than most humans offer these days, right?</i>
+<b>💡 PRO TIPS:</b>
+• Record voice or video messages for easier journaling
+• Use Journal Chat to explore insights about your entries
+• Enable notifications to build a regular journaling habit
+• Try different entry types to capture your full experience
+
+<i>Remember: I'm here to be your digital confidant — all entries are private and secure!</i>
 `;
 
     await ctx.reply(helpText, {
