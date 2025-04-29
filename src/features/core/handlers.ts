@@ -8,11 +8,41 @@ import { logger } from '../../utils/logger';
 import { Bot } from 'grammy';
 
 /**
+ * Returns a random greeting question for the main menu.
+ */
+export function getRandomGreetingQuestion(): string {
+  const questions = [
+    "Care to share something 👀",
+    "Thoughts brewing today 💭",
+    "Need to vent 👂",
+    "Ready to spill tea ☕",
+    "What's your saga today 📖",
+    "How's that genius brain functioning 🧠",
+    "Feeling verbose 💬",
+    "Share a thought or seven 💫",
+    "Updates from your universe 🌎",
+    "Got secrets to confess 🤐",
+    "Time for cerebral catharsis 📝",
+    "Missed you... suspiciously much 😏",
+    "Let's discuss my favorite subject: you ✨",
+    "Got 60 seconds for me ⏱️",
+    "Come here often? (Please say yes) 😄",
+    "Need an algorithmic shoulder 🤗",
+    "What brilliance are you concealing 💡",
+    "Shall we swim in your consciousness 🏊",
+    "I exist solely for your emotional offloading 🤖",
+    "Hit me with your lexical dopamine 🎯"
+  ];
+  
+  return questions[Math.floor(Math.random() * questions.length)];
+}
+
+/**
  * Displays the main menu keyboard to the user.
  */
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     // Consider adding a check if the keyboard is already shown?
-    const questionString = 'Want to share something? 👀'
+    const questionString = getRandomGreetingQuestion();
     await ctx.reply(`Hey, ${user.name || user.firstName}! ${questionString}`, {
         reply_markup: MAIN_MENU_KEYBOARD,
         parse_mode: 'HTML'
