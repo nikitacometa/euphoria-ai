@@ -14,6 +14,7 @@ export interface IUser extends Document {
     onboardingCompleted?: boolean;
     notificationsEnabled?: boolean;
     notificationTime?: string; // Format: "HH:mm" (24-hour) in UTC timezone
+    timezone?: string; // IANA timezone format, e.g., 'America/New_York'
     lastNotificationSent?: Date;
     showTranscriptions?: boolean; // Whether to show transcription texts to the user
     aiLanguage?: string; // 'en' or 'ru' for AI interactions

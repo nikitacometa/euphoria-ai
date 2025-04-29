@@ -6,18 +6,27 @@ import { logger } from '../../utils/logger';
 import { notificationService } from '../../services/notification.service'; // Service for updating settings
 import { updateUserProfile } from '../../database'; // Direct user profile update
 import { showMainMenu } from '../core/handlers';
+import { convertFromUTC, formatTimeWithTimezone, guessUserTimezone } from '../../utils/timezone';
 
 /**
  * Formats the settings text based on user settings
  */
 function formatSettingsText(user: IUser): string {
     const notificationStatus = user.notificationsEnabled ? "✅" : "❌";
-    const notificationTime = user.notificationTime ? `${user.notificationTime} UTC` : "⏱️ Not set";
+    
+    // Format notification time with user's timezone if available
+    let notificationTimeDisplay = "⏱️ Not set";
+    if (user.notificationTime) {
+        const timezone = user.timezone || 'UTC';
+        const localTime = convertFromUTC(user.notificationTime, timezone);
+        notificationTimeDisplay = formatTimeWithTimezone(localTime, timezone);
+    }
+    
     const transcriptionStatus = user.showTranscriptions === true ? "✅" : "❌";
     const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
     
     return `🔔 <b>Notify every day:</b> ${notificationStatus}\n\n` +
-           `⏰ <b>Notify at:</b> ${notificationTime}\n\n` +
+           `⏰ <b>Notify at:</b> ${notificationTimeDisplay}\n\n` +
            `📝 <b>Show transcribed text for Voices/Videos:</b> ${transcriptionStatus}\n\n` +
            `🌐 <b>For AI Chat prefer:</b> ${languageStatus}\n\n` +
            `<i>What would you like to customize today?</i>`;
@@ -27,6 +36,22 @@ function formatSettingsText(user: IUser): string {
  * Displays the settings menu to the user.
  */
 export async function showSettingsHandler(ctx: JournalBotContext, user: IUser) {
+    // Automatically guess and update user's timezone if not set
+    if (!user.timezone) {
+        const guessedTimezone = await guessUserTimezone(ctx);
+        if (guessedTimezone && guessedTimezone !== user.timezone) {
+            await notificationService.updateUserNotificationSettings(
+                user.telegramId,
+                user.notificationsEnabled === true,
+                undefined,
+                guessedTimezone
+            );
+            // Refresh user data with updated timezone
+            user = await findOrCreateUser(user.telegramId, user.firstName, user.lastName, user.username);
+            logger.info(`Auto-detected timezone for user ${user.telegramId}: ${guessedTimezone}`);
+        }
+    }
+    
     const keyboard = createSettingsKeyboard(user);
     await ctx.reply(formatSettingsText(user), {
         reply_markup: keyboard,
@@ -124,13 +149,33 @@ export async function setNotificationTimeHandler(ctx: JournalBotContext) {
         ctx.session.waitingForNotificationTime = true;
     }
     
+    // Get the user to access their timezone
+    if (!ctx.from) return;
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    // Auto-guess timezone if not set
+    if (!user.timezone) {
+        const guessedTimezone = await guessUserTimezone(ctx);
+        if (guessedTimezone) {
+            await notificationService.updateUserNotificationSettings(
+                user.telegramId,
+                user.notificationsEnabled === true,
+                undefined,
+                guessedTimezone
+            );
+            logger.info(`Auto-detected timezone for user ${user.telegramId}: ${guessedTimezone}`);
+        }
+    }
+    
+    const timezone = user.timezone || 'UTC';
+    
     // Custom keyboard for time input or cancel
     const cancelKeyboard = new Keyboard()
         .text('❌ Cancel')
         .resized();
     
     await ctx.reply(
-        `Please enter a time for your daily journaling reminder in UTC timezone (GMT+0) using 24-hour format.\n\nExample: '21:00' for 9 PM UTC. Your local time may differ based on your timezone.`,
+        `Please enter a time for your daily journaling reminder using 24-hour format.\n\nExample: '21:00' for 9 PM.\n\nThis time will be interpreted in ${timezone} timezone.`,
         { reply_markup: cancelKeyboard }
     );
 }
@@ -149,13 +194,48 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
 
     if (time && timeRegex.test(time)) {
         try {
-            // Update via notification service OR direct DB
-            // Using direct DB for immediate feedback
-            const updatedUser = await updateUserProfile(user.telegramId, { notificationTime: time, notificationsEnabled: true }); // Also enable notifications when setting time?
-             if (!updatedUser) throw new Error("Failed to update user profile with time");
+            // Auto-guess timezone if not set
+            if (!user.timezone) {
+                const guessedTimezone = await guessUserTimezone(ctx);
+                if (guessedTimezone) {
+                    await notificationService.updateUserNotificationSettings(
+                        user.telegramId,
+                        user.notificationsEnabled === true,
+                        undefined,
+                        guessedTimezone
+                    );
+                    // Refresh user data with updated timezone
+                    user = await findOrCreateUser(user.telegramId, user.firstName, user.lastName, user.username);
+                    logger.info(`Auto-detected timezone for user ${user.telegramId}: ${guessedTimezone}`);
+                }
+            }
+            
+            // Get the user's timezone
+            const timezone = user.timezone || 'UTC';
+            
+            // Update using notification service with timezone conversion
+            await notificationService.updateUserNotificationSettings(
+                user.telegramId, 
+                true, // Enable notifications
+                time, // This is local time
+                timezone // User's timezone
+            );
+            
+            // Fetch updated user for display
+            const updatedUser = await findOrCreateUser(user.telegramId, user.firstName, user.lastName, user.username);
+            if (!updatedUser) throw new Error("Failed to update user profile with time");
 
             ctx.session.waitingForNotificationTime = false;
-            await ctx.reply(`Great! I'll send you notifications at ${time} UTC (GMT+0) 🌟`, {reply_markup: {remove_keyboard: true}});
+            
+            // Show the time in the user's timezone for confirmation
+            const timeInfo = await notificationService.getUserNotificationTime(user.telegramId);
+            let confirmationMessage = `Great! I'll send you notifications at ${time} in your timezone (${timezone}) 🌟`;
+            
+            if (timeInfo) {
+                confirmationMessage = `Great! I'll send you notifications at ${formatTimeWithTimezone(timeInfo.localTime, timeInfo.timezone)} 🌟`;
+            }
+            
+            await ctx.reply(confirmationMessage, {reply_markup: {remove_keyboard: true}});
             await showMainMenu(ctx, updatedUser); // Show main menu again
         } catch(error) {
              logger.error(`Error setting notification time for user ${user.telegramId}:`, error);
@@ -168,6 +248,17 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
         await ctx.reply("Time setting cancelled.", {reply_markup: {remove_keyboard: true}});
         await showMainMenu(ctx, user);
     } else {
-        await ctx.reply("Please enter a valid time in 24-hour format (e.g., '21:00') in UTC timezone. Or click '❌ Cancel' to exit.");
+        await ctx.reply("Please enter a valid time in 24-hour format (e.g., '21:00'). Or click '❌ Cancel' to exit.");
     }
 }
+
+/**
+ * Handles the `set_timezone` callback query.
+ */
+export async function setTimezoneHandler(ctx: JournalBotContext) {
+    await ctx.answerCallbackQuery();
+    await ctx.reply("Timezone settings have been removed. We now automatically detect your timezone.");
+}
+
+// Import needed at the end to avoid circular dependencies
+import { findOrCreateUser } from '../../database';

@@ -67,6 +67,11 @@ const userSchema = new Schema<IUser>(
                 message: props => `${props.value} is not a valid time format! Use HH:mm (24-hour) in UTC timezone`
             }
         },
+        timezone: {
+            type: String,
+            default: "UTC",
+            required: false
+        },
         lastNotificationSent: {
             type: Date,
             required: false
@@ -124,7 +129,7 @@ export async function getAllUsers(): Promise<IUser[]> {
 // Journal application specific functions
 export async function updateUserProfile(
     telegramId: number,
-    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'showTranscriptions' | 'aiLanguage'>> // Use Partial<Pick<IUser, ...>> for updates
+    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'timezone' | 'showTranscriptions' | 'aiLanguage'>> // Use Partial<Pick<IUser, ...>> for updates
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(
         { telegramId },
