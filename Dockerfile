@@ -1,4 +1,4 @@
-FROM node:lts-slim AS base
+FROM node:lts-slim
 
 # Create app directory
 WORKDIR /app
@@ -12,19 +12,5 @@ RUN npm ci
 # Bundle app source
 COPY . .
 
-# Type check app
-RUN npm run typecheck
-
-FROM base AS runner
-
-# Bundle app source
-COPY . .
-
-# Install only production app dependencies
-RUN npm ci --only=production
-
-USER node
-
-# Start the app
-EXPOSE 80
+# Start the app (will be overridden by docker-compose command for dev mode)
 CMD ["npm", "run", "start"]

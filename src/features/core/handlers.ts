@@ -1,11 +1,11 @@
-import { JournalBotContext } from '../../types';
+import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 import { MAIN_MENU_KEYBOARD } from './keyboards';
 import { findOrCreateUser } from '../../database';
 import { withCommandLogging } from '../../utils/command-logger';
 import { startOnboarding } from '../onboarding/handlers';
 import { logger } from '../../utils/logger';
-import { Bot } from 'telegraf';
+import { Bot } from 'grammy';
 
 /**
  * Displays the main menu keyboard to the user.

@@ -57,10 +57,21 @@ A Telegram bot that serves as a personal journal application, allowing users to 
 
 ### Docker Deployment
 
-You can also run the bot using Docker:
+Run the bot using Docker:
 
 ```
 docker-compose up -d
+```
+
+This setup includes:
+- Hot-reloading for development (local files are mounted into the container)
+- MongoDB database
+- Mongo Express web interface for database management
+
+For production deployment, you can simply remove the volume mounts from the docker-compose.yml file or use:
+
+```
+docker-compose up -d --build bot
 ```
 
 ## Usage
