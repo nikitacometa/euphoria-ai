@@ -354,7 +354,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing' : 'New'} reflection started! Share your thoughts (text, voice, video). ✨`, {
+        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to compose' : 'Composing '} a new entry! Share a few messages with your thoughts (+ voice/video of course) ✍️`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });
