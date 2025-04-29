@@ -43,7 +43,7 @@ export function getRandomGreetingQuestion(): string {
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     // Consider adding a check if the keyboard is already shown?
     const questionString = getRandomGreetingQuestion();
-    await ctx.reply(`Hey, ${user.name || user.firstName}! ${questionString}`, {
+    await ctx.reply(`<i>Well, ${user.name || user.firstName}! ${questionString}</i>`, {
         reply_markup: MAIN_MENU_KEYBOARD,
         parse_mode: 'HTML'
     });
