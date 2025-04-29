@@ -12,18 +12,17 @@ import { showMainMenu } from '../core/handlers';
  */
 export async function showSettingsHandler(ctx: JournalBotContext, user: IUser) {
     const keyboard = createSettingsKeyboard(user); // Use the keyboard generator
-    const status = user.notificationsEnabled ? "enabled" : "disabled";
-    const time = user.notificationTime || "not set";
-    const transcriptions = user.showTranscriptions === true ? "enabled" : "disabled";
-    const language = user.aiLanguage === 'en' ? "English" : "Russian";
+    const notificationStatus = user.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
+    const notificationTime = user.notificationTime || "⏱️ Not set";
+    const transcriptionStatus = user.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
+    const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
     
     await ctx.reply(
-        `<b>Settings</b> ⚙️\n\n` +
-        `Notifications: ${status}\n` +
-        `Time: ${time}\n` +
-        `Show Transcriptions: ${transcriptions}\n` +
-        `AI Language: ${language}\n\n` +
-        `What would you like to change?`,
+        `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
+        `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
+        `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
+        `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
+        `<i>What would you like to customize today?</i>`,
         {
             reply_markup: keyboard,
             parse_mode: 'HTML'
@@ -47,18 +46,18 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
 
         // Update the message with the new state
         const keyboard = createSettingsKeyboard(updatedUser);
-        const statusText = updatedUser.notificationsEnabled ? "enabled" : "disabled";
-        const timeText = updatedUser.notificationTime || "not set";
-        const transcriptions = updatedUser.showTranscriptions ? "enabled" : "disabled";
-        const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
+        const notificationStatus = updatedUser.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
+        const notificationTime = updatedUser.notificationTime || "⏱️ Not set";
+        const transcriptionStatus = updatedUser.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
+        const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
 
         await ctx.editMessageText(
-            `<b>Settings</b> ⚙️\n\n` +
-            `Notifications: ${statusText}\n` +
-            `Time: ${timeText}\n` +
-            `Show Transcriptions: ${transcriptions}\n` +
-            `AI Language: ${language}\n\n` +
-            `What would you like to change?`,
+            `<b>✨ Your Personal Settings ✨</b>\n\n` +
+            `🔔 <b>Notifications:</b> ${notificationStatus}\n` +
+            `⏰ <b>Reminder Time:</b> ${notificationTime}\n` +
+            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n` +
+            `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
+            `<i>What would you like to customize today?</i>`,
             {
                 reply_markup: keyboard,
                 parse_mode: 'HTML'
@@ -92,18 +91,18 @@ export async function toggleTranscriptionsHandler(ctx: JournalBotContext, user: 
 
         // Update the message with the new state
         const keyboard = createSettingsKeyboard(updatedUser);
-        const notificationStatus = updatedUser.notificationsEnabled ? "enabled" : "disabled";
-        const timeText = updatedUser.notificationTime || "not set";
-        const transcriptions = updatedUser.showTranscriptions === true ? "enabled" : "disabled";
-        const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
+        const notificationStatus = updatedUser.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
+        const notificationTime = updatedUser.notificationTime || "⏱️ Not set";
+        const transcriptionStatus = updatedUser.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
+        const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
 
         await ctx.editMessageText(
-            `<b>Settings</b> ⚙️\n\n` +
-            `Notifications: ${notificationStatus}\n` +
-            `Time: ${timeText}\n` +
-            `Show Transcriptions: ${transcriptions}\n` +
-            `AI Language: ${language}\n\n` +
-            `What would you like to change?`,
+            `<b>✨ Your Personal Settings ✨</b>\n\n` +
+            `🔔 <b>Notifications:</b> ${notificationStatus}\n` +
+            `⏰ <b>Reminder Time:</b> ${notificationTime}\n` +
+            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n` +
+            `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
+            `<i>What would you like to customize today?</i>`,
             {
                 reply_markup: keyboard,
                 parse_mode: 'HTML'
@@ -129,18 +128,17 @@ export async function toggleLanguageHandler(ctx: JournalBotContext, user: IUser)
 
         // Update the message with the new state
         const keyboard = createSettingsKeyboard(updatedUser);
-        const notificationStatus = updatedUser.notificationsEnabled ? "enabled" : "disabled";
-        const timeText = updatedUser.notificationTime || "not set";
-        const transcriptions = updatedUser.showTranscriptions ? "enabled" : "disabled";
-        const language = updatedUser.aiLanguage === 'en' ? "English" : "Russian";
+        const notificationStatus = updatedUser.notificationsEnabled ? "✅ Enabled" : "❌ Disabled";
+        const notificationTime = updatedUser.notificationTime || "⏱️ Not set";
+        const transcriptionStatus = updatedUser.showTranscriptions === true ? "✅ Enabled" : "❌ Disabled";
+        const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
 
         await ctx.editMessageText(
-            `<b>Settings</b> ⚙️\n\n` +
-            `Notifications: ${notificationStatus}\n` +
-            `Time: ${timeText}\n` +
-            `Show Transcriptions: ${transcriptions}\n` +
-            `AI Language: ${language}\n\n` +
-            `What would you like to change?`,
+            `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
+            `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
+            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
+            `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
+            `<i>What would you like to customize today?</i>`,
             {
                 reply_markup: keyboard,
                 parse_mode: 'HTML'
