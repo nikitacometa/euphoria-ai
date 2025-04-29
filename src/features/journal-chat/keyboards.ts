@@ -1,4 +1,5 @@
-import { InlineKeyboard } from 'grammy';
+import { Keyboard } from 'grammy';
 
-export const exitChatKeyboard = new InlineKeyboard()
-    .text("❌ Exit Chat Mode", "exit_chat_mode");
+export const chatKeyboard = new Keyboard()
+    .text("📋 Main Menu")
+    .resized();

@@ -3,7 +3,7 @@ import { IUser, IJournalEntry } from '../../types/models';
 import { logger } from '../../utils/logger';
 import { getUserJournalEntries } from '../../database';
 import { showMainMenu } from '../core/handlers';
-import { exitChatKeyboard } from './keyboards';
+import { chatKeyboard } from './keyboards';
 import { generateJournalInsights } from '../../services/ai/journal-ai.service';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import * as fs from 'fs';
@@ -34,10 +34,30 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.journalChatMode = true;
     ctx.session.waitingForJournalQuestion = true;
     
-    await ctx.reply(`Hey, ${user.name || user.firstName}! Ask your journal anything! 🌟\n\n<i>• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals</i>\n\nOf course, you can use voice/videos to ask things.`, {
-        reply_markup: exitChatKeyboard,
+    await ctx.reply(`Hey, ${user.name || user.firstName}! Ask your journal anything 🤌\n\n<i>• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals</i>\n\nOf course, you can use voice/videos to ask things.`, {
+        reply_markup: chatKeyboard,
         parse_mode: 'HTML'
     });
+}
+
+/**
+ * Formats the AI response text with HTML formatting.
+ * Only uses HTML tags supported by Telegram API: <b>, <i>, <u>, <s>, <a>, <code>, <pre>.
+ */
+function formatResponseWithHTML(text: string): string {
+    // Format paragraphs with line breaks instead of unsupported <p> tags
+    let formatted = text.replace(/\n\n/g, '\n\n');
+    
+    // Add bold for important points
+    formatted = formatted.replace(/(\*\*|__)(.*?)\1/g, '<b>$2</b>');
+    
+    // Add italic for emphasis
+    formatted = formatted.replace(/(\*|_)(.*?)\1/g, '<i>$2</i>');
+    
+    // Add the follow-up question
+    formatted += `\n\n<i>Would you like to ask anything else about your journal?</i>`;
+    
+    return formatted;
 }
 
 /**
@@ -53,7 +73,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
     try {
         // --- Handle Voice Message ---
         if (ctx.message.voice) {
-            const waitMsg = await ctx.reply("⏳", { reply_markup: exitChatKeyboard });
+            const waitMsg = await ctx.reply("⏳", { reply_markup: chatKeyboard });
             waitMsgId = waitMsg.message_id;
 
             const fileId = ctx.message.voice.file_id;
@@ -65,17 +85,24 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             questionText = await transcribeAudio(localFilePath);
 
             if (ctx.chat && waitMsgId) {
-                await ctx.api.editMessageText(ctx.chat.id, waitMsgId, `⏳`, { reply_markup: exitChatKeyboard });
+                await ctx.api.editMessageText(ctx.chat.id, waitMsgId, `⏳`);
             }
 
         // --- Handle Text Message ---
         } else if (ctx.message.text) {
             questionText = ctx.message.text;
-            const waitMsg = await ctx.reply(`⏳`, { reply_markup: exitChatKeyboard });
+            
+            // Handle the main menu text button
+            if (questionText === "📋 Main Menu") {
+                await exitJournalChatHandler(ctx);
+                return;
+            }
+            
+            const waitMsg = await ctx.reply(`⏳`, { reply_markup: chatKeyboard });
             waitMsgId = waitMsg.message_id;
 
         } else {
-            await ctx.reply("I can currently only process text or voice questions in chat mode.", { reply_markup: exitChatKeyboard });
+            await ctx.reply("I can currently only process text or voice questions in chat mode.", { reply_markup: chatKeyboard });
             return;
         }
 
@@ -86,17 +113,18 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
                  if (waitMsgId && ctx.chat) {
                      await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
                  }
-                await ctx.reply("You don't seem to have any journal entries yet to analyze.", { reply_markup: exitChatKeyboard });
+                await ctx.reply("You don't seem to have any journal entries yet to analyze.", { reply_markup: chatKeyboard });
                 return;
             }
 
             // Fix parameter order to match the service implementation
             const insights = await generateJournalInsights(entries, user, questionText);
+            const formattedInsights = formatResponseWithHTML(insights || "I couldn't find any specific insights for that question.");
 
             if (waitMsgId && ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
             }
-            await ctx.reply(insights || "I couldn't find any specific insights for that question.", { reply_markup: exitChatKeyboard, parse_mode: 'HTML' });
+            await ctx.reply(formattedInsights, { reply_markup: chatKeyboard, parse_mode: 'HTML' });
         }
 
     } catch (error) {
@@ -104,7 +132,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
         if (waitMsgId && ctx.chat) {
              await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg after error", e));
         }
-        await ctx.reply("😵‍💫 Oops! Something went wrong while processing your question. Please try again.", { reply_markup: exitChatKeyboard });
+        await ctx.reply("😵‍💫 Oops! Something went wrong while processing your question. Please try again.", { reply_markup: chatKeyboard });
     } finally {
         // Clean up temp voice file
         if (localFilePath) {
@@ -125,14 +153,6 @@ export async function exitJournalChatHandler(ctx: JournalBotContext) {
 
     ctx.session.journalChatMode = false;
     ctx.session.waitingForJournalQuestion = false;
-    
-    if (ctx.callbackQuery) {
-        await ctx.answerCallbackQuery().catch(e => logger.warn("Failed to answer exit_chat_mode CBQ", e));
-    }
-
-    await ctx.reply("Returning to main menu. Chat mode disabled.", {
-        reply_markup: { remove_keyboard: true }
-    });
     
     await showMainMenu(ctx, user);
 }
@@ -155,9 +175,7 @@ async function downloadTelegramFile(filePath: string, type: 'voice' | 'video'): 
 }
 
 export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
-    bot.callbackQuery("exit_chat_mode", async (ctx) => {
-        await exitJournalChatHandler(ctx);
-    });
+    // We no longer need callback query handlers since we're using text buttons
     
     bot.command("journal_chat", async (ctx) => {
         if (!ctx.from) return;
@@ -168,7 +186,7 @@ export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
     bot.on("message", async (ctx, next) => {
         if (ctx.session?.journalChatMode) {
             if (ctx.message?.text?.startsWith('/')) {
-                await ctx.reply("Please exit chat mode first to use commands.", { reply_markup: exitChatKeyboard });
+                await ctx.reply("Please exit chat mode first to use commands.", { reply_markup: chatKeyboard });
                 return;
             }
             if (!ctx.from) return;

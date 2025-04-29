@@ -12,7 +12,8 @@ import { Bot } from 'grammy';
  */
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     // Consider adding a check if the keyboard is already shown?
-    await ctx.reply(`Hey, ${user.name || user.firstName}! Want to share something? 👀`, {
+    const questionString = 'Want to share something? 👀'
+    await ctx.reply(`Hey, ${user.name || user.firstName}! ${questionString}`, {
         reply_markup: MAIN_MENU_KEYBOARD,
         parse_mode: 'HTML'
     });

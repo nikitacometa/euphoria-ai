@@ -180,6 +180,7 @@ export async function generateJournalInsights(
         } else {
             userPrompt += `Please provide a very brief analysis (1-3 sentences) of the most significant patterns or insights from these journal entries.`;
         }
+        userPrompt += `format output as html, use paragraphs for each sentense, separating with two newlines, highlight rare only important wrods with <b> for bold, <i> for italic`;
         
         const messages: IChatMessage[] = [
             { role: 'system', content: journalPrompts.insightsSystemPrompt },
