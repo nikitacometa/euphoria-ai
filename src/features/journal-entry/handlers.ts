@@ -51,19 +51,6 @@ interface ChatMessage {
 export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUser) {
     if (!ctx.message || !ctx.from || !ctx.session.journalEntryId) return;
 
-    // Skip messages that are actually button presses handled by hears()
-    if ('text' in ctx.message) {
-        const text = ctx.message.text || '';
-        if (
-            text === "✅ Save" ||
-            text === "🔍 Analyze & Suggest Questions" ||
-            text === "❌ Cancel" ||
-            text === "✅ Finish Reflection" // Assuming this is another save trigger
-        ) {
-            return; // Let the hears handlers take care of these
-        }
-    }
-
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
     // Re-fetch entry to ensure it's still active and get populated messages if needed
     const entry = await getJournalEntryById(entryId);
@@ -294,30 +281,60 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         // Check if entry has any content
         const entryContent = await extractFullText(entry);
         if (!entryContent) {
-            await ctx.reply("There's nothing in your entry to analyze yet. Add some thoughts first! ✨");
+            await ctx.reply("There's nothing in your entry to analyze yet. Add some thoughts first! ✨", {
+                reply_markup: journalActionKeyboard // Always show keyboard
+            });
             return; // Keep the entry active
         }
         
         const waitMsg = await ctx.reply("⏳ Generating questions...");
-        const questions = await generateJournalQuestions(entry, user);
-        await updateJournalEntryQuestions(entryId, questions);
-        if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        if (questions.length > 0) {
-            const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-            await ctx.reply(`<b>🤔 Here are some questions to ponder:</b>\n\n${questionsText}`, { parse_mode: 'HTML' });
+        try {
+            const questions = await generateJournalQuestions(entry, user);
+            await updateJournalEntryQuestions(entryId, questions);
+            
+            if (ctx.chat) {
+                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => {
+                    logger.warn("Failed to delete wait msg", e);
+                });
+            }
+            
+            if (questions && questions.length > 0) {
+                const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
+                await ctx.reply(`<b>🤔 Here are some questions to ponder:</b>\n\n${questionsText}`, { 
+                    parse_mode: 'HTML'
+                });
+            } else {
+                await ctx.reply(`<b>Hmm, I couldn't generate specific questions this time.</b> But feel free to continue sharing! ✨`, { 
+                    parse_mode: 'HTML'
+                });
+            }
+        } catch (questionError) {
+            logger.error(`Error generating questions for entry ${entryId}:`, questionError);
+            
+            if (ctx.chat) {
+                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => {
+                    logger.warn("Failed to delete wait msg after error", e);
+                });
+            }
+            
+            await ctx.reply(`<b>Oops!</b> I had trouble thinking of questions. Please try again or continue sharing. ✨`, { 
+                parse_mode: 'HTML'
+            });
         }
         
-        // Keep the entry active - remind user of options
+        // Always show the journal action keyboard after any response
         await ctx.reply(`Keep sharing, or use the buttons below... 💫`, {
-            reply_markup: journalActionKeyboard, // Use the defined keyboard
+            reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });
         
     } catch (error) {
         logger.error(`Error in Analyze Journal handler for user ${user.telegramId}:`, error);
-        await ctx.reply(`<b>Oops!</b> My question generator is feeling shy. Let's try again later!`, { parse_mode: 'HTML' });
-        // Don't necessarily go to main menu, let user continue or press cancel
+        await ctx.reply(`<b>Oops!</b> My question generator is feeling shy. Let's try again later!`, {
+            parse_mode: 'HTML',
+            reply_markup: journalActionKeyboard // Always show keyboard even after error
+        });
     }
 }
 

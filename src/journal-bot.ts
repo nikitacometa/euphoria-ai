@@ -51,7 +51,7 @@ import { registerJournalEntryHandlers } from './features/journal-entry';
 import { showMainMenu } from './features/core/handlers';
 import { registerCoreHandlers } from './features/core';
 import { registerJournalHistoryHandlers } from './features/journal-history';
-import { registerJournalChatHandlers } from './features/journal-chat/handlers';
+import { registerJournalChatHandlers } from './features/journal-chat';
 import { registerSettingsHandlers } from './features/settings';
 
 // Import the specific handlers/utils needed by remaining functions in this file
@@ -80,7 +80,10 @@ const bot = new Bot<JournalBotContext>(TELEGRAM_API_TOKEN);
 
 // Set up session middleware
 bot.use(session({
-    initial: (): JournalBotSession => ({})
+    initial: (): JournalBotSession => ({
+        journalChatMode: false,
+        waitingForJournalQuestion: false
+    })
 }));
 
 // Connect to MongoDB
@@ -110,6 +113,38 @@ const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotCon
 
 // Register the start command
 bot.command('start', handleStartCommand);
+
+// Universal cancel command to reset any user state
+bot.command(['cancel', 'reset', 'stop'], async (ctx) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    // Reset all session flags
+    if (ctx.session.journalEntryId) {
+        logger.info(`Cancelling journal entry ${ctx.session.journalEntryId} via /cancel command`);
+        ctx.session.journalEntryId = undefined;
+    }
+    
+    if (ctx.session.journalChatMode) {
+        logger.info(`Exiting journal chat mode via /cancel command`);
+        ctx.session.journalChatMode = false;
+        ctx.session.waitingForJournalQuestion = false;
+    }
+    
+    if (ctx.session.waitingForNotificationTime) {
+        logger.info(`Cancelling notification time setting via /cancel command`);
+        ctx.session.waitingForNotificationTime = false;
+    }
+    
+    if (ctx.session.onboardingStep) {
+        logger.info(`Cancelling onboarding step ${ctx.session.onboardingStep} via /cancel command`);
+        ctx.session.onboardingStep = undefined;
+    }
+    
+    await ctx.reply("✨ All active sessions have been reset. Returning to main menu.");
+    await showMainMenu(ctx, user);
+});
 
 // Keep handlers for features not yet extracted
 bot.hears("📚 Journal History", async (ctx: JournalBotContext) => {

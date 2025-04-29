@@ -11,15 +11,13 @@ import * as path from 'path';
 import * as os from 'os';
 import { TELEGRAM_API_TOKEN } from '../../config';
 import { Bot } from "grammy";
-import { MyContext } from "../../types";
+import { JournalBotContext } from "../../types/session";
 import { findOrCreateUser } from '../../database';
 
 /**
  * Initiates the journal chat mode.
  */
-export async function startJournalChatHandler(ctx: MyContext) {
-    if (!ctx.from) return;
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+export async function startJournalChatHandler(ctx: JournalBotContext, user: IUser) {
     if (!user) return;
 
     const entries = await getUserJournalEntries(user._id as Types.ObjectId);
@@ -45,11 +43,8 @@ export async function startJournalChatHandler(ctx: MyContext) {
 /**
  * Handles incoming messages (text, voice) during journal chat mode.
  */
-export async function handleJournalChatInput(ctx: MyContext) {
-    if (!ctx.session.journalChatMode || !ctx.message || !ctx.from) return;
-
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    if (!user) return;
+export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser) {
+    if (!ctx.session.journalChatMode || !ctx.message) return;
 
     let questionText: string | null = null;
     let waitMsgId: number | null = null;
@@ -95,8 +90,8 @@ export async function handleJournalChatInput(ctx: MyContext) {
                 return;
             }
 
-            // Correct order: user, entries, questionText
-            const insights = await generateJournalInsights(user, entries, questionText);
+            // Fix parameter order to match the service implementation
+            const insights = await generateJournalInsights(entries, user, questionText);
 
             if (waitMsgId && ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
@@ -124,9 +119,10 @@ export async function handleJournalChatInput(ctx: MyContext) {
 /**
  * Handles the "❌ Exit Chat Mode" button press.
  */
-export const exitJournalChatHandler = async (ctx: MyContext) => {
+export async function exitJournalChatHandler(ctx: JournalBotContext) {
     if (!ctx.from) return;
-    
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+
     ctx.session.journalChatMode = false;
     ctx.session.waitingForJournalQuestion = false;
     
@@ -137,6 +133,8 @@ export const exitJournalChatHandler = async (ctx: MyContext) => {
     await ctx.reply("Returning to main menu. Chat mode disabled.", {
         reply_markup: { remove_keyboard: true }
     });
+    
+    await showMainMenu(ctx, user);
 }
 
 async function downloadTelegramFile(filePath: string, type: 'voice' | 'video'): Promise<string> {
@@ -156,10 +154,16 @@ async function downloadTelegramFile(filePath: string, type: 'voice' | 'video'): 
     return localFilePath;
 }
 
-export const registerJournalChatHandlers = (bot: Bot<MyContext>) => {
-    bot.callbackQuery("exit_chat_mode", exitJournalChatHandler);
+export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
+    bot.callbackQuery("exit_chat_mode", async (ctx) => {
+        await exitJournalChatHandler(ctx);
+    });
     
-    bot.command("journal_chat", startJournalChatHandler);
+    bot.command("journal_chat", async (ctx) => {
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await startJournalChatHandler(ctx, user);
+    });
 
     bot.on("message", async (ctx, next) => {
         if (ctx.session?.journalChatMode) {
@@ -167,7 +171,9 @@ export const registerJournalChatHandlers = (bot: Bot<MyContext>) => {
                 await ctx.reply("Please exit chat mode first to use commands.", { reply_markup: exitChatKeyboard });
                 return;
             }
-            await handleJournalChatInput(ctx);
+            if (!ctx.from) return;
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await handleJournalChatInput(ctx, user);
         } else {
             await next();
         }
