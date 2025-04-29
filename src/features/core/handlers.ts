@@ -99,10 +99,90 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
 });
 
 /**
+ * Handles the /help command to show available commands and their descriptions.
+ */
+export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalBotContext) => {
+    if (!ctx.from) return;
+    
+    const helpText = `
+<b>✨ Commands For The Confused And Bewildered ✨</b>
+
+<code>/start</code> - For when you've forgotten why you're here. Again.
+<code>/journal_chat</code> - Chat with me because real people can't handle your brilliance
+<code>/new_entry</code> - Start a new journal entry without all that pesky menu navigation
+<code>/history</code> - Revisit your past questionable thoughts and decisions
+<code>/settings</code> - Pretend you'll customize something meaningful
+<code>/cancel</code> - Running away from your emotions? Tap this.
+<code>/reset</code> - Erase your mistakes (if only it worked for life decisions)
+<code>/stop</code> - Identical to /cancel but sounds more dramatic. Your choice.
+<code>/help</code> - You're reading it. Congratulations on finding the help command... to learn about the help command.
+
+<b>Buttons For The Keyboard-Phobic</b>
+
+• <b>New Entry</b> - Type words. Receive artificial validation. Feel better.
+• <b>Journal History</b> - Revisit your past questionable thoughts
+• <b>Ask My Journal</b> - Interrogate your own words as if they're sentient
+• <b>Settings</b> - Pretend you'll customize something meaningful
+
+<i>I'm literally just an algorithm trained to pretend I care about your feelings. But hey, that's more than most humans offer these days, right?</i>
+`;
+
+    await ctx.reply(helpText, {
+        parse_mode: 'HTML'
+    });
+});
+
+/**
+ * Handles the /new_entry command to start a new journal entry
+ */
+export const handleNewEntryCommand = withCommandLogging('new_entry', async (ctx: JournalBotContext) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    // Import and call the newEntryHandler from journal-entry feature
+    const { newEntryHandler } = await import('../journal-entry/handlers.js');
+    await newEntryHandler(ctx, user);
+});
+
+/**
+ * Handles the /history command to view journal history
+ */
+export const handleHistoryCommand = withCommandLogging('history', async (ctx: JournalBotContext) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    // Import and call the showJournalHistoryHandler from journal-history feature
+    const { showJournalHistoryHandler } = await import('../journal-history/handlers.js');
+    await showJournalHistoryHandler(ctx, user);
+});
+
+/**
+ * Handles the /settings command to show settings menu
+ */
+export const handleSettingsCommand = withCommandLogging('settings', async (ctx: JournalBotContext) => {
+    if (!ctx.from) return;
+    
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    // Import and call the showSettingsHandler from settings feature
+    const { showSettingsHandler } = await import('../settings/handlers.js');
+    await showSettingsHandler(ctx, user);
+});
+
+/**
  * Registers all command handlers with the bot
  */
 export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
     // Register core commands
     bot.command('start', handleStartCommand);
     bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);
+    bot.command('help', handleHelpCommand);
+    
+    // Register menu item commands
+    bot.command('new_entry', handleNewEntryCommand);
+    bot.command('history', handleHistoryCommand);
+    bot.command('settings', handleSettingsCommand);
+    // 'journal_chat' is already registered in journal-chat/handlers.ts
 }
