@@ -25,7 +25,7 @@ async function showMainMenu(ctx: JournalBotContext, user: IUser) {
         .text("⚙️ Settings")
         .resized();
     
-    await ctx.reply(`Welcome back, ${user.name || user.firstName}! Ready to explore your thoughts? ✨`, {
+    await ctx.reply(`Hello, ${user.name || user.firstName}! Time for some self-reflection? 😏`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });

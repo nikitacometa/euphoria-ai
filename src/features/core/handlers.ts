@@ -12,7 +12,7 @@ import { Bot } from 'telegraf';
  */
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     // Consider adding a check if the keyboard is already shown?
-    await ctx.reply(`Welcome back, ${user.name || user.firstName}! Ready to explore your thoughts? ✨`, {
+    await ctx.reply(`Hey, ${user.name || user.firstName}! Wanna share your thoughts? ✨`, {
         reply_markup: MAIN_MENU_KEYBOARD,
         parse_mode: 'HTML'
     });

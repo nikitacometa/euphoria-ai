@@ -202,7 +202,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         await journalEntryService.completeEntry(entryId, summary, question);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>Reflection complete! 💫</b>\n\n<b>Summary:</b> ${summary}\n\n<b>A question for later:</b>\n<i>${question}</i>`;
+        const formattedMessage = `<b>Entry saved!  💫</b>\n\n<b>Summary:</b> ${summary}\n\n<b>If you want to reflect hard, later think about this:</b>\n<i>${question}</i>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
@@ -282,8 +282,8 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             }
             
             if (questions && questions.length > 0) {
-                const questionsText = questions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-                await ctx.reply(`<b>🤔 Here are some questions to ponder:</b>\n\n${questionsText}`, { 
+                const questionsText = questions.map((q: string, i: number) => `<i>- ${q}</i>`).join('\n\n');
+                await ctx.reply(`<b>🤔 Share any thoughts in response to:</b>\n\n${questionsText}`, { 
                     parse_mode: 'HTML'
                 });
             } else {
