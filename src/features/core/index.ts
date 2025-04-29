@@ -1,10 +1,14 @@
 import { Bot } from 'grammy';
 import { JournalBotContext } from '../../types/session';
-import { showMainMenu } from './handlers';
+import { showMainMenu, handleStartCommand, handleCancelCommand } from './handlers';
 import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
 
 export function registerCoreHandlers(bot: Bot<JournalBotContext>) {
+    // Register core commands
+    bot.command('start', handleStartCommand);
+    bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);
+
     // Register callback query handler for the main menu button
     bot.callbackQuery("main_menu", async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();

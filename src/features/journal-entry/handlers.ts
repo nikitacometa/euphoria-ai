@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 import { Bot, Context, Keyboard } from 'grammy';
 import { JournalBotContext } from '../../types/session';
-import { IUser, IJournalEntry, IMessage, MessageType, MessageRole } from '../../types/models';
+import { IUser, IJournalEntry, IMessage, MessageType, MessageRole, IChatMessage } from '../../types/models';
 import { logger } from '../../utils/logger';
 import {
     saveTextMessage,
@@ -14,7 +14,8 @@ import {
     completeJournalEntry,
     updateJournalEntryQuestions,
     findOrCreateUser, // Need this for hears handlers
-    createJournalEntry // Need this for hears handlers
+    createJournalEntry, // Need this for hears handlers
+    updateJournalEntryAnalysis
 } from '../../database';
 import {
     generateJournalQuestions,
@@ -38,12 +39,6 @@ import { TELEGRAM_API_TOKEN, GPT_VERSION } from '../../config'; // Needed for fi
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
-
-// Temporary ChatMessage interface (consider moving to shared types if used elsewhere)
-interface ChatMessage {
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-}
 
 /**
  * Handles incoming messages (text, voice, video) during an active journal entry session.
@@ -206,7 +201,7 @@ Format as JSON:
 
         const userInfo = `User: ${user.name || user.firstName}`; // Simplified user info
 
-        const chatMessages: ChatMessage[] = [
+        const chatMessages: IChatMessage[] = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `${userInfo}\n\nEntry:\n${entryContent}\n\nProvide summary & question.` }
         ];
@@ -402,4 +397,144 @@ async function downloadTelegramFile(filePath: string, type: 'voice' | 'video'): 
     const buffer = await response.arrayBuffer();
     fs.writeFileSync(localFilePath, Buffer.from(buffer));
     return localFilePath;
+}
+
+/**
+ * Handles the "Go Deeper" button click to generate deeper analysis and questions.
+ */
+export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
+    if (!ctx.session.journalEntryId) {
+        await ctx.reply(`<b>Hey ${user.name || user.firstName}</b>, you don't have an active journal entry. Let's start a new one first!`, {
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
+        return;
+    }
+    
+    try {
+        const entryId = new Types.ObjectId(ctx.session.journalEntryId);
+        const entry = await getJournalEntryById(entryId);
+        
+        if (!entry) {
+            ctx.session.journalEntryId = undefined;
+            await ctx.reply(`<b>Mmm...</b> seems like our connection faded for a moment there 🌙\n\nShall we start a fresh journey of discovery? ✨`, {
+                parse_mode: 'HTML'
+            });
+            await showMainMenu(ctx, user);
+            return;
+        }
+        
+        // Send wait message with sand clock emoji
+        const waitMsg = await ctx.reply("⏳");
+        
+        // Get all messages from the entry
+        const messages = entry.messages as IMessage[];
+        
+        // Extract user responses to previous questions
+        const userResponses = messages
+            .filter(msg => msg.role === MessageRole.USER)
+            .map(msg => {
+                if (msg.type === MessageType.TEXT) {
+                    return msg.text || '';
+                } else if (msg.type === MessageType.VOICE || msg.type === MessageType.VIDEO) {
+                    return msg.transcription || '';
+                }
+                return '';
+            })
+            .filter(text => text.length > 0)
+            .join('\n\n');
+        
+        // Get previous questions and analysis
+        const previousQuestions = entry.aiQuestions || '';
+        const previousAnalysis = entry.analysis || '';
+        
+        // Generate deeper analysis
+        const deeperAnalysisPrompt = `You are Infinity, an insightful and supportive guide.
+Your personality:
+- Warm and empathetic
+- Clear and perceptive
+- Professional with a gentle touch
+- Focused on personal growth
+- Uses minimal emojis (✨ 🌟 💫)
+
+Based on the user's responses and previous analysis, provide:
+1. A brief analysis identifying key patterns or insights
+2. Two questions for deeper reflection
+
+Format as JSON:
+{
+  "analysis": "Your insightful analysis",
+  "questions": [
+    "First question about personal growth?",
+    "Second question about deeper insights?"
+  ]
+}`;
+
+        const chatMessages: IChatMessage[] = [
+            { role: 'system', content: deeperAnalysisPrompt },
+            { 
+                role: 'user', 
+                content: `User's Journal Entry and Responses:\n${userResponses}\n\nPrevious Questions:\n${previousQuestions}\n\nPrevious Analysis:\n${previousAnalysis}\n\nPlease generate a deeper analysis and more probing questions.` 
+            }
+        ];
+        
+        // Call OpenAI API
+        const response = await openai.chat.completions.create({
+            model: GPT_VERSION,
+            messages: chatMessages,
+            temperature: 0.7,
+            max_tokens: 800,
+            response_format: { type: "json_object" }
+        });
+        
+        const responseContent = response.choices[0].message.content || '';
+        let parsedResponse;
+        
+        try {
+            parsedResponse = JSON.parse(responseContent);
+        } catch (error) {
+            logger.error('Error parsing JSON response:', error);
+            
+            // Delete wait message
+            if (ctx.chat) {
+                await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
+            }
+            
+            await ctx.reply(`<b>Oops!</b> My brain got a little tangled there. Let's try again later, ${user.name || user.firstName}!`, {
+                parse_mode: 'HTML'
+            });
+            return;
+        }
+        
+        const deeperAnalysis = parsedResponse.analysis || "Looking deeper at your reflections...";
+        const deeperQuestions = parsedResponse.questions || ["What else would you like to explore about this experience?"];
+        
+        // Update the journal entry with the deeper analysis and questions
+        await updateJournalEntryAnalysis(entryId, `${previousAnalysis}\n\nDeeper Analysis: ${deeperAnalysis}`);
+        await updateJournalEntryQuestions(entryId, deeperQuestions);
+        
+        // Delete wait message
+        if (ctx.chat) {
+            await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id);
+        }
+        
+        // Send the deeper analysis and questions in a single message
+        let questionsText = '';
+        if (deeperQuestions.length > 0) {
+            questionsText = deeperQuestions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
+        }
+        
+        const formattedMessage = `<b>${deeperAnalysis}</b>\n\n<b>🤔 Let's dig a bit deeper:</b>\n\n${questionsText}`;
+        
+        await ctx.reply(formattedMessage, {
+            parse_mode: 'HTML'
+        });
+        
+    } catch (error) {
+        logger.error('Error in Go Deeper handler:', error);
+        await ctx.reply(`<b>Oh sweetie</b>, seems like my third eye got a bit cloudy there 👁️\n\nLet's take a breath and try again when the energy aligns... 🌟`, {
+            parse_mode: 'HTML'
+        });
+        await showMainMenu(ctx, user);
+    }
 }

@@ -5,7 +5,8 @@ import {
     finishJournalEntryHandler,
     analyzeAndSuggestQuestionsHandler,
     newEntryHandler,
-    cancelJournalEntryHandler
+    cancelJournalEntryHandler,
+    handleGoDeeper
 } from './handlers';
 import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
@@ -69,6 +70,28 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
             // Not journaling, pass to next handler
             await next();
         }
+    });
+
+    // Register callback queries for journal entry feature
+    bot.callbackQuery("analyze_journal", async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await analyzeAndSuggestQuestionsHandler(ctx, user);
+    });
+
+    bot.callbackQuery("go_deeper", async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await handleGoDeeper(ctx, user);
+    });
+
+    bot.callbackQuery("finish_journal", async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await finishJournalEntryHandler(ctx, user);
     });
 
     // Handlers for specific button presses (hears) - these are backups for the in-context handlers

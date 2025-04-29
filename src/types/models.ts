@@ -19,6 +19,12 @@ export interface IUser extends Document {
     updatedAt: Date;
 }
 
+// --- OpenAI Chat Interface ---
+export interface IChatMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
+
 // --- Message Model ---
 export enum MessageType {
     TEXT = 'text',
