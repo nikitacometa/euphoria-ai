@@ -136,6 +136,8 @@ function generateWelcomeGuide(name: string): string {
     return `
 <b>Welcome to Infinity, ${name} 😘</b>
 
+🎤 <i>Voice messages should be 5 minutes maximum. Long voices are cringe, you know...</i> 
+
 • <b>Notifications</b> - Turn on daily journaling reminders
 • <b>Reminder Time</b> - Set when you want to be reminded
 • <b>Transcriptions</b> - Show/hide text from your voice messages
@@ -326,7 +328,7 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("<b>Welcome to Infinity</b> ✨\n\nI'm your AI friend and will help you reflect, explore thoughts, and gain insights.\n\nFirst, tell me how you'd like me to address you:", {
+    await ctx.reply("<b>Welcome to Infinity</b> ✨\n\nI'm your AI friend and for high-level journaling and much more 😏\n\nHow should I call you, dear?", {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });

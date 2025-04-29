@@ -97,11 +97,10 @@ export async function toggleTranscriptionsHandler(ctx: JournalBotContext, user: 
         const languageStatus = updatedUser.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
 
         await ctx.editMessageText(
-            `<b>✨ Your Personal Settings ✨</b>\n\n` +
-            `🔔 <b>Notifications:</b> ${notificationStatus}\n` +
-            `⏰ <b>Reminder Time:</b> ${notificationTime}\n` +
-            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n` +
-            `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
+            `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
+            `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
+            `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
+            `🌐 <b>AI Chat Language:</b> ${languageStatus}\n\n` +
             `<i>What would you like to customize today?</i>`,
             {
                 reply_markup: keyboard,
@@ -137,7 +136,7 @@ export async function toggleLanguageHandler(ctx: JournalBotContext, user: IUser)
             `🔔 <b>Notifications:</b> ${notificationStatus}\n\n` +
             `⏰ <b>Reminder Time:</b> ${notificationTime}\n\n` +
             `📝 <b>Show Transcriptions:</b> ${transcriptionStatus}\n\n` +
-            `🌐 <b>AI Language:</b> ${languageStatus}\n\n` +
+            `🌐 <b>AI Chat Language:</b> ${languageStatus}\n\n` +
             `<i>What would you like to customize today?</i>`,
             {
                 reply_markup: keyboard,
