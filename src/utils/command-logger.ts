@@ -33,6 +33,29 @@ export function logCommandEnd(command: string): void {
 }
 
 /**
+ * Safely serialize function arguments for logging
+ * @param args Arguments to serialize
+ * @returns Simplified version of arguments suitable for logging
+ */
+function serializeArguments(args: any[]): any[] {
+    if (args.length === 0) return [];
+    
+    return args.map(arg => {
+        if (typeof arg !== 'object' || arg === null) {
+            return arg;
+        }
+        
+        // For message objects, just return the message_id to keep logs concise
+        if ('message_id' in arg) {
+            return { message_id: arg.message_id };
+        }
+        
+        // Return the object as is (logging libraries typically handle serialization)
+        return arg;
+    });
+}
+
+/**
  * Higher-order function to wrap command handlers with logging
  * @param commandName The name of the command
  * @param handler The command handler function
@@ -44,12 +67,9 @@ export function withCommandLogging<T extends any[], R>(
 ): (...args: T) => Promise<R> {
     return async (...args: T): Promise<R> => {
         try {
-            // Log command start
-            logCommandStart(commandName, args.length > 0 ? { args: args.map(arg => 
-                typeof arg === 'object' ? 
-                    (arg && 'message_id' in arg ? { message_id: arg.message_id } : arg) : 
-                    arg
-            ) } : undefined);
+            // Log command start with serialized arguments
+            const serializedArgs = serializeArguments(args);
+            logCommandStart(commandName, serializedArgs.length > 0 ? { args: serializedArgs } : undefined);
             
             // Execute the command
             const result = await handler(...args);

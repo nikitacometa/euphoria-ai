@@ -12,7 +12,6 @@ const appLogger = createLogger('App', LOG_LEVEL);
 
 // Create the bot instance immediately
 export const bot = createBot();
-export const journalBot = bot; // Alias for backward compatibility
 
 /**
  * Initialize and start the Euphoria bot

@@ -22,68 +22,80 @@ function extractInterestingFacts(bio: string): string[] {
 
     const facts: string[] = [];
     
-    // Look for hobbies
-    if (bio.match(/hobby|hobbies|enjoy|love|passion|like/i)) {
-        const hobbyMatch = bio.match(/(?:hobby|hobbies|enjoy|love|passion|like)s?\s+(?:to\s+)?([^,.!?]+)/i);
-        if (hobbyMatch && hobbyMatch[1]) {
-            facts.push(`You seem to enjoy ${hobbyMatch[1].trim()}`);
+    // Define patterns with their associated facts in a declarative structure
+    const patterns = [
+        {
+            regex: /hobby|hobbies|enjoy|love|passion|like/i,
+            extractFact: () => {
+                const hobbyMatch = bio.match(/(?:hobby|hobbies|enjoy|love|passion|like)s?\s+(?:to\s+)?([^,.!?]+)/i);
+                return hobbyMatch && hobbyMatch[1] 
+                    ? `You seem to enjoy ${hobbyMatch[1].trim()}`
+                    : null;
+            }
+        },
+        {
+            regex: /work|job|profession|career|study|student|studying/i,
+            extractFact: () => {
+                const workMatch = bio.match(/(?:work|job|profession|career)(?:ing|ed)?\s+(?:as|at|in|with)?\s+([^,.!?]+)/i) || 
+                                bio.match(/(?:study|student|studying)\s+([^,.!?]+)/i);
+                return workMatch && workMatch[1]
+                    ? `Your path in life involves ${workMatch[1].trim()}`
+                    : null;
+            }
+        },
+        { 
+            regex: /married|wife|husband|partner|relationship|dating|boyfriend|girlfriend/i,
+            fact: "Relationships seem to be meaningful in your life"
+        },
+        {
+            regex: /travel|trip|journey|explore|adventure|country|countries|city|cities/i,
+            fact: "You have a wanderlust spirit"
+        },
+        {
+            regex: /write|author|book|novel|music|play|sing|art|paint|draw|create|creative/i,
+            fact: "You have a creative soul"
+        },
+        {
+            regex: /think|analyze|solve|problem|science|math|logic|data|research/i,
+            fact: "You have an analytical mind"
         }
-    }
+    ];
     
-    // Look for profession or work
-    if (bio.match(/work|job|profession|career|study|student|studying/i)) {
-        const workMatch = bio.match(/(?:work|job|profession|career)(?:ing|ed)?\s+(?:as|at|in|with)?\s+([^,.!?]+)/i) || 
-                          bio.match(/(?:study|student|studying)\s+([^,.!?]+)/i);
-        if (workMatch && workMatch[1]) {
-            facts.push(`Your path in life involves ${workMatch[1].trim()}`);
+    // Process each pattern
+    for (const pattern of patterns) {
+        if (bio.match(pattern.regex)) {
+            // If there's an extractFact function, use it; otherwise use the static fact
+            if (pattern.extractFact) {
+                const fact = pattern.extractFact();
+                if (fact) facts.push(fact);
+            } else if (pattern.fact) {
+                facts.push(pattern.fact);
+            }
         }
-    }
-    
-    // Look for relationships
-    if (bio.match(/married|wife|husband|partner|relationship|dating|boyfriend|girlfriend/i)) {
-        facts.push("Relationships seem to be meaningful in your life");
-    }
-    
-    // Look for travel
-    if (bio.match(/travel|trip|journey|explore|adventure|country|countries|city|cities/i)) {
-        facts.push("You have a wanderlust spirit");
-    }
-    
-    // Look for creative expressions
-    if (bio.match(/write|author|book|novel|music|play|sing|art|paint|draw|create|creative/i)) {
-        facts.push("You have a creative soul");
-    }
-    
-    // Look for analytical mind
-    if (bio.match(/think|analyze|solve|problem|science|math|logic|data|research/i)) {
-        facts.push("You have an analytical mind");
     }
     
     // If we couldn't extract specific facts, add some general observations
     if (facts.length === 0) {
         const bioLength = bio.length;
-        if (bioLength > 200) {
-            facts.push("You're quite thorough in sharing about yourself");
-        }
-        
         const sentenceCount = bio.split(/[.!?]+/).filter(Boolean).length;
-        if (sentenceCount >= 5) {
-            facts.push("You're expressive and detailed in your communication");
-        }
-        
         const questionCount = (bio.match(/\?/g) || []).length;
-        if (questionCount > 1) {
-            facts.push("You're inquisitive and thoughtful");
-        }
-        
-        // Emotional tone indicators
         const positiveWords = (bio.match(/happy|joy|love|excited|passion|great|amazing|wonderful/gi) || []).length;
         const negativeWords = (bio.match(/sad|angry|upset|frustrat|disappoint|worry|anxious|stress/gi) || []).length;
         
-        if (positiveWords > negativeWords && positiveWords > 2) {
-            facts.push("You radiate positive energy");
-        } else if (negativeWords > positiveWords && negativeWords > 2) {
-            facts.push("You're in touch with life's complexities");
+        // Use an array of conditions and their associated facts for the fallback logic too
+        const fallbackConditions = [
+            { test: () => bioLength > 200, fact: "You're quite thorough in sharing about yourself" },
+            { test: () => sentenceCount >= 5, fact: "You're expressive and detailed in your communication" },
+            { test: () => questionCount > 1, fact: "You're inquisitive and thoughtful" },
+            { test: () => positiveWords > negativeWords && positiveWords > 2, fact: "You radiate positive energy" },
+            { test: () => negativeWords > positiveWords && negativeWords > 2, fact: "You're in touch with life's complexities" }
+        ];
+        
+        // Add facts that match our fallback conditions
+        for (const condition of fallbackConditions) {
+            if (condition.test()) {
+                facts.push(condition.fact);
+            }
         }
         
         // Add a fallback if still no facts
@@ -225,7 +237,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const mediaFileId = voiceFileId || videoFileId || videoNoteFileId;
 
             if (mediaFileId) {
-                 if (bioText) {
+                if (bioText) {
                     // User sent text AND media, maybe clarify or just use media?
                     logger.info(`User ${ctx.from.id} sent both text and media for bio. Using media.`);
                 }
@@ -234,34 +246,12 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
                 await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
                 
                 try {
-                    const file = await ctx.api.getFile(mediaFileId);
-                    const filePath = file.file_path;
+                    // Process media with the same pattern as journal-entry handler
+                    const mediaType = voiceFileId ? 'voice' : 'video';
+                    bioText = await processMediaForBio(ctx, mediaFileId, mediaType);
                     
-                    if (filePath) {
-                        const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
-                        const tempDir = path.join(os.tmpdir(), 'journal-bot-onboarding'); // Unique temp dir
-                        
-                        if (!fs.existsSync(tempDir)) {
-                            fs.mkdirSync(tempDir, { recursive: true });
-                        }
-                        
-                        const localFilePath = path.join(tempDir, `bio_${Date.now()}.${filePath.split('.').pop()}`);
-                        
-                        const response = await fetch(fileUrl);
-                         if (!response.ok) throw new Error(`Failed to download file: ${response.statusText}`);
-                        const buffer = await response.arrayBuffer();
-                        fs.writeFileSync(localFilePath, Buffer.from(buffer));
-                        
-                        bioText = await transcribeAudio(localFilePath);
-                        fs.unlinkSync(localFilePath); // Clean up immediately
-                        
-                        // Replace eyes reaction with thumbs up - don't try to delete the old one
-                        await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
-                        
-                        // Consider removing tempDir if empty, or have a separate cleanup process
-                    } else {
-                         throw new Error("File path not found after fetching file info.");
-                    }
+                    // Replace eyes reaction with thumbs up - don't try to delete the old one
+                    await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
                 } catch (error) {
                     // If we failed, try to add an error reaction
                     try {
@@ -284,7 +274,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const updatedUser = await updateUserProfile(ctx.from.id, { bio: bioText, onboardingCompleted: true });
             if (!updatedUser) { // Check if user update failed
                 logger.error(`Failed to update profile for user ${ctx.from.id} during bio step.`);
-                 await ctx.reply("Something went wrong saving your bio. Please try again.");
+                await ctx.reply("Something went wrong saving your bio. Please try again.");
                 return;
             }
 
@@ -332,4 +322,48 @@ export async function startOnboarding(ctx: JournalBotContext) {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });
+}
+
+/**
+ * Helper to process media files for bio input
+ */
+async function processMediaForBio(
+    ctx: JournalBotContext, 
+    fileId: string, 
+    mediaType: 'voice' | 'video'
+): Promise<string> {
+    const file = await ctx.api.getFile(fileId);
+    const filePath = file.file_path;
+    
+    if (!filePath) {
+        throw new Error(`File path not found for ${mediaType}`);
+    }
+    
+    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_API_TOKEN}/${filePath}`;
+    const tempDir = path.join(os.tmpdir(), 'journal-bot-onboarding');
+    
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const extension = filePath.split('.').pop() || (mediaType === 'voice' ? 'oga' : 'mp4');
+    const localFilePath = path.join(tempDir, `bio_${Date.now()}.${extension}`);
+    
+    // Download the file
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+    
+    const buffer = await response.arrayBuffer();
+    fs.writeFileSync(localFilePath, Buffer.from(buffer));
+    
+    try {
+        // Transcribe the audio
+        const transcription = await transcribeAudio(localFilePath);
+        return transcription;
+    } finally {
+        // Clean up, regardless of success/failure in transcription
+        fs.unlinkSync(localFilePath);
+    }
 }

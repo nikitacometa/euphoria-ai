@@ -33,6 +33,48 @@ import {
 export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = 300; // 5 minutes
 
 /**
+ * Helper function to process media messages (voice/video)
+ * @param ctx - The context object
+ * @param fileId - The file ID from Telegram
+ * @param mediaType - Type of media (voice or video)
+ * @returns The transcription of the media file
+ */
+async function processMediaMessage(
+    ctx: JournalBotContext,
+    fileId: string,
+    mediaType: 'voice' | 'video'
+): Promise<{ transcription: string; localFilePath: string }> {
+    // Send transcription progress indicator
+    const progressMsg = await ctx.reply("⏳");
+    
+    try {
+        const file = await ctx.api.getFile(fileId);
+        const filePath = file.file_path;
+        if (!filePath) throw new Error(`${mediaType} file path not found`);
+
+        const localFilePath = await downloadTelegramFile(filePath, mediaType);
+        const transcription = await transcribeAudio(localFilePath);
+        
+        // Delete progress indicator message
+        if (ctx.chat) {
+            await ctx.api.deleteMessage(ctx.chat.id, progressMsg.message_id)
+                .catch(e => logger.warn(`Failed to delete transcription progress message: ${e}`));
+        }
+        
+        return { transcription, localFilePath };
+    } catch (error) {
+        // Delete progress indicator message on error too
+        if (ctx.chat) {
+            await ctx.api.deleteMessage(ctx.chat.id, progressMsg.message_id)
+                .catch(e => logger.warn(`Failed to delete transcription progress message after error: ${e}`));
+        }
+        
+        // Re-throw for caller to handle
+        throw error;
+    }
+}
+
+/**
  * Handles incoming messages (text, voice, video) during an active journal entry session.
  */
 export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUser) {
@@ -80,23 +122,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 return;
             }
             
-            // Send transcription progress indicator
-            const progressMsg = await ctx.reply("⏳");
-            
-            const file = await ctx.api.getFile(fileId);
-            const filePath = file.file_path;
-            if (!filePath) throw new Error('Voice file path not found');
-
-            const localFilePath = await downloadTelegramFile(filePath, 'voice');
-            const transcription = await transcribeAudio(localFilePath);
+            const { transcription, localFilePath } = await processMediaMessage(ctx, fileId, 'voice');
             fs.unlinkSync(localFilePath); // Clean up temp file
             
-            // Delete progress indicator message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, progressMsg.message_id)
-                    .catch(e => logger.warn("Failed to delete transcription progress message", e));
-            }
-
             await addVoiceMessage(
                 user._id as Types.ObjectId,
                 entryId,
@@ -121,27 +149,17 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             const fileId = ('video_note' in ctx.message ? ctx.message.video_note?.file_id : ctx.message.video?.file_id) || ''; 
             if (!fileId) throw new Error('Video file ID not found');
 
-            // Send transcription progress indicator
-            const progressMsg = await ctx.reply("⏳");
-            
-            const file = await ctx.api.getFile(fileId);
-            const filePath = file.file_path;
-            if (!filePath) throw new Error('Video file path not found');
-
-            const localFilePath = await downloadTelegramFile(filePath, 'video');
             let transcription = "";
+            let localFilePath = "";
+            
             try {
-                transcription = await transcribeAudio(localFilePath);
+                const result = await processMediaMessage(ctx, fileId, 'video');
+                transcription = result.transcription;
+                localFilePath = result.localFilePath;
+                fs.unlinkSync(localFilePath); // Clean up temp file
             } catch (transcriptionError) {
                 logger.error('Error transcribing video:', transcriptionError);
                 transcription = "[Could not transcribe audio]";
-            }
-            fs.unlinkSync(localFilePath); // Clean up temp file
-            
-            // Delete progress indicator message
-            if (ctx.chat) {
-                await ctx.api.deleteMessage(ctx.chat.id, progressMsg.message_id)
-                    .catch(e => logger.warn("Failed to delete transcription progress message", e));
             }
 
             await addVideoMessage(

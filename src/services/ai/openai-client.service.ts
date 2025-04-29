@@ -11,6 +11,66 @@ const MAX_RETRIES = 3;
 const BASE_DELAY = 500;
 
 /**
+ * Generic utility to handle retries with exponential backoff for API calls
+ * @param operation - The async operation to retry
+ * @param errorDetails - Details to include in error logs/messages
+ * @param errorType - Custom error message if all retries fail
+ * @returns Result of the operation
+ * @throws AIError if all retries fail
+ */
+async function withRetries<T>(
+    operation: () => Promise<T>,
+    errorDetails: Record<string, any>,
+    errorType: string
+): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            // Add delay for retries based on exponential backoff
+            if (attempt > 0) {
+                const delay = BASE_DELAY * Math.pow(2, attempt - 1);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+            // Execute the actual operation
+            return await operation();
+            
+        } catch (error: any) {
+            lastError = error;
+            
+            // If this is a permanent error (not related to rate limits or connectivity),
+            // don't retry
+            const statusCode = error?.status || error?.response?.status;
+            if (statusCode && statusCode < 500 && statusCode !== 429) {
+                break;
+            }
+            
+            // Log the retry attempt
+            errorService.logError(
+                new AIError(`${errorType} retry attempt ${attempt + 1} failed`, 
+                    { 
+                        error: error.message,
+                        statusCode,
+                        ...errorDetails
+                    },
+                    error
+                ),
+                {}, // No additional context
+                attempt < MAX_RETRIES - 1 ? 'warn' : 'error' // Only log as error on last retry
+            );
+        }
+    }
+    
+    // If we got here, all retry attempts failed
+    throw new AIError(
+        `Failed to ${errorType} after ${MAX_RETRIES} attempts`,
+        { lastError: lastError?.message, ...errorDetails },
+        lastError || undefined
+    );
+}
+
+/**
  * Centralized OpenAI client service with retry logic and error handling.
  * This service provides a unified interface for all OpenAI API interactions.
  */
@@ -45,59 +105,16 @@ class OpenAIClientService {
         const max_tokens = options.max_tokens || 800;
         const response_format = options.response_format;
 
-        let lastError: Error | null = null;
-        
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            try {
-                // Add delay for retries based on exponential backoff
-                if (attempt > 0) {
-                    const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-                
-                // Make the API call
-                const response = await this.client.chat.completions.create({
-                    model,
-                    messages: messages as any, // Type conversion needed due to OpenAI SDK
-                    temperature,
-                    max_tokens,
-                    ...(response_format && { response_format })
-                });
-                
-                return response;
-            } catch (error: any) {
-                lastError = error;
-                
-                // If this is a permanent error (not related to rate limits or connectivity),
-                // don't retry
-                const statusCode = error?.status || error?.response?.status;
-                if (statusCode && statusCode < 500 && statusCode !== 429) {
-                    break;
-                }
-                
-                // Log the retry attempt
-                errorService.logError(
-                    new AIError(`OpenAI API retry attempt ${attempt + 1} failed`, 
-                        { 
-                            error: error.message,
-                            statusCode,
-                            model,
-                            temperature,
-                            max_tokens
-                        },
-                        error
-                    ),
-                    {}, // No additional context
-                    attempt < MAX_RETRIES - 1 ? 'warn' : 'error' // Only log as error on last retry
-                );
-            }
-        }
-        
-        // If we got here, all retry attempts failed
-        throw new AIError(
-            `Failed to create chat completion after ${MAX_RETRIES} attempts`,
-            { lastError: lastError?.message },
-            lastError || undefined
+        return withRetries(
+            () => this.client.chat.completions.create({
+                model,
+                messages: messages as any, // Type conversion needed due to OpenAI SDK
+                temperature,
+                max_tokens,
+                ...(response_format && { response_format })
+            }),
+            { model, temperature, max_tokens },
+            'create chat completion'
         );
     }
 
@@ -112,37 +129,17 @@ class OpenAIClientService {
         try {
             return JSON.parse(jsonString) as T;
         } catch (error) {
-            // Attempt to fix common JSON parsing issues
-            try {
-                // Fix unterminated strings by adding missing quotes and braces
-                let fixedJson = jsonString;
-                
-                // Find unterminated JSON properties by regex pattern matching
-                const propertyPattern = /"(\w+)"\s*:\s*"([^"]*?)$/gm;
-                fixedJson = fixedJson.replace(propertyPattern, '"$1": "$2"');
-                
-                // Check for missing closing braces and add them
-                const openBraces = (fixedJson.match(/{/g) || []).length;
-                const closeBraces = (fixedJson.match(/}/g) || []).length;
-                if (openBraces > closeBraces) {
-                    fixedJson += '}'.repeat(openBraces - closeBraces);
-                }
-                
-                // Try parsing the fixed JSON
-                return JSON.parse(fixedJson) as T;
-            } catch (fixError) {
-                // If fixing failed, log the error and return default
-                errorService.logError(
-                    new AIError(
-                        "Failed to parse JSON response from OpenAI",
-                        { response: jsonString },
-                        error instanceof Error ? error : undefined
-                    ),
-                    {},
-                    'warn'
-                );
-                return defaultValue;
-            }
+            // Log the error and return default value
+            errorService.logError(
+                new AIError(
+                    "Failed to parse JSON response from OpenAI",
+                    { response: jsonString },
+                    error instanceof Error ? error : undefined
+                ),
+                {},
+                'warn'
+            );
+            return defaultValue;
         }
     }
 
@@ -158,55 +155,16 @@ class OpenAIClientService {
             // Create readable stream
             const fileStream = createReadStream(filePath);
             
-            // Make API call with retries
-            let lastError: Error | null = null;
-            
-            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-                try {
-                    // Add delay for retries based on exponential backoff
-                    if (attempt > 0) {
-                        const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
-                    
-                    const response = await this.client.audio.transcriptions.create({
-                        file: fileStream,
-                        model: "whisper-1",
-                    });
-                    
-                    return response.text;
-                } catch (error: any) {
-                    lastError = error;
-                    
-                    // If this is a permanent error (not related to rate limits or connectivity),
-                    // don't retry
-                    const statusCode = error?.status || error?.response?.status;
-                    if (statusCode && statusCode < 500 && statusCode !== 429) {
-                        break;
-                    }
-                    
-                    // Log the retry attempt
-                    errorService.logError(
-                        new AIError(`Audio transcription retry attempt ${attempt + 1} failed`, 
-                            { 
-                                error: error.message,
-                                statusCode,
-                                filePath,
-                            },
-                            error
-                        ),
-                        {}, // No additional context
-                        attempt < MAX_RETRIES - 1 ? 'warn' : 'error' // Only log as error on last retry
-                    );
-                }
-            }
-            
-            // If we got here, all retry attempts failed
-            throw new AIError(
-                `Failed to transcribe audio after ${MAX_RETRIES} attempts`,
-                { lastError: lastError?.message, filePath },
-                lastError || undefined
+            const response = await withRetries(
+                () => this.client.audio.transcriptions.create({
+                    file: fileStream,
+                    model: "whisper-1",
+                }),
+                { filePath },
+                'transcribe audio'
             );
+            
+            return response.text;
         } catch (error) {
             if (error instanceof AIError) {
                 throw error; // Re-throw AIErrors
@@ -229,68 +187,29 @@ class OpenAIClientService {
      */
     async generateImage(prompt: string): Promise<{ url: string; revisedPrompt: string }> {
         try {
-            // Make API call with retries
-            let lastError: Error | null = null;
+            const response = await withRetries(
+                () => this.client.images.generate({
+                    model: "dall-e-3",
+                    prompt,
+                    n: 1,
+                    size: "1024x1024",
+                    quality: "standard",
+                }),
+                { prompt },
+                'generate image'
+            );
             
-            for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-                try {
-                    // Add delay for retries based on exponential backoff
-                    if (attempt > 0) {
-                        const delay = BASE_DELAY * Math.pow(2, attempt - 1);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
-                    
-                    const response = await this.client.images.generate({
-                        model: "dall-e-3",
-                        prompt,
-                        n: 1,
-                        size: "1024x1024",
-                        quality: "standard",
-                    });
+            const url = response.data[0].url;
+            const revisedPrompt = response.data[0].revised_prompt;
             
-                    const url = response.data[0].url;
-                    const revisedPrompt = response.data[0].revised_prompt;
-            
-                    if (!url) {
-                        throw new Error('No image URL returned from OpenAI');
-                    }
-            
-                    return { 
-                        url, 
-                        revisedPrompt: revisedPrompt || prompt 
-                    };
-                } catch (error: any) {
-                    lastError = error;
-                    
-                    // If this is a permanent error (not related to rate limits or connectivity),
-                    // don't retry
-                    const statusCode = error?.status || error?.response?.status;
-                    if (statusCode && statusCode < 500 && statusCode !== 429) {
-                        break;
-                    }
-                    
-                    // Log the retry attempt
-                    errorService.logError(
-                        new AIError(`Image generation retry attempt ${attempt + 1} failed`, 
-                            { 
-                                error: error.message,
-                                statusCode,
-                                prompt
-                            },
-                            error
-                        ),
-                        {}, // No additional context
-                        attempt < MAX_RETRIES - 1 ? 'warn' : 'error' // Only log as error on last retry
-                    );
-                }
+            if (!url) {
+                throw new Error('No image URL returned from OpenAI');
             }
             
-            // If we got here, all retry attempts failed
-            throw new AIError(
-                `Failed to generate image after ${MAX_RETRIES} attempts`,
-                { lastError: lastError?.message, prompt },
-                lastError || undefined
-            );
+            return { 
+                url, 
+                revisedPrompt: revisedPrompt || prompt 
+            };
         } catch (error) {
             if (error instanceof AIError) {
                 throw error; // Re-throw AIErrors
