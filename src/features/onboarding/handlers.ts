@@ -53,7 +53,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`${text}, what a lovely name 💫\nWhich age range resonates with you?`, {
+            await ctx.reply(`${text}, what a lovely name 😏\n\nYour age?`, {
                 reply_markup: ageKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -79,7 +79,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { gender: text });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("What do you do in life? 🌟", {
+            await ctx.reply("What is your occupation, work? Or main activity in life? 🌟", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -92,7 +92,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("Tell me about yourself ✨\n\n<i>Some ideas:\n• What drives you?\n• Your passions?\n• Life philosophy?\n• What makes you unique?</i>\n\nFeel free to type, or send a voice/video message.", {
+            await ctx.reply("Tell me anything about yourself! The more details you share, the better I will understand you ✨\n\nSome ideas:<i>\n• Your hobbies?\n• What drives you?\n• Interesting friends or romantic partners?\n• Your passions?\n• Life philosophy?\n• What makes you unique?</i>\n\nFeel free to type, or send a voice/video message.", {
                 parse_mode: 'HTML'
             });
             break;
@@ -188,7 +188,7 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("Hi! I'm Infinity, your personal guide to self-discovery ✨\nWhat shall I call you?", {
+    await ctx.reply("Hi! I'm Mirror, your friend and AI journal 💁‍♀️\n\nTell me how to call you.", {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });

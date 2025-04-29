@@ -178,7 +178,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
 
         const chatMessages: IChatMessage[] = [
             { role: 'system', content: journalPrompts.completionSystemPrompt },
-            { role: 'user', content: `${userInfo}\n\nEntry:\n${entryContent}\n\nProvide summary & question.` }
+            { role: 'user', content: `${userInfo}\n\nEntry:\n${entryContent}\n\nProvide summary & question. Format summary text with short points and html text-formatting only a few important words.` }
         ];
         
         // Call OpenAI API through our centralized service
@@ -202,7 +202,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         await journalEntryService.completeEntry(entryId, summary, question);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>Entry saved!  💫</b>\n\n<b>Summary:</b> ${summary}\n\n<b>If you want to reflect hard, later think about this:</b>\n<i>${question}</i>`;
+        const formattedMessage = `<b>Thanks for sharing! All saved ✅</b>\n\n ${summary}\n\n<b>Random question for later...</b>\n\n<i>${question}</i>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
