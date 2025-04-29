@@ -72,14 +72,39 @@ docker-compose up -d
 
 ## Project Structure
 
-- `src/main.ts`: Entry point for the application
-- `src/journal-bot.ts`: Main bot implementation with handlers for all commands and messages
-- `src/journal-ai.ts`: AI functions for analyzing journal entries and generating insights
+The project follows a modular architecture with clear separation of concerns:
+
+- `src/index.ts`: Entry point for the application
+- `src/app/`: Core application components
+  - `index.ts`: Application initialization and bot setup
+  - `bot.ts`: Bot instance creation and configuration
+  - `feature-registry.ts`: Registration of all feature handlers
+- `src/features/`: Feature modules
+  - `core/`: Core bot functionality (start, cancel commands)
+  - `journal-entry/`: Journal entry creation and management
+  - `journal-history/`: Browsing and viewing past entries
+  - `journal-chat/`: AI chat about journal insights
+  - `settings/`: User preferences and notification settings
+  - `onboarding/`: User onboarding process
+- `src/services/`: Business logic services
+  - `ai/`: AI services for text generation and analysis
+    - `openai-client.service.ts`: OpenAI API client with retry logic
+    - `journal-ai.service.ts`: Journal-specific AI functions
+    - `openai.service.ts`: General OpenAI service functions
+  - `error.service.ts`: Centralized error handling 
+  - `journal-entry.service.ts`: Journal entry business logic
+  - `notification.service.ts`: Scheduled notifications
+- `src/config/`: Configuration management
+  - `index.ts`: Environment variables and app configuration
+  - `ai-prompts.ts`: AI system prompts and templates
 - `src/database/`: Database models and connection logic
-  - `models/user.model.ts`: User data model
-  - `models/journal.model.ts`: Journal entry data model
-  - `models/message.model.ts`: Message data model
-- `src/utils/`: Utility functions for logging and command handling
+  - `models/`: Mongoose schemas and models
+  - `index.ts`: Database connection and operations
+- `src/types/`: TypeScript type definitions
+  - `session.ts`: Bot session types
+  - `models.ts`: Database model interfaces
+  - `errors.ts`: Error type definitions
+- `src/utils/`: Utility functions and helpers
 
 ## License
 

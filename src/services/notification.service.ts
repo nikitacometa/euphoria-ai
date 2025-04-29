@@ -1,5 +1,5 @@
 import { User } from '../database/models/user.model';
-import { journalBot as bot } from '../journal-bot';
+import { bot } from '../app';
 import { createLogger } from '../utils/logger';
 import { LOG_LEVEL } from '../config';
 import { Keyboard } from 'grammy';

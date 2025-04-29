@@ -1,8 +1,8 @@
 {
     "scripts": {
         "typecheck": "tsc",
-        "dev": "tsc-watch --onSuccess \"tsx ./src/main.ts\"",
-        "start": "tsx ./src/main.ts"
+        "dev": "tsc-watch --onSuccess \"tsx ./src/index.ts\"",
+        "start": "tsx ./src/index.ts"
     },
     "dependencies": {
         "chalk": "^5.4.1",

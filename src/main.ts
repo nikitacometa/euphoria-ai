@@ -1,33 +1,27 @@
-import { TELEGRAM_API_TOKEN } from './config'
-import { connectToDatabase } from './database'
-import { logger, createLogger } from './utils/logger'
-import { LOG_LEVEL } from './config'
-import { journalBot } from './journal-bot'
+/**
+ * @deprecated This file is maintained for backward compatibility only.
+ * Please import from src/index.ts instead.
+ */
 
-// Create a logger for the main application
-const mainLogger = createLogger('Main', LOG_LEVEL);
+import { startApp, journalBot } from './app';
+import { createLogger, LogLevel } from './utils/logger';
 
-// Connect to MongoDB
-connectToDatabase().catch(error => mainLogger.error('Failed to connect to MongoDB:', error));
+// Create a logger
+const mainLogger = createLogger('Main', LogLevel.INFO);
 
-// Log bot startup
-mainLogger.info('Starting Journal Bot...');
+// Print warning about deprecated entry point
+mainLogger.warn('Using deprecated entry point (main.ts). Please update imports to use src/index.ts instead.');
 
-// Start the bot
-journalBot.start({
-    onStart: () => {
-        mainLogger.info('Journal Bot started successfully!');
-    }
-});
+// Start the application
+mainLogger.info('Initializing Euphoria bot application via legacy entry point...');
+startApp()
+  .then(() => {
+    mainLogger.info('Euphoria bot is running.');
+  })
+  .catch(error => {
+    mainLogger.error('Failed to start Euphoria bot:', error);
+    process.exit(1);
+  });
 
-// Handle errors
-process.on('uncaughtException', (error) => {
-    mainLogger.error('Uncaught exception:', error);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    mainLogger.error('Unhandled rejection at:', promise, 'reason:', reason);
-});
-
-// Export the bot for testing
+// Export the bot instance for backward compatibility
 export { journalBot };

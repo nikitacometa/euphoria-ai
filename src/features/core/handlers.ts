@@ -1,10 +1,11 @@
-import { JournalBotContext } from '../../types/session';
+import { JournalBotContext } from '../../types';
 import { IUser } from '../../types/models';
 import { MAIN_MENU_KEYBOARD } from './keyboards';
 import { findOrCreateUser } from '../../database';
 import { withCommandLogging } from '../../utils/command-logger';
 import { startOnboarding } from '../onboarding/handlers';
 import { logger } from '../../utils/logger';
+import { Bot } from 'telegraf';
 
 /**
  * Displays the main menu keyboard to the user.
@@ -65,3 +66,12 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
     await ctx.reply("✨ All active sessions have been reset. Returning to main menu.");
     await showMainMenu(ctx, user);
 });
+
+/**
+ * Registers all command handlers with the bot
+ */
+export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
+    // Register core commands
+    bot.command('start', handleStartCommand);
+    bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);
+}
