@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Script to start the Docker Compose environment
+# Usage: ./start [-b|--build]
+
+BUILD=""
+
+# Check if build flag is provided
+if [[ "$1" == "-b" || "$1" == "--build" ]]; then
+  BUILD="--build"
+fi
+
+# Start Docker Compose with or without build flag
+docker compose up -d $BUILD 
