@@ -51,6 +51,21 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             );
             messageSaved = true;
             await ctx.react("👍").catch(e => logger.warn("Failed to react", e)); // React optimistically
+            
+            // Send encouraging response with keyboard
+            const responses = [
+                "Profound thoughts... 💭 Anything else to add?",
+                "Wise words! Would you like to explore this more?",
+                "I appreciate your reflection. Want to continue?",
+                "Fascinating insight! What else is on your mind?",
+                "That's a great point. Care to elaborate?",
+                "Beautiful reflection! Anything more to share?"
+            ];
+            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+            await ctx.reply(randomResponse, {
+                parse_mode: 'HTML',
+                reply_markup: journalActionKeyboard
+            });
 
         } else if ('voice' in ctx.message && ctx.message.voice) {
             await ctx.react("👍").catch(e => logger.warn("Failed to react", e)); // React optimistically
@@ -60,7 +75,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             if (!filePath) throw new Error('Voice file path not found');
 
             const localFilePath = await downloadTelegramFile(filePath, 'voice');
-            const waitMsg = await ctx.reply("⏳ Transcribing voice...");
+            const waitMsg = await ctx.reply("⏳");
             const transcription = await transcribeAudio(localFilePath);
             if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait message", e));
             fs.unlinkSync(localFilePath); // Clean up temp file
@@ -87,7 +102,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             if (!filePath) throw new Error('Video file path not found');
 
             const localFilePath = await downloadTelegramFile(filePath, 'video');
-            const waitMsg = await ctx.reply("⏳ Transcribing video...");
+            const waitMsg = await ctx.reply("⏳");
             let transcription = "";
             try {
                 transcription = await transcribeAudio(localFilePath);
@@ -110,7 +125,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
 
         } else {
-            await ctx.reply(`Darling, I can only process text, voice, or video for journal entries right now. 💫`);
+            await ctx.reply(`Darling, I can only process text, voice, or video for journal entries right now. 💫`, {
+                reply_markup: journalActionKeyboard
+            });
         }
 
     } catch (error) {
@@ -129,7 +146,10 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             {},
             'error'
         );
-        await ctx.reply(`<b>Oops!</b> Something went wrong while adding that to your journal. Please try again.`, { parse_mode: 'HTML' });
+        await ctx.reply(`<b>Oops!</b> Something went wrong while adding that to your journal. Please try again.`, { 
+            parse_mode: 'HTML',
+            reply_markup: journalActionKeyboard
+        });
     }
 }
 
@@ -155,7 +175,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         return;
     }
     
-    const waitMsg = await ctx.reply("⏳ Analyzing your reflection...");
+    const waitMsg = await ctx.reply("⏳");
     
     try {
         const entryContent = await extractFullText(entry); // Use utility
@@ -178,7 +198,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
 
         const chatMessages: IChatMessage[] = [
             { role: 'system', content: journalPrompts.completionSystemPrompt },
-            { role: 'user', content: `${userInfo}\n\nEntry:\n${entryContent}\n\nProvide summary & question. Format summary text with short points and html text-formatting only a few important words.` }
+            { role: 'user', content: `${userInfo}\n\nEntry:\n${entryContent}\n\nProvide summary & question.` }
         ];
         
         // Call OpenAI API through our centralized service
@@ -202,7 +222,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         await journalEntryService.completeEntry(entryId, summary, question);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>Thanks for sharing! All saved ✅</b>\n\n ${summary}\n\n<b>Random question for later...</b>\n\n<i>${question}</i>`;
+        const formattedMessage = `<b>Amazing, I've written it all down ✍️</b>\n\n ${summary}\n\n<b>Random question for later...</b>\n\n<i>${question}</i>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
@@ -270,7 +290,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             return; // Keep the entry active
         }
         
-        const waitMsg = await ctx.reply("⏳ Generating questions...");
+        const waitMsg = await ctx.reply("⏳");
         
         try {
             const questions = await journalEntryService.generateQuestionsForEntry(entryId, user);
@@ -283,7 +303,8 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             
             if (questions && questions.length > 0) {
                 const questionsText = questions.map((q: string, i: number) => `<i>- ${q}</i>`).join('\n\n');
-                await ctx.reply(`<b>🤔 Share any thoughts in response to:</b>\n\n${questionsText}`, { 
+                await ctx.reply(`Let me clarify a few things...\n\n${questionsText}`, { 
+                    reply_markup: journalActionKeyboard,
                     parse_mode: 'HTML'
                 });
             } else {
@@ -318,11 +339,11 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             });
         }
         
-        // Always show the journal action keyboard after any response
-        await ctx.reply(`Keep sharing, or use the buttons below... 💫`, {
-            reply_markup: journalActionKeyboard,
-            parse_mode: 'HTML'
-        });
+        // // Always show the journal action keyboard after any response
+        // await ctx.reply(`Keep sharing, or use the buttons below... 💫`, {
+        //     reply_markup: journalActionKeyboard,
+        //     parse_mode: 'HTML'
+        // });
         
     } catch (error) {
         errorService.logError(
@@ -354,7 +375,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to compose' : 'Composing '} a new entry! Share a few messages with your thoughts (+ voice/video of course) ✍️`, {
+        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry!\n\nSend text/voice/video messages.\n\nAsk me to give you questions and insights ✍️`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });

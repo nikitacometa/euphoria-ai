@@ -36,7 +36,7 @@ export async function showJournalHistoryHandler(ctx: JournalBotContext, user: IU
     }
 
     const keyboard = createJournalHistoryKeyboard(entries);
-    await ctx.reply(`<b>${user.name || user.firstName}</b>, here are your past reflections 📚`, {
+    await ctx.reply(`Alright, ${user.name || user.firstName}, those are your recent entries 📚`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });
@@ -137,7 +137,7 @@ export async function showJournalHistoryCallbackHandler(ctx: JournalBotContext, 
     }
 
     const keyboard = createJournalHistoryKeyboard(entries);
-    await ctx.editMessageText(`<b>${user.name || user.firstName}</b>, here are your past reflections 📚`, {
+    await ctx.editMessageText(`Alright, ${user.name || user.firstName}, those are your recent entries  📚`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });

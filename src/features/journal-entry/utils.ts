@@ -1,5 +1,6 @@
 import { Context } from 'grammy';
 import { IMessage, IJournalEntry, MessageType } from '../../types/models';
+import { journalActionKeyboard } from './keyboards';
 
 /**
  * Sends the transcription text as a reply to the original message.
@@ -7,7 +8,8 @@ import { IMessage, IJournalEntry, MessageType } from '../../types/models';
 export async function sendTranscriptionReply(ctx: Context, messageId: number, transcription: string): Promise<void> {
     await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${transcription}</code>`, {
         reply_to_message_id: messageId,
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
+        reply_markup: journalActionKeyboard
     });
 }
 

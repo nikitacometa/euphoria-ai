@@ -53,7 +53,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
     try {
         // --- Handle Voice Message ---
         if (ctx.message.voice) {
-            const waitMsg = await ctx.reply("⏳ Transcribing voice...", { reply_markup: exitChatKeyboard });
+            const waitMsg = await ctx.reply("⏳", { reply_markup: exitChatKeyboard });
             waitMsgId = waitMsg.message_id;
 
             const fileId = ctx.message.voice.file_id;
@@ -65,13 +65,13 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             questionText = await transcribeAudio(localFilePath);
 
             if (ctx.chat && waitMsgId) {
-                await ctx.api.editMessageText(ctx.chat.id, waitMsgId, `⏳ Analyzing question based on voice input...`, { reply_markup: exitChatKeyboard });
+                await ctx.api.editMessageText(ctx.chat.id, waitMsgId, `⏳`, { reply_markup: exitChatKeyboard });
             }
 
         // --- Handle Text Message ---
         } else if (ctx.message.text) {
             questionText = ctx.message.text;
-            const waitMsg = await ctx.reply(`⏳ Analyzing question: "${questionText.substring(0, 20)}..."`, { reply_markup: exitChatKeyboard });
+            const waitMsg = await ctx.reply(`⏳`, { reply_markup: exitChatKeyboard });
             waitMsgId = waitMsg.message_id;
 
         } else {
