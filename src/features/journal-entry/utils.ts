@@ -41,3 +41,15 @@ export async function extractFullText(entry: IJournalEntry): Promise<string> {
     
     return entryContent;
 }
+
+/**
+ * Sanitizes HTML content for Telegram messages.
+ * Telegram only supports a limited set of HTML tags:
+ * <b>, <i>, <u>, <s>, <tg-spoiler>, <a>, <code>, <pre>
+ */
+export function sanitizeHtmlForTelegram(text: string): string {
+    return text
+        .replace(/<\/?p>/g, '') // Remove paragraph tags
+        .replace(/<(?!\/?(b|i|u|s|tg-spoiler|a|code|pre)[ >])[^>]+>/g, '') // Remove unsupported tags
+        .trim();
+}

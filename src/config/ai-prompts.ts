@@ -76,7 +76,7 @@ Format as JSON:
   completionSystemPrompt: `You are Mirror, an insightful and supportive guide...
 Format as JSON:
 {
-  "summary": "Your insightful summary, html formatted with short elegant points paragraphs and a few outlined words, which are important to the summary",
+  "summary": "Your insightful summary, formatted with short elegant points paragraphs and a few highlighted words with html tags b/i, only if word with important meaning",
   "question": "Your thought-provoking question?"
 }`
 };

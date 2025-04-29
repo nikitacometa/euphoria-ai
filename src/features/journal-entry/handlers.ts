@@ -7,7 +7,7 @@ import {
     findOrCreateUser, // Need this for hears handlers
 } from '../../database';
 import { transcribeAudio } from '../../services/ai/openai.service';
-import { sendTranscriptionReply, extractFullText } from './utils';
+import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram } from './utils';
 import { journalActionKeyboard } from './keyboards';
 import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
@@ -50,7 +50,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 ctx.message.text || ''
             );
             messageSaved = true;
-            await ctx.react("👍").catch(e => logger.warn("Failed to react", e)); // React optimistically
+            await ctx.react("👀").catch(e => logger.warn("Failed to react", e)); // React optimistically
             
             // Send encouraging response with keyboard
             const responses = [
@@ -59,7 +59,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 "I appreciate your reflection. Want to continue?",
                 "Fascinating insight! What else is on your mind?",
                 "That's a great point. Care to elaborate?",
-                "Beautiful reflection! Anything more to share?"
+                "Beautiful reflection! Anything more to share?",
+                "Just wow...",
+                "So wise..."
             ];
             const randomResponse = responses[Math.floor(Math.random() * responses.length)];
             await ctx.reply(randomResponse, {
@@ -68,7 +70,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             });
 
         } else if ('voice' in ctx.message && ctx.message.voice) {
-            await ctx.react("👍").catch(e => logger.warn("Failed to react", e)); // React optimistically
+            await ctx.react("👀").catch(e => logger.warn("Failed to react", e)); // React optimistically
             const fileId = ctx.message.voice.file_id;
             const file = await ctx.api.getFile(fileId);
             const filePath = file.file_path;
@@ -92,7 +94,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription);
 
         } else if (('video_note' in ctx.message && ctx.message.video_note) || ('video' in ctx.message && ctx.message.video)) {
-            await ctx.react("👍").catch(e => logger.warn("Failed to react", e));
+            await ctx.react("👀").catch(e => logger.warn("Failed to react", e));
             // Use optional chaining for video_note
             const fileId = ('video_note' in ctx.message ? ctx.message.video_note?.file_id : ctx.message.video?.file_id) || ''; 
             if (!fileId) throw new Error('Video file ID not found');
@@ -219,10 +221,14 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         const summary = parsedResponse.summary || "Thank you for sharing.";
         const question = parsedResponse.question || "What stood out to you?";
         
-        await journalEntryService.completeEntry(entryId, summary, question);
+        // Sanitize HTML tags - Telegram only supports a limited set of HTML tags
+        const sanitizedSummary = sanitizeHtmlForTelegram(summary);
+        const sanitizedQuestion = sanitizeHtmlForTelegram(question);
+        
+        await journalEntryService.completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>Amazing, I've written it all down ✍️</b>\n\n ${summary}\n\n<b>Random question for later...</b>\n\n<i>${question}</i>`;
+        const formattedMessage = `<b>Amazing, I've written it all down ✍️</b>\n\n ${sanitizedSummary}\n\n<b>Random question for later...</b>\n\n<i>${sanitizedQuestion}</i>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
@@ -302,7 +308,9 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             }
             
             if (questions && questions.length > 0) {
-                const questionsText = questions.map((q: string, i: number) => `<i>- ${q}</i>`).join('\n\n');
+                // Sanitize HTML tags for Telegram
+                const sanitizedQuestions = questions.map((q: string) => sanitizeHtmlForTelegram(q));
+                const questionsText = sanitizedQuestions.map((q: string, i: number) => `<i>- ${q}</i>`).join('\n\n');
                 await ctx.reply(`Let me clarify a few things...\n\n${questionsText}`, { 
                     reply_markup: journalActionKeyboard,
                     parse_mode: 'HTML'
@@ -375,7 +383,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await journalEntryService.getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry!\n\nSend text/voice/video messages.\n\nAsk me to give you questions and insights ✍️`, {
+        await ctx.reply(`${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry! Send any text/voice/video messages.\n\nAsk me to assist you with questions and insights ✍️`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });
@@ -520,11 +528,15 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         const deeperAnalysis = parsedResponse.analysis;
         const deeperQuestions = parsedResponse.questions;
         
+        // Sanitize HTML tags for Telegram (reuse the sanitization function defined in finishJournalEntryHandler)
+        const sanitizedAnalysis = sanitizeHtmlForTelegram(deeperAnalysis);
+        const sanitizedQuestions = deeperQuestions.map(q => sanitizeHtmlForTelegram(q));
+        
         // Update the journal entry with the deeper analysis and questions
         await journalEntryService.updateEntryAnalysisAndQuestions(
             entryId,
-            `${previousAnalysis}\n\nDeeper Analysis: ${deeperAnalysis}`,
-            deeperQuestions
+            `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis}`,
+            sanitizedQuestions
         );
         
         // Delete wait message
@@ -534,11 +546,11 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         
         // Send the deeper analysis and questions in a single message
         let questionsText = '';
-        if (deeperQuestions.length > 0) {
-            questionsText = deeperQuestions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
+        if (sanitizedQuestions.length > 0) {
+            questionsText = sanitizedQuestions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
         }
         
-        const formattedMessage = `<b>${deeperAnalysis}</b>\n\n<b>🤔 Let's dig a bit deeper:</b>\n\n${questionsText}`;
+        const formattedMessage = `<b>${sanitizedAnalysis}</b>\n\n<b>🤔 Let's dig a bit deeper:</b>\n\n${questionsText}`;
         
         await ctx.reply(formattedMessage, {
             parse_mode: 'HTML'
