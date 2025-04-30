@@ -115,11 +115,11 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             break;
         }
         case 'language': {
-            if (!text || (text !== 'English' && text !== 'Russian')) {
+            if (!text || (text !== '🇺🇸 English' && text !== '🇷🇺 Russian')) {
                 await ctx.reply("Please select either English or Russian for AI conversations 🌐");
                 return;
             }
-            await updateUserProfile(ctx.from.id, { aiLanguage: text === 'English' ? 'en' : 'ru' });
+            await updateUserProfile(ctx.from.id, { aiLanguage: text === '🇺🇸 English' ? 'en' : 'ru' });
             ctx.session.onboardingStep = 'occupation';
             await ctx.reply("<b>Oh, I can feel those really deep hardcore reflection sessions coming...</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly on this planet?</i>", {
                 reply_markup: { remove_keyboard: true },
