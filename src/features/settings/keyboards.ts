@@ -6,16 +6,14 @@ import { IUser } from '../../types/models';
  * Dynamically changes button text based on user settings.
  */
 export function createSettingsKeyboard(user: IUser): InlineKeyboard {
-    return new InlineKeyboard()
-        .text(user.notificationsEnabled ? "🔔 Disable Notifications" : "🔔 Enable Notifications", "toggle_notifications")
-        .row()
-        .text("⏰ Set Notification Time", "set_notification_time")
-        .row()
-        .text("🌍 Set Timezone", "set_timezone")
-        .row()
-        .text(user.showTranscriptions === true ? "🔇 Hide Transcriptions" : "🔊 Show Transcriptions", "toggle_transcriptions")
-        .row()
-        .text(user.aiLanguage === 'en' ? "🇬🇧 Switch to Russian" : "🇷🇺 Switch to English", "toggle_language")
-        .row()
-        .text("↩️ Back to Main Menu", "main_menu");
+	const reminderButtonText = user.notificationsEnabled ? "❌ Disable Reminder" : "✅ Enable Reminder";
+	const transcriptionButtonText = user.showTranscriptions === true ? "🔇 Hide Transcribed" : "🔊 Show Transcribed";
+	const languageButtonText = user.aiLanguage === 'en' ? "🇷🇺 Use Russian" : "🇬🇧 Use English";
+
+	return new InlineKeyboard()
+		.text(reminderButtonText, "toggle_notifications").text("⏰ Reminder Time", "set_notification_time")
+		.row()
+		.text("🌍 Timezone", "set_timezone").text(transcriptionButtonText, "toggle_transcriptions")
+		.row()
+		.text(languageButtonText, "toggle_language").text("↩️ Menu", "main_menu");
 }
