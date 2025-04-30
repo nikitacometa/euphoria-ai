@@ -387,7 +387,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 // Sanitize HTML tags for Telegram
                 const sanitizedQuestions = questions.map((q: string) => sanitizeHtmlForTelegram(q));
                 const questionsText = sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n');
-                await ctx.reply(`<i>Interesting things, I got a few thoughts...</i>\n\n${questionsText}\n\n<i>You can answer them or not, it's up to you. Share what you feel is important right now.</i>`, { 
+                await ctx.reply(`<i>Love reading you.. Got a few thoughts.</i>\n\n${questionsText}\n\n<i>Answer any or ignore, use as inspiration.</i>`, { 
                     reply_markup: journalActionKeyboard,
                     parse_mode: 'HTML'
                 });

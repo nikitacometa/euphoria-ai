@@ -5,19 +5,23 @@ export const HOWTO_GUIDE = `<b>Welcome to Infinity ♾️ </b>
 
 <i>I might do crazy things with you...</i>
 
+• The killer feature is that I am your <b>ultimate KNOWLEDGE DATABASE</b> — save anything forever and easy access anything with voice AI search 🤯
+  
+   - forward all voices/videos from other chats that you can find — save valueble info in one place and improve a lot with understanding of your true self...
+   - send your old journals/notes (files support soon) — have those structured and searchable
+   - save important numbers, addresses, links — then ask any of them with voice
+
 • <b>Basic journaling.</b> Write down thoughts, ideas, feelings, etc. I'll help you analyze all that and get some insights
 
-• <b>Save good voices and videos</b> FROM OTHER CHATS 🤯 Store all your good content! IT'S TOO GOOD TO JUST FORGET
+• Made a cool voice/video for your friend? <b>Save it forever, just forward me</b>. Store all your good content! You are too good to forget
 
-• <b>Get a reminder</b> to share something. Likely in the evening. <i>Send even THE SHORTEST VOICE, even 5 seconds!</i> It works unbeliavably good... Build the habit
+• <b>Get reminders</b> to journal. Likely in the evening. <i>Send even THE SHORTEST VOICE, even 5 seconds!</i> It works unbeliavably good... Build the habit
 
-• <b>Want to save any info</b>, idea or Bitcoin private key? Create a new entry to store forever and retrieve it anytime
+• <b>Deep AI talk</b> with your journal. Talk with yourself. Ask questions about your state, explore insights, find information
 
-• <b>Deep AI talk</b> with your jornal, with yourself - ask questions, explore insights, brainstorm, ask support
+• You can customize reminders, AI language, and other UI studd, just go /settings
 
-• <b>Customize in settings:</b> Reminder time, language, see transcribed text for voice/video messages or hide
-
-• <i>Infinite potential, you know...</i>`;
+<i>Infinite potential, you know...</i>`;
 
 export function registerHowToCommand(bot: Bot<JournalBotContext>) {
     bot.command('howto', async (ctx) => {
