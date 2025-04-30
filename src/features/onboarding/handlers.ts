@@ -182,7 +182,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`<b>${text}</b>, what a lovely name 😘\n\nYour age range?`, {
+            await ctx.reply(`Wow, <b>${text}</b>! What a lovely name 😘\n\n<i>How old are you?</i>`, {
                 reply_markup: ageKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -195,7 +195,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { age: text });
             ctx.session.onboardingStep = 'gender';
-            await ctx.reply("<b>Good, good 😏</b>\n\nHow do you identify yourself?", {
+            await ctx.reply("<b>Good, good 😏</b>\n\n<i>How do you identify yourself?</i>", {
                 reply_markup: genderKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -208,7 +208,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { gender: text });
             ctx.session.onboardingStep = 'timezone';
-            await ctx.reply("<b>Perfect!</b>\n\nNow, what's your current timezone? This helps me send notifications at the right time for you.", {
+            await ctx.reply("<b>Sweet 😏</b>\n\n<i>Your current timezone?</i>", {
                 reply_markup: timezoneKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -222,7 +222,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const ianaTimezone = convertToIANATimezone(text);
             await updateUserProfile(ctx.from.id, { timezone: ianaTimezone });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("<b>Great!</b>\n\nWhat is your main occupation or main focus in life?", {
+            await ctx.reply("<b>Great!</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly?</i>", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -235,7 +235,8 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("<b>Almost done</b> 🎉\n\nPlease, tell me more about yourself! The more you share, the better I will understand you!\n\n<b>Possible questions:</b>\n• <i>What are your hobbies or interests?</i>\n• <i>What energizes or inspires you?</i>\n• <i>Important relationships in your life?</i>\n• <i>What are you passionate about?</i>\n• <i>Any life philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 <i>Feel free to send a voice/video message.</i>", {
+            await ctx.reply("<b>You are interesting, you know</b> 😏\n\nPlease, tell me more! Any details, stories which describe you.\n\n<i>The more you share, the better I understand you!</i>\n\n<b>Possible topics:</b>\n• <i>Hobbies or interests?</i>\n• <i>Where you live, travel?</i>\n• <i>Important relationships in your life?</i>\n• <i>Have dreams, goals?</i>\n• <i>Philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 <b>You can send a voice/video message (max 5 min).</b>", {
+                
                 parse_mode: 'HTML'
             });
             break;
@@ -298,7 +299,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const story = await createStorytelling(bioText);
             
             // Generate a warm, personalized summary with the storytelling
-            const summary = `<b>🌟 Perfect! Here's what I've learned about you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Your Story:</b>\n${story}`;
+            const summary = `<b>☺️ Nice to meet you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
             
@@ -332,7 +333,27 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply("<b>Welcome to Infinity</b> ✨\n\nI'm your AI friend and for high-level journaling and much more 😏\n\nHow should I call you, dear?", {
+    await ctx.reply(`<b>Welcome to Infinity ♾️ </b>
+
+<i>I might do crazy things with you. Try me for following scenarios:</i>
+
+• <b>Simple journaling.</b> Write down thoughts, ideas, feelings, etc. I'll help you analyze all that and get some insights
+
+• <b>Save any good voices and videos</b> FROM OTHER CHATS. Store all your good content! IT'S TOO GOOD, REALIZE
+
+• <b>Get a reminder</b> to share, likely in the evening. Share even THE SHORTEST VOICE. Build the habit
+
+• <b>Want to save any info</b>, idea or Bitcoin private key? Create a new entry to store forever and retrieve it anytime
+
+• <b>Deep AI talk</b> with your jornal, with yourself - ask questions, explore insights, brainstorm, ask support
+
+<b>You can customize in settings:</b>
+• Reminder time
+• Preferred language
+• See transcribed text for voice/video messages or hide
+• Other amazing stuff...
+
+<i>Now, darling, how should I call you?</i> ☺️`, {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });
