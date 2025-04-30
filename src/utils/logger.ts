@@ -26,6 +26,23 @@ export enum LogLevel {
     TRACE = 5
 }
 
+// String to LogLevel mapping
+const LOG_LEVEL_MAP: Record<string, LogLevel> = {
+    'none': LogLevel.NONE,
+    'error': LogLevel.ERROR,
+    'warn': LogLevel.WARN,
+    'info': LogLevel.INFO,
+    'debug': LogLevel.DEBUG,
+    'trace': LogLevel.TRACE
+};
+
+// Parse string log level to LogLevel enum
+export function parseLogLevel(level: string | undefined): LogLevel {
+    if (!level) return DEFAULT_LOG_LEVEL;
+    const normalizedLevel = level.toLowerCase();
+    return LOG_LEVEL_MAP[normalizedLevel] ?? DEFAULT_LOG_LEVEL;
+}
+
 // Default log level (will be overridden by config)
 const DEFAULT_LOG_LEVEL = LogLevel.INFO;
 

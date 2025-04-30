@@ -2,8 +2,8 @@ import { Bot, Context, Keyboard } from 'grammy';
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 import { updateUserProfile } from '../../database'; // Assuming updateUserProfile is exported from database index
-import { ageKeyboard, genderKeyboard } from './keyboards';
-import { isValidAgeRange, isValidGender } from './utils';
+import { ageKeyboard, genderKeyboard, timezoneKeyboard } from './keyboards';
+import { isValidAgeRange, isValidGender, isValidTimezone, convertToIANATimezone } from './utils';
 import { transcribeAudio, promptText } from '../../services/ai/openai.service'; // Import AI services
 import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
@@ -207,8 +207,22 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
                 return;
             }
             await updateUserProfile(ctx.from.id, { gender: text });
+            ctx.session.onboardingStep = 'timezone';
+            await ctx.reply("<b>Perfect!</b>\n\nNow, what's your current timezone? This helps me send notifications at the right time for you.", {
+                reply_markup: timezoneKeyboard, // Use imported keyboard
+                parse_mode: 'HTML'
+            });
+            break;
+        }
+        case 'timezone': {
+            if (!text || !isValidTimezone(text)) { // Expecting text from keyboard
+                await ctx.reply("Please select your timezone from the options provided 🌍");
+                return;
+            }
+            const ianaTimezone = convertToIANATimezone(text);
+            await updateUserProfile(ctx.from.id, { timezone: ianaTimezone });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("<b>Got it!</b>\n\nWhat is your main occupation or main focus in life?", {
+            await ctx.reply("<b>Great!</b>\n\nWhat is your main occupation or main focus in life?", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -284,7 +298,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const story = await createStorytelling(bioText);
             
             // Generate a warm, personalized summary with the storytelling
-            const summary = `<b>🌟 Perfect! Here's what I've learned about you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Your Story:</b>\n${story}`;
+            const summary = `<b>🌟 Perfect! Here's what I've learned about you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Your Story:</b>\n${story}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
             

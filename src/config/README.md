@@ -40,7 +40,7 @@ The following environment variables are supported:
 | `MONGODB_PASSWORD` | No | `` | MongoDB password |
 | `MONGODB_DATABASE` | No | `journal_bot` | MongoDB database name |
 | `MONGO_EXPRESS_PORT` | No | `8081` | Mongo Express port for development |
-| `LOG_LEVEL` | No | `LogLevel.INFO` | Logging level |
+| `LOG_LEVEL` | No | `info` | Logging level (`none`, `error`, `warn`, `info`, `debug`, `trace`) |
 
 ### Environment-Specific Configuration
 

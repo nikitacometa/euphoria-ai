@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import path from 'path';
-import { LogLevel } from '../utils/logger';
+import { LogLevel, parseLogLevel } from '../utils/logger';
 
 // Load environment variables from .env file
 dotenv.config({
@@ -151,9 +151,7 @@ export const config: AppConfig = {
     },
 
     logging: {
-        level: process.env.LOG_LEVEL ? 
-            parseInt(process.env.LOG_LEVEL) as LogLevel : 
-            LogLevel.INFO
+        level: parseLogLevel(process.env.LOG_LEVEL)
     }
 };
 

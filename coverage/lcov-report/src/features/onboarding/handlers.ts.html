@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/162</span>
+                <span class='fraction'>0/170</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/85</span>
+                <span class='fraction'>0/92</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/156</span>
+                <span class='fraction'>0/164</span>
             </div>
         
             
@@ -432,7 +432,21 @@
 <a name='L367'></a><a href='#L367'>367</a>
 <a name='L368'></a><a href='#L368'>368</a>
 <a name='L369'></a><a href='#L369'>369</a>
-<a name='L370'></a><a href='#L370'>370</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -640,6 +654,20 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -805,8 +833,8 @@
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 <span class="cstat-no" title="statement not covered" >import { updateUserProfile } from '../../database'; </span>// Assuming updateUserProfile is exported from database index
-<span class="cstat-no" title="statement not covered" >import { ageKeyboard, genderKeyboard } from './keyboards';</span>
-<span class="cstat-no" title="statement not covered" >import { isValidAgeRange, isValidGender } from './utils';</span>
+<span class="cstat-no" title="statement not covered" >import { ageKeyboard, genderKeyboard, timezoneKeyboard } from './keyboards';</span>
+<span class="cstat-no" title="statement not covered" >import { isValidAgeRange, isValidGender, isValidTimezone, convertToIANATimezone } from './utils';</span>
 <span class="cstat-no" title="statement not covered" >import { transcribeAudio, promptText } from '../../services/ai/openai.service'; </span>// Import AI services
 <span class="cstat-no" title="statement not covered" >import { showMainMenu } from '../core/handlers';</span>
 <span class="cstat-no" title="statement not covered" >import { logger } from '../../utils/logger';</span>
@@ -1010,8 +1038,22 @@ function <span class="fstat-no" title="function not covered" >generatePersonaliz
 <span class="cstat-no" title="statement not covered" >                return;</span>
             }
 <span class="cstat-no" title="statement not covered" >            await updateUserProfile(ctx.from.id, { gender: text });</span>
+<span class="cstat-no" title="statement not covered" >            ctx.session.onboardingStep = 'timezone';</span>
+<span class="cstat-no" title="statement not covered" >            await ctx.reply("&lt;b&gt;Perfect!&lt;/b&gt;\n\nNow, what's your current timezone? This helps me send notifications at the right time for you.", {</span>
+                reply_markup: timezoneKeyboard, // Use imported keyboard
+                parse_mode: 'HTML'
+            });
+<span class="cstat-no" title="statement not covered" >            break;</span>
+        }
+        case 'timezone': {
+<span class="cstat-no" title="statement not covered" >            <span class="missing-if-branch" title="if path not taken" >I</span>if (!text || !isValidTimezone(text)) { // Expecting text from keyboard</span>
+<span class="cstat-no" title="statement not covered" >                await ctx.reply("Please select your timezone from the options provided 🌍");</span>
+<span class="cstat-no" title="statement not covered" >                return;</span>
+            }
+            const ianaTimezone = <span class="cstat-no" title="statement not covered" >convertToIANATimezone(text);</span>
+<span class="cstat-no" title="statement not covered" >            await updateUserProfile(ctx.from.id, { timezone: ianaTimezone });</span>
 <span class="cstat-no" title="statement not covered" >            ctx.session.onboardingStep = 'occupation';</span>
-<span class="cstat-no" title="statement not covered" >            await ctx.reply("&lt;b&gt;Got it!&lt;/b&gt;\n\nWhat is your main occupation or main focus in life?", {</span>
+<span class="cstat-no" title="statement not covered" >            await ctx.reply("&lt;b&gt;Great!&lt;/b&gt;\n\nWhat is your main occupation or main focus in life?", {</span>
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -1087,7 +1129,7 @@ function <span class="fstat-no" title="function not covered" >generatePersonaliz
             const story = <span class="cstat-no" title="statement not covered" >await createStorytelling(bioText);</span>
             
             // Generate a warm, personalized summary with the storytelling
-            const summary = <span class="cstat-no" title="statement not covered" >`&lt;b&gt;🌟 Perfect! Here's what I've learned about you:&lt;/b&gt;\n\n&lt;b&gt;Name:&lt;/b&gt; ${updatedUser.name || updatedUser.firstName}\n&lt;b&gt;Age:&lt;/b&gt; ${updatedUser.age || 'not specified'}\n&lt;b&gt;Gender:&lt;/b&gt; ${updatedUser.gender || 'not specified'}\n&lt;b&gt;Occupation:&lt;/b&gt; ${updatedUser.occupation || 'not specified'}\n\n&lt;b&gt;Your Story:&lt;/b&gt;\n${story}`;</span>
+            const summary = <span class="cstat-no" title="statement not covered" >`&lt;b&gt;🌟 Perfect! Here's what I've learned about you:&lt;/b&gt;\n\n&lt;b&gt;Name:&lt;/b&gt; ${updatedUser.name || updatedUser.firstName}\n&lt;b&gt;Age:&lt;/b&gt; ${updatedUser.age || 'not specified'}\n&lt;b&gt;Gender:&lt;/b&gt; ${updatedUser.gender || 'not specified'}\n&lt;b&gt;Timezone:&lt;/b&gt; ${text || updatedUser.timezone || 'UTC'}\n&lt;b&gt;Occupation:&lt;/b&gt; ${updatedUser.occupation || 'not specified'}\n\n&lt;b&gt;Your Story:&lt;/b&gt;\n${story}`;</span>
             
 <span class="cstat-no" title="statement not covered" >            await ctx.reply(summary, { parse_mode: 'HTML' });</span>
             
@@ -1177,7 +1219,7 @@ async function <span class="fstat-no" title="function not covered" >processMedia
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-30T04:50:36.410Z
+                at 2025-04-30T06:46:17.761Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
