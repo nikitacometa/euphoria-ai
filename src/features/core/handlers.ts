@@ -124,7 +124,8 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
  */
 export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
-    
+
+    // Revert to the original single help text constant
     const helpText = `
 <b>Infinity ♾️</b>
 
@@ -140,7 +141,7 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 <code>/help</code> - <i>You're reading it now! Mind-blowing, right?</i>
 
 <b>💡 PRO TIPS:</b>
-• Record voice or video messages for easier journaling
+• Record voice/video messages for easier journaling
 • Use Journal Chat to explore insights about your entries
 • Enable notifications to build a regular journaling habit
 • Try different entry types to capture your full experience
@@ -150,7 +151,7 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 
 <i>Remember: I'm here to be your digital confidant — all entries are private and secure!</i>
 `;
-
+    
     await ctx.reply(helpText, {
         parse_mode: 'HTML'
     });

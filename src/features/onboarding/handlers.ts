@@ -8,8 +8,7 @@ import { transcribeAudio, promptText } from '../../services/ai/openai.service'; 
 import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
 import { TELEGRAM_API_TOKEN } from '../../config';
-import { HOWTO_GUIDE } from '../../commands/howto';
-import { HOWTO_GUIDE_RU } from '../../commands/howto.ru'; // Import the Russian version
+import { HOWTO_GUIDE, HOWTO_GUIDE_RU } from '../../commands/howto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
