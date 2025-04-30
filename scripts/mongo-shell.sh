@@ -19,4 +19,4 @@ MONGODB_USER=${MONGODB_USER:-admin}
 MONGODB_PASSWORD=${MONGODB_PASSWORD:-password}
 
 echo "🔌 Connecting to MongoDB shell..."
-docker exec -it $CONTAINER_ID mongosh --username "$MONGODB_USER" --password "$MONGODB_PASSWORD" 
+docker exec -it $CONTAINER_ID mongosh --port "$MONGODB_PORT" --username "$MONGODB_USER" --password "$MONGODB_PASSWORD" 

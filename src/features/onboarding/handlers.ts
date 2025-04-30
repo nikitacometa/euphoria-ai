@@ -103,8 +103,25 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             const ianaTimezone = convertToIANATimezone(text);
             await updateUserProfile(ctx.from.id, { timezone: ianaTimezone });
+            ctx.session.onboardingStep = 'language';
+            await ctx.reply("<b>Fantastic!</b>\n\n<i>Choose your preferred language for AI conversations (interface localization coming soon):</i>", {
+                reply_markup: {
+                    keyboard: [["English", "Russian"]],
+                    resize_keyboard: true,
+                    one_time_keyboard: true
+                },
+                parse_mode: 'HTML'
+            });
+            break;
+        }
+        case 'language': {
+            if (!text || (text !== 'English' && text !== 'Russian')) {
+                await ctx.reply("Please select either English or Russian for AI conversations 🌐");
+                return;
+            }
+            await updateUserProfile(ctx.from.id, { aiLanguage: text === 'English' ? 'en' : 'ru' });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("<b>Great!</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly?</i>", {
+            await ctx.reply("<b>Great choice!</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly?</i>", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -181,7 +198,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const story = await createStorytelling(bioText);
             
             // Generate a warm, personalized summary with the storytelling
-            const summary = `<i>I love to know you, ${updatedUser.name || updatedUser.firstName} 😘</i>\n\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
+            const summary = `<i>I love to know you, ${updatedUser.name || updatedUser.firstName} 😘</i>\n\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Language:</b> ${updatedUser.aiLanguage === 'en' ? 'English' : 'Russian'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
 
