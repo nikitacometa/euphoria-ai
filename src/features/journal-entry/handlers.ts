@@ -459,7 +459,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`<b>${entry.messages.length > 0 ? '🎤 <i>Send any messages — texts, voices, videos. The more you send — the better.</i>\n\nAlso forward me all your smart videos/voices from other chats, please 🥹 \n\n<i>Use bottom menu buttons to save or to ask me for reflection/analysis assistance.</i>`, {
+        await ctx.reply(`<b>${entry.messages.length > 0 ? 'Continuing your reflection...' : '🎤 <i>Send any messages — texts, voices, videos. The more you send — the better.</i>\n\nAlso! Forward me all your smart funny videos/voices from other chats! Please 🥹 \n\n<i>Use bottom menu buttons to save or to ask me for reflection/analysis assistance.</i>'}</b>`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });

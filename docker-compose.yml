@@ -29,7 +29,7 @@ services:
     mongodb:
         image: mongo:latest
         ports:
-            - "${MONGODB_PORT:-27420}:27420"
+            - "${MONGODB_PORT}:${MONGODB_PORT}"
         volumes:
             - mirror_mongodb_data:/data/db
         environment:
