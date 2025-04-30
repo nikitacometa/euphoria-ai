@@ -303,7 +303,8 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         await completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const formattedMessage = `<b>Good job! Now in my memory...</b>\n\n${sanitizedSummary}\n\n<i>🤌 Tonight instead of sleep think about the following random thing:</i>\n\n<code>${sanitizedQuestion}</code>`;
+        const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна навязчиво размыщляй о следующей рандомной мысли:' : '🤌 Tonight instead of sleep think about the following random thing:';
+        const formattedMessage = `<b>Well done, ${user.name || user.firstName}, thank you. Now I will always remember...</b>\n\n${sanitizedSummary}\n\n<i>${questionIntro}</i>\n\n<code>${sanitizedQuestion}</code>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
@@ -458,7 +459,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`<b>${entry.messages.length > 0 ? 'Continuing to write' : 'Writing'} a new entry!</b> Send your text, voice or video messages.\n\n<i>Use buttons to save or to ask me for assistance with digging deeper, right into the abyss...</i>`, {
+        await ctx.reply(`<b>${entry.messages.length > 0 ? 'Continuing to write' : 'Composing'} new entry...</b> \n\nSend any amount of texts, voices or videos. EXPRESS YOURSELF...\n\n<i>Use bottom menu buttons to save or to ask me for reflection/analysis assistance.</i>`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });

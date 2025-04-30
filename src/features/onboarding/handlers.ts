@@ -64,7 +64,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { name: text });
             ctx.session.onboardingStep = 'age';
-            await ctx.reply(`Wow, <b>${text}</b>! What a lovely name 😘\n\n<i>How old are you?</i>`, {
+            await ctx.reply(`Wow, <b>${text}</b>! Lovely name 😘\n\n<i>How old are you?</i>`, {
                 reply_markup: ageKeyboard, // Use imported keyboard
                 parse_mode: 'HTML'
             });
@@ -181,14 +181,10 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const story = await createStorytelling(bioText);
             
             // Generate a warm, personalized summary with the storytelling
-            const summary = `<b>☺️ Nice to meet you:</b>\n\n<b>Name:</b> ${updatedUser.name || updatedUser.firstName}\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
+            const summary = `<i>I love to know you, ${updatedUser.name || updatedUser.firstName} 😘</i>\n\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
-            
-            // Send welcome guide message
-            const welcomeGuide = generateWelcomeGuide(updatedUser.name || updatedUser.firstName);
-            await ctx.reply(welcomeGuide, { parse_mode: 'HTML' });
-            
+
             // Show main menu after onboarding completion
             await showMainMenu(ctx, updatedUser);
             break;
@@ -215,6 +211,9 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .resized();
 
     await ctx.reply(HOWTO_GUIDE, {
+        parse_mode: 'HTML'
+    });
+    await ctx.reply('<i>Wow, welcome! How can I call you, stranger? ☺️</i>', {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });
@@ -262,8 +261,4 @@ async function processMediaForBio(
         // Clean up, regardless of success/failure in transcription
         fs.unlinkSync(localFilePath);
     }
-}
-
-function generateWelcomeGuide(name: string): string {
-    return `Ah, I'm so exiceted to have you here, ${name}! ☺️\n\nBuild next-level connection with your journal. Just ask /howto to remind you how what are the good usecases!\n\n<i>I want to make your life better. Please, dear, use me hard 😏</i>`;
 }

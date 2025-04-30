@@ -35,7 +35,7 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.journalChatMode = true;
     ctx.session.waitingForJournalQuestion = true;
     
-    await ctx.reply(`Hey, ${user.name || user.firstName}! Ask your journal anything 🤌\n\n<i>• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals</i>\n\nOf course, you can use voice/videos.`, {
+    await ctx.reply(`<i>Hey, let's have a deep talk... Ask me anything 🤌</i>\n\n• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals\n\n<i>Of course, you can use voice/videos.</i>`, {
         reply_markup: chatKeyboard,
         parse_mode: 'HTML'
     });
