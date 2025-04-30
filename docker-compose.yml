@@ -34,7 +34,9 @@ services:
         volumes:
             - mongodb_data:/data/db
         command:
-            - mongod --port ${MONGODB_PORT}
+            - mongod
+            - --port
+            - ${MONGODB_PORT}
         environment:
             MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-admin}
             MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-password}
