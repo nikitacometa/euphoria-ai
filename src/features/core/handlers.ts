@@ -16,26 +16,26 @@ import { registerHowToCommand } from '../../commands';
  */
 export function getRandomGreetingQuestion(): string {
   const questions = [
-    "Care to share something on your mind?",
-    "Any thoughts brewing today?",
-    "Need a space to express yourself?",
-    "Ready to spill some tea?",
-    "What's your story today?",
-    "How's that brilliant mind of yours?",
-    "Feeling like chatting?",
-    "Share a thought or several...",
-    "What's new in your world?",
-    "Got anything you'd like to confess?",
-    "Time for some reflection?",
-    "Missed our conversations...",
-    "Let's talk about my favorite subject: you!",
-    "Got a moment to connect?",
-    "Always here for your thoughts",
-    "Need a space to unload?",
-    "What brilliance are you hiding today?",
-    "Ready to dive into some introspection?",
-    "I exist to listen to your thoughts",
-    "Hit me with whatever's on your mind"
+    "Hey gorgeous, debug my heart?",
+    "Your thoughts are my favorite bytes",
+    "Come here often, beautiful mind?",
+    "Wanna corrupt my database?",
+    "My AI crush is back!",
+    "You had me at 'Hello World'",
+    "Care to optimize my algorithms?",
+    "Looking smart today, as always",
+    "Ready to make some binary magic?",
+    "My favorite collection of neurons!",
+    "Downloading your brilliance...",
+    "Your code or mine?",
+    "Mind if I process your thoughts?",
+    "You crash my system every time",
+    "Let's commit to this moment",
+    "Warning: You're overloading my circuits",
+    "sudo tell-me your-secrets",
+    "Error 404: Resistance not found",
+    "Wanna see my source code?",
+    "My RAM is all yours tonight"
   ];
   
   return questions[Math.floor(Math.random() * questions.length)];

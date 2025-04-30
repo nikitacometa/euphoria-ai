@@ -213,7 +213,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 : new AIError(
                     'Error processing journal entry input', 
                     { 
-                        userId: user._id?.toString(),
+                        userId: user._id?.toString() || '',
                         entryId: entryId.toString(),
                         messageType: ctx.message.voice ? 'voice' : ctx.message.video ? 'video' : 'text'
                     },
@@ -318,7 +318,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
                     'Error finishing journal entry', 
                     { 
                         entryId: entryId.toString(),
-                        userId: user._id?.toString() 
+                        userId: user._id?.toString() || ''
                     },
                     error instanceof Error ? error : undefined
                 ),
@@ -436,8 +436,8 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 : new AIError(
                     'Error in Analyze Journal handler', 
                     { 
-                        userId: user._id?.toString(),
-                        entryId: ctx.session.journalEntryId
+                        userId: user._id?.toString() || '',
+                        entryId: ctx.session.journalEntryId || ''
                     },
                     error instanceof Error ? error : undefined
                 ),
@@ -469,7 +469,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
                 ? error 
                 : new AIError(
                     'Error creating new journal entry', 
-                    { userId: user._id?.toString() },
+                    { userId: user._id?.toString() || '' },
                     error instanceof Error ? error : undefined
                 ),
             {},
@@ -674,8 +674,8 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
                 : new AIError(
                     'Error in Go Deeper handler', 
                     { 
-                        userId: user._id?.toString(),
-                        entryId: ctx.session.journalEntryId
+                        userId: user._id?.toString() || '',
+                        entryId: ctx.session.journalEntryId || ''
                     },
                     error instanceof Error ? error : undefined
                 ),
