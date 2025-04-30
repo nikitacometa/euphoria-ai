@@ -8,7 +8,7 @@ services:
         volumes:
             - ".:/app"
             - "/app/node_modules"
-        command: npm run dev # Override for development mode
+        command: npm start # Override for development mode
         depends_on:
             - mongodb
         environment:
@@ -22,23 +22,24 @@ services:
             - MONGODB_DATABASE=${MONGODB_DATABASE}
             - MONGO_EXPRESS_PORT=${MONGO_EXPRESS_PORT}
             - LOG_LEVEL=${LOG_LEVEL}
+            - APP_NAME=${APP_NAME:-euphoria}
         restart: always
         networks:
-            - mirror-network
+            - app-network
 
     mongodb:
         image: mongo:latest
         ports:
             - "${MONGODB_PORT}:${MONGODB_PORT}"
         volumes:
-            - mirror_mongodb_data:/data/db
+            - mongodb_data:/data/db
         environment:
             MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-admin}
             MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-password}
-            MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-mirror}
+            MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}
         restart: always
         networks:
-            - mirror-network
+            - app-network
 
     mongo-express:
         image: mongo-express:latest
@@ -52,13 +53,13 @@ services:
             - mongodb
         restart: always
         networks:
-            - mirror-network
+            - app-network
 
 volumes:
-    mirror_mongodb_data:
-        name: "mirror_mongodb_data"
+    mongodb_data:
+        name: "${APP_NAME:-euphoria}_mongodb_data"
 
 networks:
-    mirror-network:
-        name: "mirror_network"
+    app-network:
+        name: "${APP_NAME:-euphoria}_network"
         driver: bridge
