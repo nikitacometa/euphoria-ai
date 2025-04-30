@@ -304,7 +304,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
         const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна навязчиво размыщляй о следующей рандомной мысли:' : '🤌 Tonight instead of sleep think about the following random thing:';
-        const formattedMessage = `<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n<i>Love reading your thoughts. I remembered everything, briefly it was something like...</i>\n\n${sanitizedSummary}\n\n<i>${questionIntro}</i>\n\n<code>${sanitizedQuestion}</code>`;
+        const formattedMessage = `<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n<i>Love reading your thoughts. Remembered everything, but briefly, you shared about...</i>\n\n${sanitizedSummary}\n\n<i>${questionIntro}</i>\n\n<code>${sanitizedQuestion}</code>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
         
         ctx.session.journalEntryId = undefined;
@@ -387,7 +387,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 // Sanitize HTML tags for Telegram
                 const sanitizedQuestions = questions.map((q: string) => sanitizeHtmlForTelegram(q));
                 const questionsText = sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n');
-                await ctx.reply(`Alright, now I see what you mean. I had a few thoughts while reading...\n\n${questionsText}\n\n<i>You can answer them or not, it's up to you. Share what you feel is important right now.</i>`, { 
+                await ctx.reply(`<i>Interesting things, I got a few thoughts...</i>\n\n${questionsText}\n\n<i>You can answer them or not, it's up to you. Share what you feel is important right now.</i>`, { 
                     reply_markup: journalActionKeyboard,
                     parse_mode: 'HTML'
                 });
@@ -459,7 +459,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`<b>${entry.messages.length > 0 ? 'Continuing your reflection...' : '🎤 <i>Send any messages — texts, voices, videos. The more you send — the better.</i>\n\nAlso! Forward me all your smart funny videos/voices from other chats! Please 🥹 \n\n<i>Use bottom menu buttons to save or to ask me for reflection/analysis assistance.</i>'}</b>`, {
+        await ctx.reply(`${entry.messages.length > 0 ? '<b>Continuing your reflection...</b>' : '🎤 <i>Send any messages — texts, voices, videos. The more you send — the better.</i>\n\nAlso! Forward me all your smart funny videos/voices from other chats! Please 🥹 \n\n<i>Use bottom menu buttons to save or to ask me for reflection/analysis assistance.</i>'}`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });

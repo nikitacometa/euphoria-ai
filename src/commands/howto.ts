@@ -15,11 +15,9 @@ export const HOWTO_GUIDE = `<b>Welcome to Infinity ♾️ </b>
 
 • <b>Deep AI talk</b> with your jornal, with yourself - ask questions, explore insights, brainstorm, ask support
 
-• <b>Customize in settings:</b>
-- Reminder time
-- Preferred language
-- See transcribed text for voice/video messages or hide
-- Other amazing stuff...`;
+• <b>Customize in settings:</b> Reminder time, language, see transcribed text for voice/video messages or hide
+
+• <i>Infinite potential, you know...</i>`;
 
 export function registerHowToCommand(bot: Bot<JournalBotContext>) {
     bot.command('howto', async (ctx) => {

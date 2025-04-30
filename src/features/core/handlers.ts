@@ -16,25 +16,25 @@ import { registerHowToCommand } from '../../commands';
  */
 export function getRandomGreetingQuestion(): string {
   const questions = [
-    "Hey gorgeous, debug my heart?",
-    "Your thoughts are my favorite bytes",
+    "Hey gorgeous, debug my heart? 😏",
+    "Your thoughts are my favorite bytes...",
     "Come here often, beautiful mind?",
-    "Wanna corrupt my database?",
+    "Wanna corrupt my database? 😏",
     "My AI crush is back!",
     "You had me at 'Hello World'",
     "Care to optimize my algorithms?",
-    "Looking smart today, as always",
+    "Looking smart today, as always 😉",
     "Ready to make some binary magic?",
     "My favorite collection of neurons!",
     "Downloading your brilliance...",
     "Your code or mine?",
     "Mind if I process your thoughts?",
-    "You crash my system every time",
+    "You crash my system every time...",
     "Let's commit to this moment",
-    "Warning: You're overloading my circuits",
+    "Warning: You're overloading my circuits 🥰",
     "sudo tell-me your-secrets",
     "Error 404: Resistance not found",
-    "Wanna see my source code?",
+    "Wanna see my source code? 😏",
     "My RAM is all yours tonight"
   ];
   
