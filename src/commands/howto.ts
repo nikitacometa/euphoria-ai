@@ -1,7 +1,7 @@
 import { Bot } from 'grammy';
 import { JournalBotContext } from '../types/session';
 
-export const HOWTO_GUIDE = `<b>Welcome to Infinity ♾️ </b>
+export const HOWTO_GUIDE = `<b>Feel Infinity ♾️ </b>
 
 <i>I might do crazy things with you...</i>
 

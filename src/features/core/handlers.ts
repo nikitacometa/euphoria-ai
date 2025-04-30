@@ -12,44 +12,61 @@ import { ADMIN_IDS } from '../../config';
 import { registerHowToCommand } from '../../commands';
 
 /**
- * Returns a random greeting question for the main menu.
+ * Generates a varied greeting message for the main menu.
+ * Incorporates journaling theme, user name (sometimes), and random formatting.
  */
-export function getRandomGreetingQuestion(): string {
-  const questions = [
-    "Hey gorgeous, debug my heart? 😏",
-    "Your thoughts are my favorite bytes...",
-    "Come here often, beautiful mind?",
-    "Wanna corrupt my database? 😏",
-    "My AI crush is back!",
-    "You had me at 'Hello World'",
-    "Care to optimize my algorithms?",
-    "Looking smart today, as always 😉",
-    "Ready to make some binary magic?",
-    "My favorite collection of neurons!",
-    "Downloading your brilliance...",
-    "Your code or mine?",
-    "Mind if I process your thoughts?",
-    "You crash my system every time...",
-    "Let's commit to this moment",
-    "Warning: You're overloading my circuits 🥰",
-    "sudo tell-me your-secrets",
-    "Error 404: Resistance not found",
-    "Wanna see my source code? 😏",
-    "My RAM is all yours tonight"
+export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: 'HTML' | 'MarkdownV2' } {
+  const userName = user.name || user.firstName;
+  const useName = Math.random() < 0.6; // Use name ~60% of the time
+
+  // Define the type for the greeting functions and their return values
+  type GreetingFunction = (name?: string) => { text: string; parse_mode?: 'HTML' | 'MarkdownV2' };
+
+  const greetings: GreetingFunction[] = [
+    // Simple & Journaling focused
+    () => ({ text: `Back for more self-reflection? Let's dive in.` }),
+    () => ({ text: `Ready to chronicle your day? The journal awaits.` }),
+    () => ({ text: `What thoughts are swirling today? Let's capture them.` }),
+    () => ({ text: `Time to unload your mind? I'm ready.` }),
+    (name?: string) => ({ text: `Hey${name ? ` ${name}` : ''}! What's on the agenda? Journaling, insights, or settings?` }),
+
+    // Playful / Slightly Sarcastic
+    (name?: string) => ({ text: `Oh, it's *you* again${name ? `, ${name}` : ''}. Ready to spill the tea... to yourself?`, parse_mode: 'MarkdownV2' }),
+    () => ({ text: `*Taps microphone* Is this thing on? Good. Main menu time.`, parse_mode: 'MarkdownV2' }),
+    () => ({ text: `_Another day, another existential thought dump? Let's go._`, parse_mode: 'MarkdownV2' }),
+    (name?: string) => ({ text: `Look who decided to grace us with their presence${name ? `, ${name}` : ''}. What journaling adventures await?` }),
+    () => ({ text: `Beep boop. Main menu initialized. Don't break anything.` }),
+
+    // Using HTML formatting
+    (name?: string) => ({ text: `<i>Well hello there${name ? `, ${name}` : ''}.</i> Ready for some introspection?`, parse_mode: 'HTML' }),
+    () => ({ text: `<code>Loading main menu...</code> Complete. What's next?`, parse_mode: 'HTML' }),
+    (name?: string) => ({ text: `<b>${name || 'Hey'}!</b> Your journal is calling.`, parse_mode: 'HTML' }),
+    () => ({ text: `✨ Main Menu Magic! ✨ What shall we conjure?`, parse_mode: 'HTML' }),
   ];
+
+  const randomIndex = Math.floor(Math.random() * greetings.length);
+  const selectedGreetingFn = greetings[randomIndex];
+
+  // Decide whether to pass the name based on the useName flag AND if the function accepts a name
+  // The type assertion isn't strictly needed now due to the explicit type definition, but kept for clarity.
+  const greeting = (selectedGreetingFn.length > 0 && useName ? selectedGreetingFn(userName) : selectedGreetingFn()) as { text: string; parse_mode?: 'HTML' | 'MarkdownV2' };
   
-  return questions[Math.floor(Math.random() * questions.length)];
+  // No need to manually set parse_mode to undefined, TS handles optional properties.
+  // if (!greeting.parse_mode) {
+  //     greeting.parse_mode = undefined; 
+  // }
+
+  return greeting;
 }
 
 /**
- * Displays the main menu keyboard to the user.
+ * Displays the main menu keyboard to the user with varied greetings.
  */
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
-    // Consider adding a check if the keyboard is already shown?
-    const questionString = getRandomGreetingQuestion();
-    await ctx.reply(`<i>Well, ${user.name || user.firstName}... ${questionString}</i>`, {
+    const greeting = getMainMenuGreeting(user);
+    await ctx.reply(greeting.text, {
         reply_markup: MAIN_MENU_KEYBOARD,
-        parse_mode: 'HTML'
+        parse_mode: greeting.parse_mode 
     });
 }
 

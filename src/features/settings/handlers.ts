@@ -36,7 +36,7 @@ function formatSettingsText(user: IUser): string {
            `<b>Every day at:</b> ${notificationTimeDisplay}\n\n` +
            `<b>Show transcribed texts?</b> ${transcriptionStatus}\n\n` +
            `<b>For AI Chat prefer:</b> ${languageStatus}\n\n` +
-           `<i>Customize to get x100 more out of your journal 😎</i>`;
+           `<i>Try to play with settings to get x100 out of your journal — just facts.</i>`;
 }
 
 /**
