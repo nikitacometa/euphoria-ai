@@ -9,6 +9,7 @@ import { Bot } from 'grammy';
 import { notificationService } from '../../services/notification.service';
 import { User } from '../../database/models/user.model';
 import { ADMIN_IDS } from '../../config';
+import { registerHowToCommand } from '../../commands';
 
 /**
  * Returns a random greeting question for the main menu.
@@ -108,7 +109,9 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
     if (!ctx.from) return;
     
     const helpText = `
-<b>✨ INFINITY BOT COMMANDS ✨</b>
+<b>Infinity ♾️</b>
+
+<code>/howto</code> - <i>I will show you nice usecases of me</i>
 
 <code>/start</code> - <i>Restart the bot or return to main menu</i>
 <code>/journal_chat</code> - <i>Have a conversation with your journal AI</i>
@@ -124,6 +127,9 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 • Use Journal Chat to explore insights about your entries
 • Enable notifications to build a regular journaling habit
 • Try different entry types to capture your full experience
+
+<b>👀 Current Limits:</b>
+• max 5 minutes voice messages
 
 <i>Remember: I'm here to be your digital confidant — all entries are private and secure!</i>
 `;
@@ -225,6 +231,9 @@ export const checkNotificationsHandler = withCommandLogging('check_notifications
  * Registers all command handlers with the bot
  */
 export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
+    // Register the /howto command
+    registerHowToCommand(bot);
+    
     // Register core commands
     bot.command('start', handleStartCommand);
     bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);

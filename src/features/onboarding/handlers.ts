@@ -8,105 +8,10 @@ import { transcribeAudio, promptText } from '../../services/ai/openai.service'; 
 import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
 import { TELEGRAM_API_TOKEN } from '../../config';
+import { HOWTO_GUIDE } from '../../commands/howto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-
-
-// Helper function to extract interesting facts from user bio
-function extractInterestingFacts(bio: string): string[] {
-    // Check if bio is too short to extract meaningful facts
-    if (!bio || bio.length < 20) {
-        return ["You're quite mysterious! I like that about you."];
-    }
-
-    const facts: string[] = [];
-    
-    // Define patterns with their associated facts in a declarative structure
-    const patterns = [
-        {
-            regex: /hobby|hobbies|enjoy|love|passion|like/i,
-            extractFact: () => {
-                const hobbyMatch = bio.match(/(?:hobby|hobbies|enjoy|love|passion|like)s?\s+(?:to\s+)?([^,.!?]+)/i);
-                return hobbyMatch && hobbyMatch[1] 
-                    ? `You seem to enjoy ${hobbyMatch[1].trim()}`
-                    : null;
-            }
-        },
-        {
-            regex: /work|job|profession|career|study|student|studying/i,
-            extractFact: () => {
-                const workMatch = bio.match(/(?:work|job|profession|career)(?:ing|ed)?\s+(?:as|at|in|with)?\s+([^,.!?]+)/i) || 
-                                bio.match(/(?:study|student|studying)\s+([^,.!?]+)/i);
-                return workMatch && workMatch[1]
-                    ? `Your path in life involves ${workMatch[1].trim()}`
-                    : null;
-            }
-        },
-        { 
-            regex: /married|wife|husband|partner|relationship|dating|boyfriend|girlfriend/i,
-            fact: "Relationships seem to be meaningful in your life"
-        },
-        {
-            regex: /travel|trip|journey|explore|adventure|country|countries|city|cities/i,
-            fact: "You have a wanderlust spirit"
-        },
-        {
-            regex: /write|author|book|novel|music|play|sing|art|paint|draw|create|creative/i,
-            fact: "You have a creative soul"
-        },
-        {
-            regex: /think|analyze|solve|problem|science|math|logic|data|research/i,
-            fact: "You have an analytical mind"
-        }
-    ];
-    
-    // Process each pattern
-    for (const pattern of patterns) {
-        if (bio.match(pattern.regex)) {
-            // If there's an extractFact function, use it; otherwise use the static fact
-            if (pattern.extractFact) {
-                const fact = pattern.extractFact();
-                if (fact) facts.push(fact);
-            } else if (pattern.fact) {
-                facts.push(pattern.fact);
-            }
-        }
-    }
-    
-    // If we couldn't extract specific facts, add some general observations
-    if (facts.length === 0) {
-        const bioLength = bio.length;
-        const sentenceCount = bio.split(/[.!?]+/).filter(Boolean).length;
-        const questionCount = (bio.match(/\?/g) || []).length;
-        const positiveWords = (bio.match(/happy|joy|love|excited|passion|great|amazing|wonderful/gi) || []).length;
-        const negativeWords = (bio.match(/sad|angry|upset|frustrat|disappoint|worry|anxious|stress/gi) || []).length;
-        
-        // Use an array of conditions and their associated facts for the fallback logic too
-        const fallbackConditions = [
-            { test: () => bioLength > 200, fact: "You're quite thorough in sharing about yourself" },
-            { test: () => sentenceCount >= 5, fact: "You're expressive and detailed in your communication" },
-            { test: () => questionCount > 1, fact: "You're inquisitive and thoughtful" },
-            { test: () => positiveWords > negativeWords && positiveWords > 2, fact: "You radiate positive energy" },
-            { test: () => negativeWords > positiveWords && negativeWords > 2, fact: "You're in touch with life's complexities" }
-        ];
-        
-        // Add facts that match our fallback conditions
-        for (const condition of fallbackConditions) {
-            if (condition.test()) {
-                facts.push(condition.fact);
-            }
-        }
-        
-        // Add a fallback if still no facts
-        if (facts.length === 0) {
-            facts.push("You've shared something unique about yourself");
-        }
-    }
-    
-    // Only return up to 3 facts to keep it concise
-    return facts.slice(0, 3);
-}
 
 // Helper function to create a short story with jokes from the user's bio
 async function createStorytelling(bio: string): Promise<string> {
@@ -141,29 +46,6 @@ async function createStorytelling(bio: string): Promise<string> {
         
         return fallbackStory;
     }
-}
-
-// Generate a personalized welcome guide message
-function generateWelcomeGuide(name: string): string {
-    return `
-<b>Welcome to Infinity, ${name} 😘</b>
-
-🎤 <i>Voice messages should be 5 minutes maximum. Long voices are cringe, you know...</i> 
-
-• <b>Notifications</b> - Turn on daily journaling reminders
-• <b>Reminder Time</b> - Set when you want to be reminded
-• <b>Transcriptions</b> - Show/hide text from your voice messages
-• <b>Language</b> - Switch between English and Russian
-
-/settings - Customize your settings
-/help - See all available commands
-`;
-}
-
-// Helper function (remains local to this feature for now)
-function generatePersonalizedBioSummary(bio: string): string {
-    const shortBio = bio.slice(0, 100).trim();
-    return `${shortBio}${bio.length > 100 ? '...' : ''}\n\nLooking forward to our conversations ✨`;
 }
 
 // Core onboarding handler function
@@ -324,36 +206,15 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
  * Initiates the onboarding process for a new user.
  */
 export async function startOnboarding(ctx: JournalBotContext) {
-    if (!ctx.from) return; // Should have ctx.from if called from /start
+    if (!ctx.from) return;
     
     ctx.session.onboardingStep = 'name';
     
-    // Suggest user's first name as default
     const nameKeyboard = new Keyboard()
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply(`<b>Welcome to Infinity ♾️ </b>
-
-<i>I might do crazy things with you. Try me for following scenarios:</i>
-
-• <b>Simple journaling.</b> Write down thoughts, ideas, feelings, etc. I'll help you analyze all that and get some insights
-
-• <b>Save any good voices and videos</b> FROM OTHER CHATS. Store all your good content! IT'S TOO GOOD, REALIZE
-
-• <b>Get a reminder</b> to share, likely in the evening. Share even THE SHORTEST VOICE. Build the habit
-
-• <b>Want to save any info</b>, idea or Bitcoin private key? Create a new entry to store forever and retrieve it anytime
-
-• <b>Deep AI talk</b> with your jornal, with yourself - ask questions, explore insights, brainstorm, ask support
-
-<b>You can customize in settings:</b>
-• Reminder time
-• Preferred language
-• See transcribed text for voice/video messages or hide
-• Other amazing stuff...
-
-<i>Now, darling, how should I call you?</i> ☺️`, {
+    await ctx.reply(HOWTO_GUIDE, {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
     });
@@ -401,4 +262,8 @@ async function processMediaForBio(
         // Clean up, regardless of success/failure in transcription
         fs.unlinkSync(localFilePath);
     }
+}
+
+function generateWelcomeGuide(name: string): string {
+    return `Ah, I'm so exiceted to have you here, ${name}! ☺️\n\nBuild next-level connection with your journal. Just ask /howto to remind you how what are the good usecases!\n\n<i>I want to make your life better. Please, dear, use me hard 😏</i>`;
 }
