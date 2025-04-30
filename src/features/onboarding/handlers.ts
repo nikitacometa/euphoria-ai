@@ -9,6 +9,7 @@ import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
 import { TELEGRAM_API_TOKEN } from '../../config';
 import { HOWTO_GUIDE } from '../../commands/howto';
+import { HOWTO_GUIDE_RU } from '../../commands/howto.ru'; // Import the Russian version
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -104,9 +105,9 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const ianaTimezone = convertToIANATimezone(text);
             await updateUserProfile(ctx.from.id, { timezone: ianaTimezone });
             ctx.session.onboardingStep = 'language';
-            await ctx.reply("<b>Fantastic!</b>\n\n<i>Choose your preferred language for AI conversations (interface localization coming soon):</i>", {
+            await ctx.reply("<b>Fantastic!</b>\n\n<i>Choose preferred language for AI chats (UI localization coming soon):</i>", {
                 reply_markup: {
-                    keyboard: [["English", "Russian"]],
+                    keyboard: [["🇺🇸 English", "🇷🇺 Russian"]],
                     resize_keyboard: true,
                     one_time_keyboard: true
                 },
@@ -121,7 +122,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { aiLanguage: text === 'English' ? 'en' : 'ru' });
             ctx.session.onboardingStep = 'occupation';
-            await ctx.reply("<b>Great choice!</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly?</i>", {
+            await ctx.reply("<b>Oh, I can feel those really deep hardcore reflection sessions coming...</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly on this planet?</i>", {
                 reply_markup: { remove_keyboard: true },
                 parse_mode: 'HTML'
             });
@@ -134,7 +135,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             }
             await updateUserProfile(ctx.from.id, { occupation: text });
             ctx.session.onboardingStep = 'bio';
-            await ctx.reply("<b>You are interesting, you know</b> 😏\n\nPlease, tell me more! Any details, stories which describe you.\n\n<i>The more you share, the better I understand you!</i>\n\n<b>Possible topics:</b>\n• <i>Hobbies or interests?</i>\n• <i>Where you live, travel?</i>\n• <i>Important relationships in your life?</i>\n• <i>Have dreams, goals?</i>\n• <i>Philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 <b>You can send a voice/video message (max 5 min).</b>", {
+            await ctx.reply("<b>I want to know more</b> 😏\n\nAllow yourself a long juicy voice (5 min max still, sorry)! Maximum details, any stories which describe you.\n\n<i>The more you share, the better I understand you!</i>\n\n<b>Possible topics:</b>\n• <i>Hobbies or interests?</i>\n• <i>Where you live, travel?</i>\n• <i>Important relationships in your life?</i>\n• <i>Have dreams, goals?</i>\n• <i>Philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 <b>Just one text/voice/video message (max 5 min).</b>", {
                 
                 parse_mode: 'HTML'
             });
@@ -202,7 +203,11 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
 
-            // Show main menu after onboarding completion
+            // Conditionally show the how-to guide based on language preference
+            const guideText = updatedUser.aiLanguage === 'ru' ? HOWTO_GUIDE_RU : HOWTO_GUIDE;
+            await ctx.reply(guideText, { parse_mode: 'HTML' });
+
+            // Show main menu after onboarding completion and how-to guide
             await showMainMenu(ctx, updatedUser);
             break;
         }
@@ -227,9 +232,6 @@ export async function startOnboarding(ctx: JournalBotContext) {
         .text(ctx.from.first_name)
         .resized();
 
-    await ctx.reply(HOWTO_GUIDE, {
-        parse_mode: 'HTML'
-    });
     await ctx.reply('<i>Wow, welcome! How can I call you, stranger? ☺️</i>', {
         reply_markup: nameKeyboard,
         parse_mode: 'HTML'
