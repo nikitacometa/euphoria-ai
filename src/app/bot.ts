@@ -3,6 +3,7 @@ import { TELEGRAM_API_TOKEN } from '../config';
 import { JournalBotContext, JournalBotSession } from '../types/session';
 import { errorService } from '../services/error.service';
 import { AppError } from '../types/errors';
+import { botLoggerMiddleware } from '../utils/bot-logger-middleware';
 
 // Create and configure the bot
 export function createBot(): Bot<JournalBotContext> {
@@ -16,6 +17,9 @@ export function createBot(): Bot<JournalBotContext> {
             waitingForJournalQuestion: false
         })
     }));
+
+    // Add debug logging middleware
+    bot.use(botLoggerMiddleware());
 
     // Handle error cases with Infinity's personality
     bot.catch((err) => {

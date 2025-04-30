@@ -37,6 +37,21 @@ export async function startApp(): Promise<Bot<JournalBotContext>> {
         // Start the notification service
         appLogger.info('Starting notification service...');
         notificationService.start();
+        
+        // Run initial health check
+        appLogger.info('Running initial notification system health check...');
+        notificationService.checkHealth()
+            .then(isHealthy => {
+                if (isHealthy) {
+                    appLogger.info('Notification system health check passed');
+                } else {
+                    appLogger.warn('Notification system health check failed - check logs for details');
+                }
+            })
+            .catch(error => {
+                appLogger.error('Error during notification system health check:', error);
+            });
+        
         appLogger.info('Notification service started');
         
         // Return the bot instance for testing or external access

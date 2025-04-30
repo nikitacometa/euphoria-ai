@@ -22,3 +22,10 @@ export const LOG_LEVEL = process.env.LOG_LEVEL ?
     LogLevel.INFO;
 export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = process.env.MAX_VOICE_MESSAGE_LENGTH_SECONDS ?
     parseInt(process.env.MAX_VOICE_MESSAGE_LENGTH_SECONDS) : 300; // 5 minutes
+
+// Support and monitoring settings
+export const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || ''; // Chat ID for admin notifications
+export const NOTIFICATION_ALERT_THRESHOLD = process.env.NOTIFICATION_ALERT_THRESHOLD ? 
+    parseInt(process.env.NOTIFICATION_ALERT_THRESHOLD) : 3; // Number of failures before alerting
+export const MAX_NOTIFICATION_RETRIES = process.env.MAX_NOTIFICATION_RETRIES ? 
+    parseInt(process.env.MAX_NOTIFICATION_RETRIES) : 3; // Max retries for failed notifications

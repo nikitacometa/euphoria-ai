@@ -6,6 +6,8 @@ import { withCommandLogging } from '../../utils/command-logger';
 import { startOnboarding } from '../onboarding/handlers';
 import { logger } from '../../utils/logger';
 import { Bot } from 'grammy';
+import { notificationService } from '../../services/notification.service';
+import { User } from '../../database/models/user.model';
 
 /**
  * Returns a random greeting question for the main menu.
@@ -170,6 +172,56 @@ export const handleSettingsCommand = withCommandLogging('settings', async (ctx: 
 });
 
 /**
+ * Handles /check_notifications command to verify notification system health
+ * This is an admin-only command to help diagnose notification issues
+ */
+export const checkNotificationsHandler = withCommandLogging('check_notifications', async (ctx: JournalBotContext) => {
+    // Only run for admins
+    const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => parseInt(id.trim()));
+    if (!adminIds.includes(ctx.from?.id || 0)) {
+        return await ctx.reply("Sorry, this command is only available to administrators.");
+    }
+
+    try {
+        await ctx.reply("⏳ Checking notification system health...");
+        
+        // Check overall system health
+        const isHealthy = await notificationService.checkHealth();
+        
+        // Get notification stats
+        const userCount = await User.countDocuments({ notificationsEnabled: true });
+        
+        // Get users with errors
+        const usersWithErrors = await User.find({ 
+            lastNotificationError: { $exists: true, $ne: null }
+        }).limit(5);
+        
+        // Create report message
+        let report = `📊 *Notification System Status*\n\n`;
+        report += `System Health: ${isHealthy ? '✅ OK' : '❌ ISSUES DETECTED'}\n`;
+        report += `Active Notification Users: ${userCount}\n\n`;
+        
+        if (usersWithErrors.length > 0) {
+            report += `*Recent Errors (${usersWithErrors.length})* :\n`;
+            for (const user of usersWithErrors) {
+                const lastAttempt = user.lastNotificationAttempt 
+                    ? new Date(user.lastNotificationAttempt).toISOString().substring(0, 16).replace('T', ' ')
+                    : 'unknown';
+                report += `- User ${user.telegramId}: ${user.lastNotificationError} (${lastAttempt})\n`;
+            }
+        } else {
+            report += `No recent notification errors! 🎉\n`;
+        }
+        
+        await ctx.reply(report, { parse_mode: 'Markdown' });
+        
+    } catch (error) {
+        logger.error('Error in check_notifications command:', error);
+        await ctx.reply("❌ Error checking notification system. Please check logs for details.");
+    }
+});
+
+/**
  * Registers all command handlers with the bot
  */
 export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
@@ -183,4 +235,7 @@ export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
     bot.command('history', handleHistoryCommand);
     bot.command('settings', handleSettingsCommand);
     // 'journal_chat' is already registered in journal-chat/handlers.ts
+    
+    // Admin commands
+    bot.command('check_notifications', checkNotificationsHandler);
 }

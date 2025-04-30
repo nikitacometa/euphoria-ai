@@ -25,11 +25,11 @@ function formatSettingsText(user: IUser): string {
     const transcriptionStatus = user.showTranscriptions === true ? "✅" : "❌";
     const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
     
-    return `🔔 <b>Notify every day:</b> ${notificationStatus}\n\n` +
-           `⏰ <b>Notify at:</b> ${notificationTimeDisplay}\n\n` +
-           `📝 <b>Show transcribed text for Voices/Videos:</b> ${transcriptionStatus}\n\n` +
+    return `🔔 <b>Remind me to journal?</b> ${notificationStatus}\n\n` +
+           `⏰ <b>Every day at:</b> ${notificationTimeDisplay}\n\n` +
+           `📝 <b>Show Voices/Videos transcriptions?</b> ${transcriptionStatus}\n\n` +
            `🌐 <b>For AI Chat prefer:</b> ${languageStatus}\n\n` +
-           `<i>What would you like to customize today?</i>`;
+           `<i>Customize to get x100 more out of your journal 😎</i>`;
 }
 
 /**

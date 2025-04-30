@@ -76,6 +76,15 @@ const userSchema = new Schema<IUser>(
             type: Date,
             required: false
         },
+        // New fields for tracking notification attempts and errors
+        lastNotificationAttempt: {
+            type: Date,
+            required: false
+        },
+        lastNotificationError: {
+            type: String,
+            required: false
+        },
         // Display settings
         showTranscriptions: {
             type: Boolean,

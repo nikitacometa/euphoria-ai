@@ -29,20 +29,49 @@ export enum LogLevel {
 // Default log level (will be overridden by config)
 const DEFAULT_LOG_LEVEL = LogLevel.INFO;
 
+// Default date format
+const DEFAULT_DATE_FORMAT = 'dd/MM/yyyy HH:mm:ss';
+
 // Logger class
 export class Logger {
     private context: string;
     private logLevel: LogLevel;
+    private dateFormat: string;
 
-    constructor(context: string, logLevel: LogLevel = DEFAULT_LOG_LEVEL) {
+    constructor(
+        context: string, 
+        logLevel: LogLevel = DEFAULT_LOG_LEVEL,
+        dateFormat: string = DEFAULT_DATE_FORMAT
+    ) {
         this.context = context;
         this.logLevel = logLevel;
+        this.dateFormat = dateFormat;
     }
 
     // Format the log message with timestamp and context
     private formatMessage(level: string, message: string): string {
-        const timestamp = new Date().toISOString();
-        return `[${timestamp}] [${level}] [${this.context}] ${message}`;
+        const date = new Date();
+        const timestampStr = this.formatDate(date, this.dateFormat);
+        return `[${timestampStr}][${level}][${this.context}] ${message}`;
+    }
+
+    // Format date according to the specified format string
+    private formatDate(date: Date, format: string): string {
+        const pad = (num: number) => num.toString().padStart(2, '0');
+        
+        const tokens: Record<string, string> = {
+            yyyy: date.getUTCFullYear().toString(),
+            MM: pad(date.getUTCMonth() + 1),
+            dd: pad(date.getUTCDate()),
+            HH: pad(date.getUTCHours()),
+            mm: pad(date.getUTCMinutes()),
+            ss: pad(date.getUTCSeconds()),
+            SSS: date.getUTCMilliseconds().toString().padStart(3, '0')
+        };
+
+        return Object.entries(tokens).reduce((result, [token, value]) => {
+            return result.replace(token, value);
+        }, format);
     }
 
     // Error level logs
@@ -99,12 +128,21 @@ export class Logger {
     setLogLevel(level: LogLevel): void {
         this.logLevel = level;
     }
+
+    // Set date format dynamically
+    setDateFormat(format: string): void {
+        this.dateFormat = format;
+    }
 }
 
 // Create a default logger
 export const logger = new Logger('App');
 
 // Helper function to create a logger for a specific context
-export function createLogger(context: string, logLevel?: LogLevel): Logger {
-    return new Logger(context, logLevel);
+export function createLogger(
+    context: string, 
+    logLevel?: LogLevel,
+    dateFormat?: string
+): Logger {
+    return new Logger(context, logLevel, dateFormat);
 } 
