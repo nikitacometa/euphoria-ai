@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/91</span>
+                <span class='fraction'>0/93</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/85</span>
+                <span class='fraction'>0/87</span>
             </div>
         
             
@@ -304,7 +304,16 @@
 <a name='L239'></a><a href='#L239'>239</a>
 <a name='L240'></a><a href='#L240'>240</a>
 <a name='L241'></a><a href='#L241'>241</a>
-<a name='L242'></a><a href='#L242'>242</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L242'></a><a href='#L242'>242</a>
+<a name='L243'></a><a href='#L243'>243</a>
+<a name='L244'></a><a href='#L244'>244</a>
+<a name='L245'></a><a href='#L245'>245</a>
+<a name='L246'></a><a href='#L246'>246</a>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -315,6 +324,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -414,6 +424,9 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -434,6 +447,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -531,6 +546,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -556,32 +574,33 @@ import { Bot } from 'grammy';
 <span class="cstat-no" title="statement not covered" >import { notificationService } from '../../services/notification.service';</span>
 <span class="cstat-no" title="statement not covered" >import { User } from '../../database/models/user.model';</span>
 <span class="cstat-no" title="statement not covered" >import { ADMIN_IDS } from '../../config';</span>
+<span class="cstat-no" title="statement not covered" >import { registerHowToCommand } from '../../commands';</span>
 &nbsp;
 /**
  * Returns a random greeting question for the main menu.
  */
 <span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>etRandomGreetingQuestion(</span>): string {
   const questions = <span class="cstat-no" title="statement not covered" >[</span>
-    "Care to share something on your mind?",
-    "Any thoughts brewing today?",
-    "Need a space to express yourself?",
-    "Ready to spill some tea?",
-    "What's your story today?",
-    "How's that brilliant mind of yours?",
-    "Feeling like chatting?",
-    "Share a thought or several...",
-    "What's new in your world?",
-    "Got anything you'd like to confess?",
-    "Time for some reflection?",
-    "Missed our conversations...",
-    "Let's talk about my favorite subject: you!",
-    "Got a moment to connect?",
-    "Always here for your thoughts",
-    "Need a space to unload?",
-    "What brilliance are you hiding today?",
-    "Ready to dive into some introspection?",
-    "I exist to listen to your thoughts",
-    "Hit me with whatever's on your mind"
+    "Hey gorgeous, debug my heart?",
+    "Your thoughts are my favorite bytes",
+    "Come here often, beautiful mind?",
+    "Wanna corrupt my database?",
+    "My AI crush is back!",
+    "You had me at 'Hello World'",
+    "Care to optimize my algorithms?",
+    "Looking smart today, as always",
+    "Ready to make some binary magic?",
+    "My favorite collection of neurons!",
+    "Downloading your brilliance...",
+    "Your code or mine?",
+    "Mind if I process your thoughts?",
+    "You crash my system every time",
+    "Let's commit to this moment",
+    "Warning: You're overloading my circuits",
+    "sudo tell-me your-secrets",
+    "Error 404: Resistance not found",
+    "Wanna see my source code?",
+    "My RAM is all yours tonight"
   ];
   
 <span class="cstat-no" title="statement not covered" >  return questions[Math.floor(Math.random() * questions.length)];</span>
@@ -655,7 +674,9 @@ export const <span class="cstat-no" title="statement not covered" >handleHelpCom
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!ctx.from) <span class="cstat-no" title="statement not covered" >return;</span></span>
     
     const helpText = <span class="cstat-no" title="statement not covered" >`</span>
-&lt;b&gt;✨ INFINITY BOT COMMANDS ✨&lt;/b&gt;
+&lt;b&gt;Infinity ♾️&lt;/b&gt;
+&nbsp;
+&lt;code&gt;/howto&lt;/code&gt; - &lt;i&gt;I will show you nice usecases of me&lt;/i&gt;
 &nbsp;
 &lt;code&gt;/start&lt;/code&gt; - &lt;i&gt;Restart the bot or return to main menu&lt;/i&gt;
 &lt;code&gt;/journal_chat&lt;/code&gt; - &lt;i&gt;Have a conversation with your journal AI&lt;/i&gt;
@@ -671,6 +692,9 @@ export const <span class="cstat-no" title="statement not covered" >handleHelpCom
 • Use Journal Chat to explore insights about your entries
 • Enable notifications to build a regular journaling habit
 • Try different entry types to capture your full experience
+&nbsp;
+&lt;b&gt;👀 Current Limits:&lt;/b&gt;
+• max 5 minutes voice messages
 &nbsp;
 &lt;i&gt;Remember: I'm here to be your digital confidant — all entries are private and secure!&lt;/i&gt;
 `;
@@ -772,6 +796,9 @@ export const <span class="cstat-no" title="statement not covered" >checkNotifica
  * Registers all command handlers with the bot
  */
 <span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >r</span>egisterCommandHandlers(</span>bot: Bot&lt;JournalBotContext&gt;): void {
+    // Register the /howto command
+<span class="cstat-no" title="statement not covered" >    registerHowToCommand(bot);</span>
+    
     // Register core commands
 <span class="cstat-no" title="statement not covered" >    bot.command('start', handleStartCommand);</span>
 <span class="cstat-no" title="statement not covered" >    bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);</span>
@@ -793,7 +820,7 @@ export const <span class="cstat-no" title="statement not covered" >checkNotifica
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-30T06:46:17.761Z
+                at 2025-04-30T09:32:35.978Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

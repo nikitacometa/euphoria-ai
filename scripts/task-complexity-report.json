@@ -1,0 +1,131 @@
+{
+  "meta": {
+    "generatedAt": "2025-04-30T09:18:42.089Z",
+    "tasksAnalyzed": 15,
+    "thresholdScore": 5,
+    "projectName": "Your Project Name",
+    "usedResearch": false
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 1,
+      "taskTitle": "Analyze Current Architecture and Define Refactoring Strategy",
+      "complexityScore": 9,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Break down the architecture analysis task into subtasks covering: codebase review methodology, documentation of current issues, clean architecture principle application, folder structure design, naming convention standardization, and transition planning.",
+      "reasoning": "This is a highly complex foundational task requiring deep analysis and strategic planning. It involves understanding the entire codebase, identifying architectural issues, and creating a comprehensive plan that will guide all subsequent work."
+    },
+    {
+      "taskId": 2,
+      "taskTitle": "Implement Centralized Configuration Management",
+      "complexityScore": 6,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the configuration management implementation into subtasks covering: environment variable validation schema design, TypeScript interface creation, singleton pattern implementation, error handling for missing/invalid configurations, and documentation of the configuration system.",
+      "reasoning": "This task has moderate complexity as it requires designing a type-safe configuration system with validation. It involves creating interfaces, implementing patterns, and ensuring proper error handling, but is relatively contained in scope."
+    },
+    {
+      "taskId": 3,
+      "taskTitle": "Develop Standardized Logging System",
+      "complexityScore": 5,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the logging system implementation into subtasks covering: logger module creation with appropriate library, log level standardization, context enrichment capabilities, and production environment formatting/rotation configuration.",
+      "reasoning": "This task has medium complexity as it involves implementing a structured logging system. While it requires integration with libraries and defining standards, the scope is well-defined and the patterns are established."
+    },
+    {
+      "taskId": 4,
+      "taskTitle": "Create Error Handling Framework",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the error handling framework creation into subtasks covering: custom error class hierarchy design, standardized error property definition, utility functions for error handling, Grammy middleware implementation, and integration with the logging system.",
+      "reasoning": "This task has significant complexity as it requires designing a comprehensive error handling system that works across the application. It involves creating class hierarchies, middleware, and ensuring proper integration with other systems."
+    },
+    {
+      "taskId": 5,
+      "taskTitle": "Define Domain Models and Interfaces",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the domain modeling task into subtasks covering: core entity identification and interface creation, value object design, validation logic implementation, service interface definition, and comprehensive documentation of the domain model.",
+      "reasoning": "This task has high complexity as it requires deep understanding of the business domain and careful design of the core models that will be used throughout the application. It requires balancing technical needs with business requirements."
+    },
+    {
+      "taskId": 6,
+      "taskTitle": "Implement Dependency Injection Pattern",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the dependency injection implementation into subtasks covering: container/context design, factory function creation, service refactoring for constructor injection, testing utilities for dependency mocking, and documentation of DI patterns.",
+      "reasoning": "This task has significant complexity as it involves implementing a fundamental architectural pattern that affects how components interact throughout the application. It requires careful design to ensure testability and loose coupling."
+    },
+    {
+      "taskId": 7,
+      "taskTitle": "Refactor Data Access Layer",
+      "complexityScore": 8,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Break down the data access layer refactoring into subtasks covering: repository interface design, concrete repository implementation, database abstraction, data mapping between models, transaction support implementation, and integration with the DI system.",
+      "reasoning": "This task has high complexity as it involves restructuring how the application interacts with data sources. It requires implementing patterns that separate concerns while ensuring proper error handling and transaction support."
+    },
+    {
+      "taskId": 8,
+      "taskTitle": "Create Service Layer Abstractions",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the service layer creation into subtasks covering: service interface definition, implementation of service classes with business logic, validation logic implementation, factory function creation for DI integration, and comprehensive documentation.",
+      "reasoning": "This task has high complexity as it involves designing and implementing the core business logic layer of the application. It requires orchestrating operations across repositories while maintaining separation of concerns."
+    },
+    {
+      "taskId": 9,
+      "taskTitle": "Refactor AI Service Integration",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the AI service refactoring into subtasks covering: dedicated service interface design, error handling and retry logic implementation, request optimization and throttling, caching strategy, and mock implementation for testing.",
+      "reasoning": "This task has significant complexity as it involves optimizing integration with an external AI service. It requires implementing advanced patterns like retries, throttling, and caching while ensuring proper error handling."
+    },
+    {
+      "taskId": 10,
+      "taskTitle": "Break Down Monolithic Handlers",
+      "complexityScore": 8,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Divide the handler refactoring into subtasks covering: logical grouping analysis, handler module creation, consistent registration pattern implementation, delegation to service layer, error handling integration, and DI system integration.",
+      "reasoning": "This task has high complexity as it involves restructuring a core part of the application that handles user interactions. It requires careful refactoring to maintain functionality while improving structure and testability."
+    },
+    {
+      "taskId": 11,
+      "taskTitle": "Implement Session Management Improvements",
+      "complexityScore": 6,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down the session management improvements into subtasks covering: session data interface design, session service implementation, validation and error handling for session operations, and integration with the DI system.",
+      "reasoning": "This task has moderate complexity as it involves refactoring an existing feature rather than creating something new. It requires careful handling of state and proper integration with the new architecture."
+    },
+    {
+      "taskId": 12,
+      "taskTitle": "Set Up Testing Infrastructure",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Divide the testing infrastructure setup into subtasks covering: testing framework configuration, test utility creation, mock factory implementation, test database setup, and CI/CD integration with coverage reporting.",
+      "reasoning": "This task has significant complexity as it involves setting up the foundation for all testing activities. It requires creating utilities and patterns that will be used throughout the test suite."
+    },
+    {
+      "taskId": 13,
+      "taskTitle": "Implement Unit Tests for Critical Components",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the unit testing implementation into subtasks covering: critical component identification, service method testing, repository testing with mocks, utility function testing, and edge case/error handling testing.",
+      "reasoning": "This task has high complexity due to the breadth of components that need testing and the depth of test coverage required. It involves creating numerous test cases across different types of components."
+    },
+    {
+      "taskId": 14,
+      "taskTitle": "Add Integration Tests for Key Workflows",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Divide the integration testing task into subtasks covering: key workflow identification, test environment setup, Grammy context simulation utilities, and happy path/error scenario test implementation.",
+      "reasoning": "This task has significant complexity as it involves testing end-to-end workflows that span multiple components. It requires setting up test environments and simulating user interactions."
+    },
+    {
+      "taskId": 15,
+      "taskTitle": "Add Documentation and Finalize Refactoring",
+      "complexityScore": 6,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the documentation and finalization task into subtasks covering: JSDoc comment addition, architecture documentation creation, design pattern documentation, README file creation, and final code cleanup/review.",
+      "reasoning": "This task has moderate complexity as it involves comprehensive documentation and finalization rather than new implementation. It requires attention to detail across the entire codebase to ensure consistency and completeness."
+    }
+  ]
+}

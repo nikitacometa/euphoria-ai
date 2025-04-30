@@ -1,0 +1,70 @@
+# Euphoria Bot Refactoring Product Requirements Document
+
+## Project Summary
+Euphoria is a Telegram bot built with Node.js, TypeScript, and the Grammy framework. It helps users journal through text, voice, and video messages. The bot analyzes entries using OpenAI to provide insights and reflection questions.
+
+## Problem Statement
+The current codebase shows several issues:
+- Large, monolithic handler files with limited separation of concerns
+- Inconsistent error handling patterns
+- Extensive code duplication across features
+- Tight coupling between components
+- Limited testability of business logic
+- Configuration and environment variables management is scattered
+- Service layer organization needs improvement
+- Documentation is limited
+
+## Goals
+1. Redesign the architecture to be more modular and maintainable
+2. Improve error handling and make it consistent throughout the application
+3. Enhance separation of concerns by properly isolating services, handlers, and utilities
+4. Improve test coverage with better testability
+5. Standardize logging practices for better observability
+6. Consolidate configuration management
+7. Optimize AI service integration for better performance and cost efficiency
+8. Improve type safety and consistency
+
+## Non-Goals
+1. Complete rewrite of the application
+2. Changing the underlying database technology
+3. Migrating away from Grammy bot framework
+4. Adding new functional features
+
+## Technical Requirements
+
+### Architecture Refactoring
+- Reorganize structure to follow clean architecture principles
+- Establish a better separation between data access, business logic, and bot interface
+- Refactor large handler files into smaller, focused modules
+
+### Code Quality Improvements
+- Standardize error handling across the codebase
+- Remove duplication by creating shared utilities
+- Improve naming consistency
+- Add proper JSDoc documentation for public interfaces
+
+### Service Layer Improvements
+- Properly isolate AI service from other components
+- Create service abstractions for better testability
+- Implement consistent dependency injection pattern
+
+### Testing Improvements
+- Structure code to be easily testable
+- Increase unit test coverage for critical components
+- Add integration tests for key workflows
+
+### Configuration Management
+- Centralize environment variable validation and access
+- Implement proper configuration validation on startup
+
+### Monitoring and Logging
+- Standardize logging format and levels
+- Improve error tracking and reporting
+
+## Success Criteria
+1. Code maintainability score improvement
+2. Unit test coverage increased to minimum 70%
+3. Reduced handler file sizes with better separation of concerns
+4. Consistent error handling throughout the application
+5. Centralized configuration management
+6. Improved TypeScript type safety 
