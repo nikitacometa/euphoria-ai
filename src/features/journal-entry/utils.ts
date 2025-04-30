@@ -1,6 +1,14 @@
-import { Context } from 'grammy';
+import { Context, Keyboard, InlineKeyboard } from 'grammy';
 import { IMessage, IJournalEntry, MessageType, IUser } from '../../types/models';
 import { journalActionKeyboard } from './keyboards';
+import { JournalEntry } from '../../database/models/journal.model';
+
+/**
+ * Formats a transcription for display
+ */
+export function formatTranscription(transcription: string): string {
+    return `<b>Here's what I heard:</b>\n\n<code>${sanitizeHtmlForTelegram(transcription)}</code>`;
+}
 
 /**
  * Sends the transcription text as a reply to the original message if user has it enabled.
@@ -10,14 +18,14 @@ export async function sendTranscriptionReply(
     messageId: number, 
     transcription: string, 
     user?: IUser, 
-    customKeyboard?: any
+    customKeyboard?: Keyboard | InlineKeyboard
 ): Promise<void> {
     // If user is provided and showTranscriptions is explicitly false, don't send
     if (!user || user.showTranscriptions === false) {
         return;
     }
     
-    await ctx.reply(`<b>Here's what I heard:</b>\n\n<code>${transcription}</code>`, {
+    await ctx.reply(formatTranscription(transcription), {
         reply_to_message_id: messageId,
         parse_mode: 'HTML',
         reply_markup: customKeyboard || journalActionKeyboard
@@ -30,7 +38,18 @@ export async function sendTranscriptionReply(
 export async function extractFullText(entry: IJournalEntry): Promise<string> {
     // Ensure messages are populated before casting
     if (!entry.messages || !Array.isArray(entry.messages) || typeof entry.messages[0] === 'string') {
-        // TODO: Consider re-fetching the entry with populated messages if necessary
+        // If we have an entry ID but unpopulated messages, try to fetch with populated messages
+        if (entry._id) {
+            try {
+                const populatedEntry = await JournalEntry.findById(entry._id).populate('messages');
+                if (populatedEntry && Array.isArray(populatedEntry.messages) && typeof populatedEntry.messages[0] !== 'string') {
+                    return extractFullText(populatedEntry); // Recursively call with populated entry
+                }
+            } catch (error) {
+                console.warn(`Failed to re-fetch entry with populated messages: ${entry._id}`, error);
+            }
+        }
+        
         console.warn("Attempted to extract text from entry with unpopulated messages:", entry._id);
         return ""; // Or throw an error
     }
@@ -64,3 +83,29 @@ export function sanitizeHtmlForTelegram(text: string): string {
         .replace(/<(?!\/?(b|i|u|s|tg-spoiler|a|code|pre)[ >])[^>]+>/g, '') // Remove unsupported tags
         .trim();
 }
+
+/**
+ * Formats error messages for user display
+ */
+export function formatErrorMessage(message: string): string {
+    return `<b>Oops!</b> ${sanitizeHtmlForTelegram(message)}`;
+}
+
+/**
+ * Formats system messages (info, success, etc)
+ */
+export function formatSystemMessage(message: string): string {
+    return sanitizeHtmlForTelegram(message);
+}
+
+/**
+ * Common error messages
+ */
+export const ErrorMessages = {
+    ENTRY_NOT_FOUND: "I couldn't find that journal entry. Let's start fresh! ✨",
+    TRANSCRIPTION_FAILED: "I had trouble understanding that recording. Could you try again? 🎤",
+    GENERAL_ERROR: "Something went wrong. Please try again. ✨",
+    ANALYSIS_FAILED: "I had trouble analyzing your entry, but don't worry - it's saved! ✨",
+    EMPTY_ENTRY: "There's nothing to analyze yet. Share some thoughts first! ✨",
+    SESSION_EXPIRED: "Looks like that reflection session ended. Let's start fresh! 💫"
+} as const;

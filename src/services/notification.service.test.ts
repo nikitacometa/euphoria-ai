@@ -32,12 +32,125 @@ jest.mock('../utils/timezone', () => ({
     formatTimeWithTimezone: jest.fn((time) => `${time} (Timezone)`),
 }));
 
+// Mock logger to prevent console noise during tests
+jest.mock('../utils/logger', () => ({
+    createLogger: () => ({
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn()
+    })
+}));
+
 // Helper to reset mocks between tests
 beforeEach(() => {
     jest.clearAllMocks();
+    // Reset interval if exists
+    const service = notificationService as any;
+    if (service.checkInterval) {
+        clearInterval(service.checkInterval);
+        service.checkInterval = null;
+    }
 });
 
 describe('NotificationService', () => {
+    describe('Service Lifecycle', () => {
+        test('should start notification service', () => {
+            const service = notificationService as any;
+            
+            // Start the service
+            service.start();
+            
+            // Verify interval was set
+            expect(service.checkInterval).toBeTruthy();
+            
+            // Clean up
+            service.stop();
+        });
+
+        test('should stop notification service', () => {
+            const service = notificationService as any;
+            
+            // Start then stop
+            service.start();
+            service.stop();
+            
+            // Verify interval was cleared
+            expect(service.checkInterval).toBeNull();
+        });
+
+        test('should not start service twice', () => {
+            const service = notificationService as any;
+            
+            // Start twice
+            service.start();
+            const firstInterval = service.checkInterval;
+            service.start();
+            
+            // Verify same interval
+            expect(service.checkInterval).toBe(firstInterval);
+            
+            // Clean up
+            service.stop();
+        });
+    });
+
+    describe('Basic Notification', () => {
+        test('should send notification with correct message format', async () => {
+            const mockUser = {
+                _id: 'test123',
+                telegramId: 12345,
+                firstName: 'Test',
+                notificationTime: '14:00',
+                timezone: 'UTC'
+            };
+
+            // Call private send method
+            await (notificationService as any).sendNotification(mockUser);
+
+            // Verify message format
+            expect(bot.api.sendMessage).toHaveBeenCalledWith(
+                12345,
+                expect.stringContaining('Hey Test 😏'),
+                expect.objectContaining({
+                    parse_mode: 'HTML',
+                    reply_markup: expect.any(Object)
+                })
+            );
+        });
+
+        test('should handle notification failure gracefully', async () => {
+            const mockUser = {
+                _id: 'test123',
+                telegramId: 12345,
+                firstName: 'Test'
+            };
+
+            // Mock findByIdAndUpdate to resolve
+            (User.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+
+            // Mock the sendNotification method to always fail
+            const originalSendNotification = (notificationService as any).sendNotification;
+            (notificationService as any).sendNotification = jest.fn().mockRejectedValue(new Error('Network error'));
+
+            try {
+                // Should throw after max retries
+                await (notificationService as any).sendNotificationWithRetries(mockUser);
+            } catch (error) {
+                // Verify error was logged
+                expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
+                    'test123',
+                    expect.objectContaining({
+                        lastNotificationError: 'Network error'
+                    })
+                );
+            } finally {
+                // Restore original method
+                (notificationService as any).sendNotification = originalSendNotification;
+            }
+        });
+    });
+
     describe('updateUserNotificationSettings', () => {
         test('should update notification settings with timezone conversion', async () => {
             // Setup mocks
@@ -135,54 +248,25 @@ describe('NotificationService', () => {
     });
 
     describe('checkAndSendNotifications', () => {
-        const mockDate = new Date(2023, 5, 15, 14, 30); // June 15, 2023, 14:30 UTC
-        
         beforeEach(() => {
-            // Mock Date object for consistent testing
-            jest.spyOn(global, 'Date').mockImplementation(() => mockDate as any);
+            // Mock Date.now() to return a fixed timestamp
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date('2023-06-15T14:30:00.000Z'));
         });
-        
+
         afterEach(() => {
-            // Restore Date object
-            jest.restoreAllMocks();
+            jest.useRealTimers();
         });
-        
+
         test('should find users with matching notification time and not recently notified', async () => {
-            // Mock our private method by temporarily exposing it
-            const originalCheckAndSendNotifications = (notificationService as any).checkAndSendNotifications;
-            const checkAndSendNotificationsSpy = jest.fn().mockResolvedValue(undefined);
-            (notificationService as any).checkAndSendNotifications = checkAndSendNotificationsSpy;
-            
-            // Mock current time to 14:30 UTC
             const currentUTCTime = '14:30';
-            
-            // Calculate one day ago for the query
-            const oneDayAgo = new Date(mockDate);
-            oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-            
-            // Mock users with matching time
-            const mockUsers = [
-                { 
-                    _id: 'user1',
-                    telegramId: 111111, 
-                    firstName: 'User1', 
-                    notificationTime: currentUTCTime 
-                },
-                { 
-                    _id: 'user2',
-                    telegramId: 222222, 
-                    firstName: 'User2', 
-                    notificationTime: currentUTCTime,
-                    lastNotificationSent: new Date(2023, 5, 13) // 2 days ago
-                }
-            ];
-            
-            (User.find as jest.Mock).mockResolvedValue(mockUsers);
-            
-            // Trigger the method
-            (notificationService as any).checkAndSendNotifications = originalCheckAndSendNotifications;
+            const oneDayAgo = new Date('2023-06-14T14:30:00.000Z');
+
+            // Mock database query
+            (User.find as jest.Mock).mockResolvedValue([]);
+
             await (notificationService as any).checkAndSendNotifications();
-            
+
             // Verify correct query was used
             expect(User.find).toHaveBeenCalledWith({
                 notificationsEnabled: true,

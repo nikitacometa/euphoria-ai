@@ -79,14 +79,20 @@ export class ValidationError extends AppError {
 /**
  * Error thrown when an AI operation fails
  */
-export class AIError extends AppError {
-  constructor(
-    message: string = 'AI processing error', 
-    context?: Record<string, any>,
-    originalError?: Error
-  ) {
-    super(message, 'AI_ERROR', context, originalError);
-  }
+export class AIError extends Error {
+    public readonly context: Record<string, string>;
+    public readonly originalError?: Error;
+
+    constructor(
+        message: string,
+        context: Record<string, string> = {},
+        originalError?: Error
+    ) {
+        super(message);
+        this.name = 'AIError';
+        this.context = context;
+        this.originalError = originalError;
+    }
 }
 
 /**
@@ -116,4 +122,36 @@ export const ErrorCodes = {
   // Add more error codes as needed
 } as const;
 
-export type ErrorCode = keyof typeof ErrorCodes; 
+export type ErrorCode = keyof typeof ErrorCodes;
+
+export class TranscriptionError extends Error {
+    constructor(
+        message: string,
+        public readonly fileId: string,
+        public readonly mediaType: 'voice' | 'video',
+        public readonly originalError?: Error
+    ) {
+        super(message);
+        this.name = 'TranscriptionError';
+    }
+}
+
+export class JournalError extends Error {
+    constructor(
+        message: string,
+        public readonly userId: string,
+        public readonly entryId?: string,
+        public readonly originalError?: Error
+    ) {
+        super(message);
+        this.name = 'JournalError';
+    }
+}
+
+export type KnownError = AIError | TranscriptionError | JournalError;
+
+export function isKnownError(error: unknown): error is KnownError {
+    return error instanceof AIError ||
+           error instanceof TranscriptionError ||
+           error instanceof JournalError;
+} 

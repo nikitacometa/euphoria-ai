@@ -6,7 +6,8 @@ import {
     analyzeAndSuggestQuestionsHandler,
     newEntryHandler,
     cancelJournalEntryHandler,
-    handleGoDeeper
+    handleGoDeeper,
+    handleCancelConfirmation
 } from './handlers';
 import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
@@ -92,6 +93,13 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
         if (!ctx.from) return;
         const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
         await finishJournalEntryHandler(ctx, user);
+    });
+
+    // Handle cancel confirmation callbacks
+    bot.callbackQuery(["confirm_cancel_entry", "keep_writing"], async (ctx: JournalBotContext) => {
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await handleCancelConfirmation(ctx, user);
     });
 
     // Handlers for specific button presses (hears) - these are backups for the in-context handlers

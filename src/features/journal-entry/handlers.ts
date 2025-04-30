@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { Bot, Context, Keyboard } from 'grammy';
+import { Bot, Context, Keyboard, InlineKeyboard } from 'grammy';
 import { JournalBotContext } from '../../types/session';
 import { IUser, IJournalEntry, IMessage, MessageType, MessageRole, IChatMessage } from '../../types/models';
 import { logger } from '../../utils/logger';
@@ -31,6 +31,12 @@ import {
 
 // Define a constant for max voice message duration
 export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = 300; // 5 minutes
+
+// Constants for message formatting
+const HTML_PARSE_MODE = 'HTML' as const;
+const DEFAULT_REPLY_OPTIONS = {
+    parse_mode: HTML_PARSE_MODE
+} as const;
 
 /**
  * Helper function to process media messages (voice/video)
@@ -75,6 +81,16 @@ async function processMediaMessage(
 }
 
 /**
+ * Helper function to reply with HTML formatting
+ */
+async function replyWithHTML(ctx: JournalBotContext, message: string, options: Partial<Parameters<Context['reply']>[1]> = {}) {
+    return ctx.reply(message, {
+        ...DEFAULT_REPLY_OPTIONS,
+        ...options
+    });
+}
+
+/**
  * Handles incoming messages (text, voice, video) during an active journal entry session.
  */
 export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUser) {
@@ -87,9 +103,11 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
     if (!entry || entry.status === 'completed') { // Check if entry was somehow completed or deleted
         logger.warn(`Journal entry ${ctx.session.journalEntryId} not found or already completed for user ${user.telegramId}. Clearing session.`);
         ctx.session.journalEntryId = undefined;
-        await ctx.reply(`<b>Oops!</b> Looks like that reflection session ended. Let's start fresh! 💫`, {
-            parse_mode: 'HTML'
-        });
+        await replyWithHTML(
+            ctx,
+            `<b>Oops!</b> Looks like that reflection session ended. Let's start fresh! 💫`,
+            {}
+        );
         await showMainMenu(ctx, user); // Use imported showMainMenu
         return;
     }
@@ -116,9 +134,11 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             
             // Check duration - use configuration constant
             if (ctx.message.voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
-                await ctx.reply(`Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`, {
-                    reply_markup: journalActionKeyboard
-                });
+                await replyWithHTML(
+                    ctx,
+                    `Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`,
+                    { reply_markup: journalActionKeyboard }
+                );
                 return;
             }
             
@@ -179,9 +199,11 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
 
         } else {
-            await ctx.reply(`Darling, I can only process text, voice, or video for journal entries right now. 💫`, {
-                reply_markup: journalActionKeyboard
-            });
+            await replyWithHTML(
+                ctx,
+                `Darling, I can only process text, voice, or video for journal entries right now. 💫`,
+                { reply_markup: journalActionKeyboard }
+            );
         }
 
     } catch (error) {
@@ -200,10 +222,11 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             {},
             'error'
         );
-        await ctx.reply(`<b>Oops!</b> Something went wrong while adding that to your journal. Please try again.`, { 
-            parse_mode: 'HTML',
-            reply_markup: journalActionKeyboard
-        });
+        await replyWithHTML(
+            ctx,
+            `<b>Oops!</b> Something went wrong while adding that to your journal. Please try again.`,
+            { reply_markup: journalActionKeyboard }
+        );
     }
 }
 
@@ -464,23 +487,30 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
 export async function cancelJournalEntryHandler(ctx: JournalBotContext, user: IUser) {
     // This handler is only relevant if called when a journal entry *might* be active
     if (ctx.session?.journalEntryId) {
-        // TODO: Maybe confirm cancellation? Or just delete the entry?
-        // For now, just clear the session ID like the original code
-        logger.info(`Cancelling journal entry ${ctx.session.journalEntryId} for user ${user.telegramId}`);
-        ctx.session.journalEntryId = undefined;
-        await ctx.reply(`Entry cancelled. We can start fresh anytime ✨`, { parse_mode: 'HTML' });
+        // Ask for confirmation before cancelling
+        const confirmKeyboard = new InlineKeyboard()
+            .text("Yes, discard entry", "confirm_cancel_entry")
+            .text("No, keep writing", "keep_writing");
+            
+        await ctx.reply(`Are you sure you want to discard this journal entry? Any progress will be lost.`, { 
+            parse_mode: 'HTML',
+            reply_markup: confirmKeyboard
+        });
+        
+        // The actual cancellation will be handled by the callback handler
+        return;
     }
-     // If no active entry, Cancel might be pressed in other contexts (e.g., notification time)
-     // This specific handler shouldn't be called then, but as a fallback:
-     else {
-         logger.info(`Cancel pressed by user ${user.telegramId} but no active journal entry.`);
-         // Check if waiting for notification time (logic might move to settings feature)
-         if (ctx.session?.waitingForNotificationTime) {
-             ctx.session.waitingForNotificationTime = false;
-             await ctx.reply(`Notification time setting cancelled. ✨`, { parse_mode: 'HTML' });
-         }
-     }
-    // Always show main menu after cancel
+    // If no active entry, Cancel might be pressed in other contexts (e.g., notification time)
+    // This specific handler shouldn't be called then, but as a fallback:
+    else {
+        logger.info(`Cancel pressed by user ${user.telegramId} but no active journal entry.`);
+        // Check if waiting for notification time (logic might move to settings feature)
+        if (ctx.session?.waitingForNotificationTime) {
+            ctx.session.waitingForNotificationTime = false;
+            await ctx.reply(`Notification time setting cancelled. ✨`, { parse_mode: 'HTML' });
+        }
+    }
+    // Always show main menu after cancel if no journal entry
     await showMainMenu(ctx, user);
 }
 
@@ -499,6 +529,34 @@ async function downloadTelegramFile(filePath: string, type: 'voice' | 'video'): 
     const buffer = await response.arrayBuffer();
     fs.writeFileSync(localFilePath, Buffer.from(buffer));
     return localFilePath;
+}
+
+/**
+ * Handles the confirmation for cancelling a journal entry.
+ */
+export async function handleCancelConfirmation(ctx: JournalBotContext, user: IUser) {
+    // Only process if we have a callback query with data
+    if (!ctx.callbackQuery?.data) return;
+    
+    const callbackData = ctx.callbackQuery.data;
+    
+    // Answer the callback query to stop the loading indicator
+    await ctx.answerCallbackQuery();
+    
+    if (callbackData === 'confirm_cancel_entry') {
+        // User confirmed cancellation, clear the entry ID
+        logger.info(`User ${user.telegramId} confirmed cancellation of journal entry ${ctx.session.journalEntryId}`);
+        ctx.session.journalEntryId = undefined;
+        await ctx.reply(`Entry discarded. We can start fresh anytime ✨`, { parse_mode: 'HTML' });
+        await showMainMenu(ctx, user);
+    } else if (callbackData === 'keep_writing') {
+        // User wants to keep writing, just return to the journal interface
+        logger.info(`User ${user.telegramId} chose to continue journal entry ${ctx.session.journalEntryId}`);
+        await ctx.reply(`Great! Let's continue where we left off...`, {
+            parse_mode: 'HTML',
+            reply_markup: journalActionKeyboard
+        });
+    }
 }
 
 /**
