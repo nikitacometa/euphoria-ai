@@ -6,13 +6,16 @@ import {
     setNotificationTimeHandler,
     handleNotificationTimeInput,
     toggleTranscriptionsHandler,
-    toggleLanguageHandler
+    toggleLanguageHandler,
+    setTimezoneHandler,
+    handleTimezoneInput
 } from './handlers';
 import { findOrCreateUser } from '../../database';
 
 const SETTINGS_TEXT = "⚙️ Settings";
 const TOGGLE_NOTIFICATIONS_CALLBACK = 'toggle_notifications';
 const SET_NOTIFICATION_TIME_CALLBACK = 'set_notification_time';
+const SET_TIMEZONE_CALLBACK = 'set_timezone';
 const TOGGLE_TRANSCRIPTIONS_CALLBACK = 'toggle_transcriptions';
 const TOGGLE_LANGUAGE_CALLBACK = 'toggle_language';
 
@@ -25,6 +28,11 @@ export function registerSettingsHandlers(bot: Bot<JournalBotContext>) {
             if (!ctx.from) return; 
             const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
             await handleNotificationTimeInput(ctx, user);
+        } else if (ctx.session?.waitingForTimezone) {
+            // User is setting timezone, handle their input
+            if (!ctx.from) return;
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await handleTimezoneInput(ctx, user);
         } else {
             // Not waiting for this input, pass to next handler
             await next();
@@ -48,6 +56,11 @@ export function registerSettingsHandlers(bot: Bot<JournalBotContext>) {
     bot.callbackQuery(SET_NOTIFICATION_TIME_CALLBACK, async (ctx) => {
          // No need to find user here, handler just prompts
          await setNotificationTimeHandler(ctx);
+    });
+    
+    bot.callbackQuery(SET_TIMEZONE_CALLBACK, async (ctx) => {
+         // Handler prompts for timezone selection
+         await setTimezoneHandler(ctx);
     });
     
     bot.callbackQuery(TOGGLE_TRANSCRIPTIONS_CALLBACK, async (ctx) => {

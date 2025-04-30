@@ -4,9 +4,9 @@ import { IUser } from '../../types/models';
 import { createSettingsKeyboard } from './keyboards';
 import { logger } from '../../utils/logger';
 import { notificationService } from '../../services/notification.service'; // Service for updating settings
-import { updateUserProfile } from '../../database'; // Direct user profile update
+import { findOrCreateUser, updateUserProfile } from '../../database'; // Added import for findOrCreateUser
 import { showMainMenu } from '../core/handlers';
-import { convertFromUTC, formatTimeWithTimezone, guessUserTimezone } from '../../utils/timezone';
+import { convertFromUTC, formatTimeWithTimezone, guessUserTimezone, isValidTimezone, detectUserTimezone } from '../../utils/timezone';
 
 /**
  * Formats the settings text based on user settings
@@ -22,11 +22,19 @@ function formatSettingsText(user: IUser): string {
         notificationTimeDisplay = formatTimeWithTimezone(localTime, timezone);
     }
     
+    // Format timezone information with UTC offset for clarity
+    let timezoneDisplay = "UTC (default)";
+    if (user.timezone) {
+        const offsetDisplay = getUTCOffsetDisplay(user.timezone);
+        timezoneDisplay = `${user.timezone} (${offsetDisplay})`;
+    }
+    
     const transcriptionStatus = user.showTranscriptions === true ? "✅" : "❌";
     const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
     
     return `🔔 <b>Remind me to journal?</b> ${notificationStatus}\n\n` +
            `⏰ <b>Every day at:</b> ${notificationTimeDisplay}\n\n` +
+           `🌍 <b>My timezone:</b> ${timezoneDisplay}\n\n` +
            `📝 <b>Show Voices/Videos transcriptions?</b> ${transcriptionStatus}\n\n` +
            `🌐 <b>For AI Chat prefer:</b> ${languageStatus}\n\n` +
            `<i>Customize to get x100 more out of your journal 😎</i>`;
@@ -168,6 +176,7 @@ export async function setNotificationTimeHandler(ctx: JournalBotContext) {
     }
     
     const timezone = user.timezone || 'UTC';
+    const offsetDisplay = getUTCOffsetDisplay(timezone);
     
     // Custom keyboard for time input or cancel
     const cancelKeyboard = new Keyboard()
@@ -175,7 +184,10 @@ export async function setNotificationTimeHandler(ctx: JournalBotContext) {
         .resized();
     
     await ctx.reply(
-        `Please enter a time for your daily journaling reminder using 24-hour format.\n\nExample: '21:00' for 9 PM.\n\nThis time will be interpreted in ${timezone} timezone.`,
+        `Please enter a time for your daily journaling reminder using 24-hour format.\n\n` +
+        `Example: '21:00' for 9 PM.\n\n` +
+        `This time will be interpreted in YOUR LOCAL TIMEZONE: ${timezone} ${offsetDisplay}\n\n` +
+        `(We'll convert it to UTC before saving)`,
         { reply_markup: cancelKeyboard }
     );
 }
@@ -213,7 +225,8 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
             // Get the user's timezone
             const timezone = user.timezone || 'UTC';
             
-            // Update using notification service with timezone conversion
+            // The time provided by the user is in their local timezone
+            // notificationService.updateUserNotificationSettings will handle the conversion to UTC
             await notificationService.updateUserNotificationSettings(
                 user.telegramId, 
                 true, // Enable notifications
@@ -227,12 +240,19 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
 
             ctx.session.waitingForNotificationTime = false;
             
-            // Show the time in the user's timezone for confirmation
+            // Get notification time info with correct timezone conversion
             const timeInfo = await notificationService.getUserNotificationTime(user.telegramId);
+            
+            // Format confirmation message showing the time in their local timezone
             let confirmationMessage = `Great! I'll send you notifications at ${time} in your timezone (${timezone}) 🌟`;
             
             if (timeInfo) {
+                // Display the time with timezone information for clarity
                 confirmationMessage = `Great! I'll send you notifications at ${formatTimeWithTimezone(timeInfo.localTime, timeInfo.timezone)} 🌟`;
+                
+                // Add explanation about how timezone conversion works
+                const offsetDisplay = getUTCOffsetDisplay(timezone);
+                confirmationMessage += `\n\nYour time will be saved as ${timeInfo.utcTime} UTC but displayed to you in your local timezone ${offsetDisplay}.`;
             }
             
             await ctx.reply(confirmationMessage, {reply_markup: {remove_keyboard: true}});
@@ -257,8 +277,238 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
  */
 export async function setTimezoneHandler(ctx: JournalBotContext) {
     await ctx.answerCallbackQuery();
-    await ctx.reply("Timezone settings have been removed. We now automatically detect your timezone.");
+    
+    // Add this flag so we know user is setting timezone
+    if (ctx.session) {
+        ctx.session.waitingForTimezone = true;
+    }
+    
+    // Try to automatically detect user's timezone
+    const detectedTimezone = await guessUserTimezone(ctx);
+    
+    // Create a keyboard with UTC offset options
+    const timezoneKeyboard = new Keyboard();
+    
+    // Add detected timezone at the top if available
+    if (detectedTimezone) {
+        timezoneKeyboard.text(`Detected: ${detectedTimezone}`).row();
+    }
+    
+    // Add UTC-7 to UTC-1
+    timezoneKeyboard
+        .text("UTC-7").text("UTC-6").text("UTC-5").row()
+        .text("UTC-4").text("UTC-3").text("UTC-2").row()
+        .text("UTC-1").text("UTC").text("UTC+1").row()
+        .text("UTC+2").text("UTC+3").text("UTC+4").row()
+        .text("UTC+5").text("UTC+6").text("UTC+7").row()
+        .text("UTC+8").text("UTC+9").text("UTC+10").row()
+        .text("🔍 Custom UTC offset").row()
+        .text("❌ Cancel");
+    
+    await ctx.reply(
+        `Please select your timezone offset from UTC.\n\n` +
+        `Your timezone is used to correctly schedule notifications at your preferred local time.\n\n` +
+        `${detectedTimezone ? `Your detected timezone is: ${detectedTimezone}` : 'We could not detect your timezone automatically.'}`,
+        { reply_markup: timezoneKeyboard.resized() }
+    );
 }
 
-// Import needed at the end to avoid circular dependencies
-import { findOrCreateUser } from '../../database';
+/**
+ * Handles user input for timezone setting
+ */
+export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
+    if (!ctx.message || !('text' in ctx.message) || !ctx.session?.waitingForTimezone) {
+        return; 
+    }
+
+    // Get the text input, ensuring it's not undefined
+    const input = ctx.message.text || '';
+    
+    if (input === '❌ Cancel') {
+        ctx.session.waitingForTimezone = false;
+        await ctx.reply("Timezone setting cancelled.", {reply_markup: {remove_keyboard: true}});
+        await showMainMenu(ctx, user);
+        return;
+    }
+    
+    if (input === '🔍 Custom UTC offset') {
+        await ctx.reply(
+            "Please enter your timezone offset in format UTC+X or UTC-X (e.g., 'UTC+5.5', 'UTC-3').\n\n" +
+            "Use decimal numbers for half-hour offsets (like UTC+5.5 for India).",
+            { reply_markup: new Keyboard().text('❌ Cancel').resized() }
+        );
+        return;
+    }
+    
+    if (input.startsWith("Detected: ")) {
+        const detectedTz = input.replace("Detected: ", "");
+        if (detectedTz && isValidTimezone(detectedTz)) {
+            await saveTimezone(ctx, user, detectedTz);
+            return;
+        } else {
+            await ctx.reply(
+                "Sorry, the detected timezone appears to be invalid. Please select a different option.",
+                { reply_markup: new Keyboard().text('❌ Cancel').resized() }
+            );
+            return;
+        }
+    }
+    
+    // Handle UTC offset format (UTC+X or UTC-X)
+    const utcRegex = /^UTC([+-]\d+(\.\d+)?)$/;
+    if (utcRegex.test(input)) {
+        const offset = input.replace("UTC", "");
+        const offsetNum = parseFloat(offset);
+        
+        // Validate offset range (-12 to +14 is standard range)
+        if (offsetNum >= -12 && offsetNum <= 14) {
+            // Convert UTC offset to IANA format for storage
+            // We'll use a mapping to the most common zone for each offset
+            const timezone = getTimezoneFromUTCOffset(offsetNum);
+            await saveTimezone(ctx, user, timezone);
+            return;
+        } else {
+            await ctx.reply(
+                "Sorry, that doesn't appear to be a valid UTC offset. Please use a value between UTC-12 and UTC+14.",
+                { reply_markup: new Keyboard().text('❌ Cancel').resized() }
+            );
+            return;
+        }
+    }
+    
+    // Last resort: try as direct IANA timezone
+    if (input && isValidTimezone(input)) {
+        await saveTimezone(ctx, user, input);
+    } else {
+        await ctx.reply(
+            "Sorry, that doesn't appear to be a valid timezone format. Please select from the options or use the UTC+X format.",
+            { reply_markup: new Keyboard().text('❌ Cancel').resized() }
+        );
+    }
+}
+
+/**
+ * Helper function to save timezone and show confirmation
+ */
+async function saveTimezone(ctx: JournalBotContext, user: IUser, timezone: string) {
+    try {
+        // Update the user's timezone using notification service
+        await notificationService.updateUserNotificationSettings(
+            user.telegramId,
+            user.notificationsEnabled === true,
+            undefined, // Keep existing notification time
+            timezone
+        );
+        
+        // Refresh user data
+        const updatedUser = await findOrCreateUser(user.telegramId, user.firstName, user.lastName, user.username);
+        
+        // Reset the waiting flag
+        ctx.session.waitingForTimezone = false;
+        
+        // Show confirmation with current time in their timezone
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZoneName: 'short'
+        });
+        
+        const currentTime = formatter.format(now);
+        const offsetDisplay = getUTCOffsetDisplay(timezone);
+        
+        await ctx.reply(
+            `Your timezone has been set to ${timezone} (${offsetDisplay}).\n` +
+            `Your current local time should be around ${currentTime}.`,
+            { reply_markup: { remove_keyboard: true } }
+        );
+        
+        await showMainMenu(ctx, updatedUser);
+    } catch (error) {
+        logger.error(`Error setting timezone for user ${user.telegramId}:`, error);
+        await ctx.reply(
+            "Sorry, something went wrong saving your timezone. Please try again.",
+            { reply_markup: { remove_keyboard: true } }
+        );
+        ctx.session.waitingForTimezone = false;
+        await showMainMenu(ctx, user);
+    }
+}
+
+/**
+ * Convert UTC offset to a standard IANA timezone
+ */
+function getTimezoneFromUTCOffset(offset: number): string {
+    // Map of UTC offsets to common IANA timezone IDs
+    const offsetMap: Record<string, string> = {
+        '-12': 'Etc/GMT+12', // Note: Etc/GMT+ is negative UTC offset (confusing but correct)
+        '-11': 'Etc/GMT+11',
+        '-10': 'Pacific/Honolulu', // Hawaii
+        '-9': 'America/Anchorage', // Alaska
+        '-8': 'America/Los_Angeles', // Pacific Time
+        '-7': 'America/Denver', // Mountain Time
+        '-6': 'America/Chicago', // Central Time
+        '-5': 'America/New_York', // Eastern Time
+        '-4': 'America/Halifax', // Atlantic Time
+        '-3': 'America/Sao_Paulo',
+        '-2': 'Atlantic/South_Georgia',
+        '-1': 'Atlantic/Azores',
+        '0': 'UTC',
+        '1': 'Europe/London',
+        '2': 'Europe/Paris',
+        '3': 'Europe/Moscow',
+        '4': 'Asia/Dubai',
+        '5': 'Asia/Karachi',
+        '5.5': 'Asia/Kolkata', // India
+        '6': 'Asia/Dhaka',
+        '7': 'Asia/Bangkok',
+        '8': 'Asia/Shanghai',
+        '9': 'Asia/Tokyo',
+        '10': 'Australia/Sydney',
+        '11': 'Pacific/Noumea',
+        '12': 'Pacific/Auckland',
+        '13': 'Pacific/Apia',
+        '14': 'Pacific/Kiritimati',
+    };
+    
+    // Handle fractional offsets by using closest match or fallback to Etc/GMT format
+    const offsetStr = offset.toString();
+    
+    if (offsetMap[offsetStr]) {
+        return offsetMap[offsetStr];
+    }
+    
+    // Fallback to Etc/GMT+X or Etc/GMT-X format
+    // Note the sign is inverted in Etc/GMT format
+    const sign = offset < 0 ? '+' : '-';
+    const absOffset = Math.abs(offset);
+    return `Etc/GMT${sign}${absOffset}`;
+}
+
+/**
+ * Get a display representation of the UTC offset for a timezone
+ */
+function getUTCOffsetDisplay(timezone: string): string {
+    try {
+        const date = new Date();
+        // Format the timezone with its UTC offset
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+            timeZone: timezone,
+            timeZoneName: 'longOffset'
+        });
+        
+        const formatted = formatter.format(date);
+        
+        // Extract just the UTC offset portion
+        const match = formatted.match(/GMT([+-]\d{1,2}(?::\d{2})?)/);
+        if (match) {
+            return `UTC${match[1]}`;
+        }
+        
+        return timezone;
+    } catch (error) {
+        return timezone;
+    }
+}

@@ -8,6 +8,7 @@ import { logger } from '../../utils/logger';
 import { Bot } from 'grammy';
 import { notificationService } from '../../services/notification.service';
 import { User } from '../../database/models/user.model';
+import { ADMIN_IDS } from '../../config';
 
 /**
  * Returns a random greeting question for the main menu.
@@ -177,8 +178,7 @@ export const handleSettingsCommand = withCommandLogging('settings', async (ctx: 
  */
 export const checkNotificationsHandler = withCommandLogging('check_notifications', async (ctx: JournalBotContext) => {
     // Only run for admins
-    const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => parseInt(id.trim()));
-    if (!adminIds.includes(ctx.from?.id || 0)) {
+    if (!ADMIN_IDS.includes(ctx.from?.id || 0)) {
         return await ctx.reply("Sorry, this command is only available to administrators.");
     }
 

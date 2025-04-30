@@ -7,6 +7,7 @@ export interface JournalBotSession {
     journalChatMode: boolean;
     waitingForJournalQuestion: boolean;
     waitingForNotificationTime?: boolean;
+    waitingForTimezone?: boolean;
 }
 
 // Define context type

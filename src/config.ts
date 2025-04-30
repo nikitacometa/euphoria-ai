@@ -25,6 +25,9 @@ export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = process.env.MAX_VOICE_MESSAGE_LE
 
 // Support and monitoring settings
 export const SUPPORT_CHAT_ID = process.env.SUPPORT_CHAT_ID || ''; // Chat ID for admin notifications
+export const ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').map(id => parseInt(id.trim()));
+    
+
 export const NOTIFICATION_ALERT_THRESHOLD = process.env.NOTIFICATION_ALERT_THRESHOLD ? 
     parseInt(process.env.NOTIFICATION_ALERT_THRESHOLD) : 3; // Number of failures before alerting
 export const MAX_NOTIFICATION_RETRIES = process.env.MAX_NOTIFICATION_RETRIES ? 

@@ -231,8 +231,11 @@ class NotificationService {
         const userTimezone = user.timezone || 'UTC';
         let timeDisplay = user.notificationTime || '21:00';
         
+        // Convert UTC time to user's local timezone for display
         if (user.timezone && user.notificationTime) {
+            // Convert from UTC (stored in DB) to local time based on user's timezone
             const localTime = convertFromUTC(user.notificationTime, user.timezone);
+            // Format with timezone info for clarity
             timeDisplay = formatTimeWithTimezone(localTime, user.timezone);
         }
 
@@ -275,11 +278,11 @@ class NotificationService {
                 const user = await User.findOne({ telegramId });
                 const userTimezone = timezone || user?.timezone || 'UTC';
                 
-                // Convert the time from user's timezone to UTC
+                // IMPORTANT: Convert the time from user's LOCAL timezone to UTC for database storage
                 const utcTime = convertToUTC(time, userTimezone);
                 
                 update.notificationTime = utcTime;
-                notificationLogger.info(`Setting notification time for user ${telegramId} to ${utcTime} UTC (original: ${time} in ${userTimezone})`);
+                notificationLogger.info(`Setting notification time for user ${telegramId} to ${utcTime} UTC (original local time: ${time} in ${userTimezone})`);
             }
 
             await User.findOneAndUpdate(
@@ -330,8 +333,12 @@ class NotificationService {
             }
             
             const userTimezone = user.timezone || 'UTC';
-            const utcTime = user.notificationTime;
+            const utcTime = user.notificationTime; // This is stored in UTC in the database
+            
+            // IMPORTANT: Convert the UTC time to the user's local timezone for display
             const localTime = convertFromUTC(utcTime, userTimezone);
+            
+            notificationLogger.debug(`Retrieved notification time for user ${telegramId}: ${utcTime} UTC -> ${localTime} ${userTimezone}`);
             
             return {
                 localTime,
