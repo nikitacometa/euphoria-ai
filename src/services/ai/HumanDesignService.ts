@@ -1,4 +1,5 @@
-import axios, { AxiosError, AxiosRequestConfig, Method } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, Method, AxiosInstance } from 'axios';
+import axiosRetry from 'axios-retry'; // Import axios-retry
 import { Logger } from '../../utils/logger';
 import { ApiHttpError, ApiNetworkError } from '../../errors/classes/api-errors'; // Import custom errors
 
@@ -10,6 +11,8 @@ export interface IHumanDesignServiceConfig {
   baseUrl: string;
   timeout?: number; // Timeout in milliseconds
   logger?: Logger; // Optional logger instance
+  retryAttempts?: number; // Number of retry attempts
+  retryDelay?: (retryCount: number) => number; // Function for custom retry delay
 }
 
 /**
@@ -19,6 +22,7 @@ export interface IHumanDesignServiceConfig {
 export class HumanDesignService {
   private readonly config: IHumanDesignServiceConfig;
   private readonly logger: Logger;
+  private readonly axiosInstance: AxiosInstance; // Use an axios instance
 
   constructor(config: IHumanDesignServiceConfig) {
     // Basic validation
@@ -32,26 +36,61 @@ export class HumanDesignService {
     this.config = {
       ...config,
       timeout: config.timeout ?? 10000, // Default timeout 10s
+      retryAttempts: config.retryAttempts ?? 3, // Default 3 retries
     };
 
-    // Use provided logger or default logger
     this.logger = config.logger ?? new Logger('HumanDesignService');
-    this.logger.info('HumanDesignService initialized.');
-    // Log config without sensitive details like API key
-    this.logger.debug('Configuration:', { baseUrl: this.config.baseUrl, timeout: this.config.timeout });
+
+    // Create an axios instance
+    this.axiosInstance = axios.create({
+      baseURL: this.config.baseUrl,
+      timeout: this.config.timeout,
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    });
+
+    // Configure axios-retry
+    axiosRetry(this.axiosInstance, {
+      retries: this.config.retryAttempts,
+      retryDelay: (retryCount, error) => {
+        this.logger.warn(`Retrying request (attempt ${retryCount})...`, { url: error?.config?.url, method: error?.config?.method, status: error?.response?.status });
+        // Use provided delay function or exponential backoff
+        if (this.config.retryDelay) {
+          return this.config.retryDelay(retryCount);
+        }
+        return axiosRetry.exponentialDelay(retryCount);
+      },
+      retryCondition: (error: AxiosError) => {
+        // Retry on network errors or specific server errors (e.g., 5xx)
+        // Do not retry on 429 (Rate Limit) by default, handle it specifically if needed
+        return (
+          axiosRetry.isNetworkOrIdempotentRequestError(error) ||
+          (error.response?.status !== undefined && error.response.status >= 500 && error.response.status <= 599)
+        );
+      },
+      onRetry: (retryCount, error, requestConfig) => {
+          this.logger.info(`Request retry attempt ${retryCount}`, { url: requestConfig.url, method: requestConfig.method, error: error.message });
+      }
+    });
+
+    this.logger.info('HumanDesignService initialized with retry logic.');
+    this.logger.debug('Configuration:', { baseUrl: this.config.baseUrl, timeout: this.config.timeout, retryAttempts: this.config.retryAttempts });
   }
 
   /**
-   * Makes an HTTP request to the Human Design API.
+   * Makes an HTTP request to the Human Design API using the configured axios instance.
    *
    * @template T The expected response data type.
    * @param {Method} method The HTTP method (GET, POST, etc.).
-   * @param {string} endpoint The API endpoint path.
+   * @param {string} endpoint The API endpoint path (relative to baseUrl).
    * @param {Record<string, any>} [params] Optional query parameters.
    * @param {any} [data] Optional request body data.
    * @returns {Promise<T>} The API response data.
-   * @throws {ApiHttpError} If the API returns a non-2xx status code.
-   * @throws {ApiNetworkError} If a network error or timeout occurs.
+   * @throws {ApiHttpError} If the API returns a non-2xx status code after retries.
+   * @throws {ApiNetworkError} If a network error or timeout occurs after retries.
    */
   protected async request<T>(
     method: Method,
@@ -59,64 +98,53 @@ export class HumanDesignService {
     params?: Record<string, any>,
     data?: any,
   ): Promise<T> {
-    const url = `${this.config.baseUrl}${endpoint}`; // Ensure leading slash consistency if needed
-    const headers = {
-      Authorization: `Bearer ${this.config.apiKey}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
     const requestConfig: AxiosRequestConfig = {
       method,
-      url,
-      headers,
+      url: endpoint, // Use relative endpoint path
       params,
       data,
-      timeout: this.config.timeout,
     };
 
-    this.logger.debug(`Making API request: ${method} ${url}`, { params, data: !!data }); // Log params, indicate if data exists
+    this.logger.debug(`Making API request: ${method} ${this.config.baseUrl}${endpoint}`, { params, data: !!data });
 
     try {
-      const response = await axios.request<T>(requestConfig);
-      this.logger.debug(`API request successful: ${response.status} ${response.statusText}`, { responseData: response.data });
-      // Note: axios throws for non-2xx statuses by default, so we only reach here on success.
+      // Use the configured axios instance which includes retry logic
+      const response = await this.axiosInstance.request<T>(requestConfig);
+      this.logger.debug(`API request successful: ${response.status} ${response.statusText}`); // Removed data logging for brevity/security
       return response.data;
     } catch (error) {
-      this.logger.error('API request failed:', { error });
+      this.logger.error('API request failed after retries:', { url: `${this.config.baseUrl}${endpoint}`, method, error });
 
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError<any>;
         if (axiosError.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
           this.logger.warn('API HTTP Error:', {
             status: axiosError.response.status,
             data: axiosError.response.data,
           });
+          // Specific handling for Rate Limit (429)
+          if (axiosError.response.status === 429) {
+              this.logger.error('API Rate Limit Exceeded.', { details: axiosError.response.data });
+              // Consider throwing a specific ApiRateLimitError here
+              throw new ApiHttpError(429, 'Rate limit exceeded', axiosError.response.data);
+          }
           throw new ApiHttpError(
             axiosError.response.status,
             axiosError.message,
             axiosError.response.data,
           );
         } else if (axiosError.request) {
-          // The request was made but no response was received
-          // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-          // http.ClientRequest in node.js
           this.logger.warn('API Network Error (no response):', { message: axiosError.message });
           throw new ApiNetworkError(axiosError.message, axiosError.request);
         } else {
-          // Something happened in setting up the request that triggered an Error
           this.logger.warn('API Request Setup Error:', { message: axiosError.message });
           throw new ApiNetworkError(`Request setup error: ${axiosError.message}`);
         }
       } else {
-        // Non-Axios error
         this.logger.warn('Non-API Error during request:', { message: (error as Error).message });
-        throw error; // Re-throw unexpected errors
+        throw error;
       }
     }
-    // TODO: Implement rate limiting and retry logic (subtask 2.3)
   }
 
   // Helper methods for common HTTP verbs
