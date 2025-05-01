@@ -15,6 +15,7 @@ export interface IHumanDesignServiceConfig {
   logger?: Logger; // Optional logger instance
   retryAttempts?: number; // Number of retry attempts
   retryDelay?: (retryCount: number) => number; // Function for custom retry delay
+  cacheTTL?: number; // Cache time-to-live in milliseconds
 }
 
 /**
@@ -25,6 +26,8 @@ export class HumanDesignService {
   private readonly config: IHumanDesignServiceConfig;
   private readonly logger: Logger;
   private readonly axiosInstance: AxiosInstance; // Use an axios instance
+  private readonly locationCache: Map<string, { data: ILocationTimezone[]; timestamp: number }>;
+  private readonly cacheTTL: number;
 
   constructor(config: IHumanDesignServiceConfig) {
     // Basic validation
@@ -35,11 +38,16 @@ export class HumanDesignService {
       throw new Error('Human Design API base URL is required.');
     }
 
+    // Initialize cacheTTL *before* using it in the config spread
+    this.cacheTTL = config.cacheTTL ?? 60 * 60 * 1000; // Default 1 hour cache TTL
+
     this.config = {
       ...config,
-      timeout: config.timeout ?? 10000, // Default timeout 10s
-      retryAttempts: config.retryAttempts ?? 3, // Default 3 retries
+      timeout: config.timeout ?? 10000,
+      retryAttempts: config.retryAttempts ?? 3,
+      cacheTTL: this.cacheTTL, // Now use the initialized value
     };
+    this.locationCache = new Map();
 
     this.logger = config.logger ?? new Logger('HumanDesignService');
 
@@ -78,8 +86,13 @@ export class HumanDesignService {
       }
     });
 
-    this.logger.info('HumanDesignService initialized with retry logic.');
-    this.logger.debug('Configuration:', { baseUrl: this.config.baseUrl, timeout: this.config.timeout, retryAttempts: this.config.retryAttempts });
+    this.logger.info('HumanDesignService initialized with retry logic and caching.');
+    this.logger.debug('Configuration:', {
+      baseUrl: this.config.baseUrl,
+      timeout: this.config.timeout,
+      retryAttempts: this.config.retryAttempts,
+      cacheTTL: this.cacheTTL,
+    });
   }
 
   /**
@@ -168,22 +181,57 @@ export class HumanDesignService {
 
   /**
    * Finds potential locations and timezones based on a query.
-   * Uses the /locations endpoint.
+   * Uses the /locations endpoint with in-memory caching.
    *
-   * @param {string} query The location query string (e.g., "London", "New York, USA").
+   * @param {string} query The location query string.
    * @returns {Promise<ILocationTimezone[]>} A list of matching locations.
-   * @throws {ApiHttpError} If the API returns an error status.
-   * @throws {ApiNetworkError} If a network error occurs.
    */
   public async findLocationTimezone(query: string): Promise<ILocationTimezone[]> {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       throw new Error('Location query must be a non-empty string.');
     }
-    this.logger.info(`Finding timezone for query: "${query}"`);
-    // Pass api_key in query params as per humandesign_api.md
-    const params = { query, api_key: this.config.apiKey }; 
-    return this.get<ILocationTimezone[]>('/locations', params);
+
+    const lowerCaseQuery = query.trim().toLowerCase();
+
+    // Check cache
+    const cachedEntry = this.locationCache.get(lowerCaseQuery);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < this.cacheTTL) {
+      this.logger.info(`Cache hit for location query: "${query}"`);
+      return cachedEntry.data;
+    }
+
+    this.logger.info(`Cache miss. Finding timezone for query: "${query}"`);
+    const params = { query: lowerCaseQuery, api_key: this.config.apiKey };
+    const results = await this.get<ILocationTimezone[]>('/locations', params);
+
+    // Update cache
+    this.locationCache.set(lowerCaseQuery, { data: results, timestamp: Date.now() });
+    this.logger.debug(`Cached ${results.length} results for query: "${query}"`);
+
+    // Optional: Prune old cache entries periodically if memory becomes an issue
+    // this.pruneLocationCache();
+
+    return results;
   }
+
+  /**
+   * Clears the in-memory location cache.
+   */
+  public clearLocationCache(): void {
+    this.locationCache.clear();
+    this.logger.info('Location cache cleared.');
+  }
+
+  // Optional: Method to prune cache if needed
+  // private pruneLocationCache(): void {
+  //   const now = Date.now();
+  //   for (const [key, entry] of this.locationCache.entries()) {
+  //     if (now - entry.timestamp >= this.cacheTTL) {
+  //       this.locationCache.delete(key);
+  //     }
+  //   }
+  //   this.logger.debug('Pruned stale entries from location cache.');
+  // }
 
   /**
    * Retrieves a Human Design chart from the API.
