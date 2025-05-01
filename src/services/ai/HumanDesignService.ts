@@ -2,6 +2,8 @@ import axios, { AxiosError, AxiosRequestConfig, Method, AxiosInstance } from 'ax
 import axiosRetry from 'axios-retry'; // Import axios-retry
 import { Logger } from '../../utils/logger';
 import { ApiHttpError, ApiNetworkError } from '../../errors/classes/api-errors'; // Import custom errors
+// Import specific types
+import { ILocationTimezone, IHumanDesignChartResponse } from './humanDesign.types';
 
 /**
  * Configuration for the Human Design API Service.
@@ -162,6 +164,70 @@ export class HumanDesignService {
 
   protected async delete<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     return this.request<T>('DELETE', endpoint, params);
+  }
+
+  /**
+   * Finds potential locations and timezones based on a query.
+   * Uses the /locations endpoint.
+   *
+   * @param {string} query The location query string (e.g., "London", "New York, USA").
+   * @returns {Promise<ILocationTimezone[]>} A list of matching locations.
+   * @throws {ApiHttpError} If the API returns an error status.
+   * @throws {ApiNetworkError} If a network error occurs.
+   */
+  public async findLocationTimezone(query: string): Promise<ILocationTimezone[]> {
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      throw new Error('Location query must be a non-empty string.');
+    }
+    this.logger.info(`Finding timezone for query: "${query}"`);
+    // Pass api_key in query params as per humandesign_api.md
+    const params = { query, api_key: this.config.apiKey }; 
+    return this.get<ILocationTimezone[]>('/locations', params);
+  }
+
+  /**
+   * Retrieves a Human Design chart from the API.
+   * Uses the /hd-data endpoint.
+   *
+   * @param {string} date The birth date and time in ISO 8601 format (e.g., "1999-07-22 17:00").
+   * @param {string} timezone The timezone identifier (e.g., "Europe/London").
+   * @returns {Promise<IHumanDesignChartResponse>} The generated chart data.
+   * @throws {ApiHttpError} If the API returns an error status.
+   * @throws {ApiNetworkError} If a network error occurs.
+   */
+  public async getChart(date: string, timezone: string): Promise<IHumanDesignChartResponse> {
+    // Basic validation
+    if (!date || typeof date !== 'string' || !/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(date)) {
+        throw new Error('Invalid date format. Expected \"YYYY-MM-DD HH:MM\".');
+    }
+    if (!timezone || typeof timezone !== 'string' || timezone.trim().length === 0) {
+      throw new Error('Timezone must be a non-empty string.');
+    }
+
+    this.logger.info(`Getting Human Design chart for date: ${date}, timezone: ${timezone}`);
+    // Pass api_key in query params as per humandesign_api.md
+    const params = { date, timezone, api_key: this.config.apiKey };
+    return this.get<IHumanDesignChartResponse>('/hd-data', params);
+  }
+
+  /**
+   * Checks the health or status of the API (basic implementation).
+   * This might involve making a simple, authenticated request like fetching timezone for a known location.
+   *
+   * @returns {Promise<{ status: 'ok' | 'error', message?: string }>} The health status.
+   */
+  public async checkApiHealth(): Promise<{ status: 'ok' | 'error'; message?: string }> {
+    this.logger.info('Checking API health...');
+    try {
+      // Make a simple request to a known endpoint, e.g., timezone lookup for a common city
+      await this.findLocationTimezone('London');
+      this.logger.info('API health check successful.');
+      return { status: 'ok' };
+    } catch (error) {
+      this.logger.error('API health check failed:', { error });
+      const message = error instanceof Error ? error.message : 'Unknown health check error';
+      return { status: 'error', message };
+    }
   }
 
   // TODO: Implement concrete methods for API endpoints (subtask 2.4)
