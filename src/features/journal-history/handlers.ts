@@ -73,6 +73,14 @@ export async function viewJournalEntryHandler(ctx: JournalBotContext, user: IUse
             const date = new Date(entry.createdAt);
             const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 
+            // Get entry name or use default
+            const entryName = entry.name || "Journal Entry";
+            
+            // Format keywords as hashtags
+            const keywordsTags = entry.keywords && entry.keywords.length > 0 
+                ? entry.keywords.map(k => `#${k.replace(/\s+/g, '_')}`).join(' ') 
+                : "";
+
             let entryText = entry.fullText || "";
             if (!entryText) {
                  // Fallback if fullText wasn't generated (shouldn't happen for completed entries ideally)
@@ -87,12 +95,11 @@ export async function viewJournalEntryHandler(ctx: JournalBotContext, user: IUse
 
             // Truncate if too long for a single message
             const MAX_MSG_LENGTH = 4000; // Leave room for formatting and labels
-            const analysisText = entry.analysis ? `\n\n<b>Analysis:</b>\n${entry.analysis}` : '';
-            const insightsText = entry.aiInsights ? `\n\n<b>Insights:</b>\n${entry.aiInsights}` : '';
-            const header = `<b>Reflection from ${formattedDate}</b> 📚\n\n`;
-            const footer = `${analysisText}${insightsText}`;
-            
-            const availableLength = MAX_MSG_LENGTH - header.length - footer.length;
+            const analysisText = entry.analysis ? `\n\n<i>Briefly, it was about:</i>\n\n${entry.analysis}` : '';
+            const header = `📚 <b>${entryName}</b>  [${formattedDate}]`;
+            const tags = keywordsTags ? `\n${keywordsTags}\n` : '';
+
+            const availableLength = MAX_MSG_LENGTH - header.length - analysisText.length;
             if (entryText.length > availableLength) {
                 entryText = entryText.substring(0, availableLength) + "... [truncated]";
             }
@@ -101,7 +108,7 @@ export async function viewJournalEntryHandler(ctx: JournalBotContext, user: IUse
 
             // Edit the existing message (the history list)
             await ctx.editMessageText(
-                `${header}${entryText}${footer}`,
+                `${header}\n\n${analysisText}\n${tags}\n\n<b>Full text:</b>\n\n${entryText}`,
                 {
                     reply_markup: keyboard,
                     parse_mode: 'HTML'
@@ -182,13 +189,13 @@ export async function showJournalHistoryCallbackHandler(ctx: JournalBotContext, 
         await ctx.editMessageText(`<b>${user.name || user.firstName}</b>, you haven't created any entries yet. Ready to start? ✨`, {
             parse_mode: 'HTML',
             // Provide a way back if message was edited
-            reply_markup: new InlineKeyboard().text("↩️ Back to Main Menu", "main_menu") 
+            reply_markup: new InlineKeyboard().text("↩️ Main Menu", "main_menu") 
         });
         return;
     }
 
     const keyboard = createJournalHistoryKeyboard(entries);
-    await ctx.editMessageText(`Alright, ${user.name || user.firstName}, those are your recent entries  📚`, {
+    await ctx.editMessageText(`Sure, ${user.name || user.firstName}, I remember all your thoughts  ☺️`, {
         reply_markup: keyboard,
         parse_mode: 'HTML'
     });

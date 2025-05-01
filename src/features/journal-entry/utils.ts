@@ -57,13 +57,37 @@ export async function extractFullText(entry: IJournalEntry): Promise<string> {
     const messages = entry.messages as IMessage[]; // Safe to cast now
     const entryContent = messages.map(message => {
         let content = '';
-        
-        if (message.type === MessageType.TEXT) {
-            content = message.text || '';
-        } else if (message.type === MessageType.VOICE) {
-            content = message.transcription || '';
-        } else if (message.type === MessageType.VIDEO) {
-            content = message.transcription || '';
+
+        // Check if the message is forwarded by looking at the DB entry
+        // We need to ensure the message object potentially has the raw Telegram data
+        // or that we stored relevant forwarded info during handleJournalEntryInput
+        // For now, assume the IMessage might have the raw ctx.message structure
+        // or we need to adjust saving logic later.
+        // This is a simplified check based on typical ctx.message structure.
+        // NOTE: This assumes the 'message' object passed during saving contained the forward info.
+        // A more robust solution might involve storing 'forward_origin'/'forward_from' in IMessage.
+        const potentialRawMessage = message as any; // Cast to access potential raw fields
+
+        if (potentialRawMessage.forward_origin || potentialRawMessage.forward_from) {
+             // It's a forwarded message, try to get original content
+             if (potentialRawMessage.text) {
+                 content = potentialRawMessage.text;
+             } else if (potentialRawMessage.transcription) {
+                 // Use transcription if available (likely from voice/video note)
+                 content = potentialRawMessage.transcription;
+             }
+             // Add checks for other forwarded types if needed (e.g., caption)
+             // else if (potentialRawMessage.caption) { content = potentialRawMessage.caption; }
+        } else {
+            // Not forwarded, process normally based on stored type
+            if (message.type === MessageType.TEXT) {
+                content = message.text || '';
+            } else if (message.type === MessageType.VOICE) {
+                content = message.transcription || '';
+            } else if (message.type === MessageType.VIDEO) {
+                // This assumes video/video_note transcriptions are stored in IMessage.transcription
+                content = message.transcription || '';
+            }
         }
         // Ignore other types like IMAGE if they exist
         return content;

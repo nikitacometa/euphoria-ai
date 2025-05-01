@@ -127,7 +127,7 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 
     // Revert to the original single help text constant
     const helpText = `
-<b>Infinity ♾️</b>
+<b>Enter the Infinity ♾️</b>
 
 <code>/howto</code> - <i>I will show you nice usecases of me</i>
 

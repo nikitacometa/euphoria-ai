@@ -253,13 +253,15 @@ export async function updateEntryFullText(entryId: Types.ObjectId): Promise<bool
 export async function completeEntry(
     entryId: Types.ObjectId,
     summary: string,
-    question: string
+    question: string,
+    name?: string,
+    keywords?: string[]
 ): Promise<boolean> {
     return handleServiceError(
         'complete journal entry',
         { entryId: entryId.toString() },
         async () => {
-            await dbCompleteJournalEntry(entryId, summary, question);
+            await dbCompleteJournalEntry(entryId, summary, question, name, keywords);
 
             const entry = await getEntryById(entryId);
             if (!entry) {
