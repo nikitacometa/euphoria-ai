@@ -1,0 +1,45 @@
+# Human Design Integration - Product Requirements Document
+
+## Overview
+Integrate Human Design chart generation and consultation capabilities into the bot, allowing users to generate their Human Design chart based on birth information and have conversations with the bot about their specific Human Design.
+
+## Core Features
+
+### 1. Human Design API Service
+- Create a service class for interacting with Human Design API
+- Implement timezone lookup by city/location
+- Implement chart generation based on birth date, time, and location
+- Cache chart results in database to avoid redundant API calls
+- Write comprehensive tests for the service
+
+### 2. Generate Human Design Command
+- Add a new command to generate user's Human Design chart
+- Collect user's birth date, birth time, and birth location
+- Use the Human Design API service to get timezone and generate chart
+- Save the chart reference to the user's profile
+- Display confirmation to the user
+
+### 3. Human Design Chat Command
+- Add a new command for discussing Human Design with the bot
+- Load the user's Human Design chart into the context
+- Enable the bot to answer questions based on the user's chart
+- Provide helpful insights about the user's Human Design profile
+
+## Technical Requirements
+
+### Database
+- Create a collection to store Human Design charts
+- Add a field to user model for storing Human Design reference
+
+### API Documentation
+- Create a markdown document in the project root documenting the Human Design API
+
+### User Experience
+- Clear step-by-step flow for providing birth information
+- Intuitive conversation interface for discussing Human Design
+
+## Success Criteria
+- Users can successfully generate their Human Design chart
+- Cached charts are properly retrieved without redundant API calls
+- Bot provides meaningful insights based on the user's Human Design chart
+- All components have proper test coverage 

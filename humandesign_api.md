@@ -1,3 +1,127 @@
+# Human Design API Documentation
+
+## Overview
+This document outlines the Human Design API endpoints and usage within the application. The API provides functionality for retrieving timezone information and generating Human Design charts based on birth information.
+
+## Service Endpoints
+
+### 1. Get Timezone by Location
+
+Retrieves the timezone information for a given city or location.
+
+**Endpoint:** `getTimezoneByLocation(location: string)`
+
+**Parameters:**
+- `location`: String containing city name and/or country (e.g., "New York, USA")
+
+**Returns:**
+```typescript
+{
+  timezone: string;  // e.g., "America/New_York"
+  utcOffset: string; // e.g., "-05:00"
+  location: {
+    latitude: number;  // e.g., 40.7128
+    longitude: number; // e.g., -74.0060
+  }
+}
+```
+
+**Example:**
+```typescript
+const timezoneInfo = await humanDesignService.getTimezoneByLocation("Paris, France");
+// Returns:
+// {
+//   timezone: "Europe/Paris",
+//   utcOffset: "+01:00",
+//   location: {
+//     latitude: 48.8566,
+//     longitude: 2.3522
+//   }
+// }
+```
+
+### 2. Get Human Design Chart
+
+Generates a Human Design chart based on birth date, time, and location.
+
+**Endpoint:** `getHumanDesignChart(birthDate: string, birthTime: string, birthLocation: string)`
+
+**Parameters:**
+- `birthDate`: Date of birth in "YYYY-MM-DD" format
+- `birthTime`: Time of birth in "HH:MM" 24-hour format
+- `birthLocation`: Birth location (city and/or country)
+
+**Returns:**
+```typescript
+{
+  id: string;          // Unique identifier for the chart
+  profile: string;     // e.g., "1/3", "4/6", etc.
+  type: string;        // e.g., "Generator", "Projector", etc.
+  authority: string;   // e.g., "Emotional", "Sacral", etc.
+  centers: {
+    head: boolean;
+    ajna: boolean;
+    throat: boolean;
+    g: boolean;
+    heart: boolean;
+    solar: boolean;
+    sacral: boolean;
+    spleen: boolean;
+    root: boolean;
+  };
+  channels: string[];  // Array of defined channels, e.g., ["20-57", "10-20"]
+  gates: number[];     // Array of defined gates, e.g., [10, 20, 57]
+  definition: string;  // e.g., "Single Definition", "Split Definition"
+  variables: {
+    personality: {
+      color: string;
+      tone: string;
+      base: string;
+    };
+    design: {
+      color: string;
+      tone: string;
+      base: string;
+    };
+  }
+}
+```
+
+**Example:**
+```typescript
+const chart = await humanDesignService.getHumanDesignChart(
+  "1990-05-15", 
+  "07:30", 
+  "London, UK"
+);
+// Returns detailed Human Design chart data
+```
+
+## Database Caching
+The service implements caching to avoid redundant API calls. Charts are stored in the `humanDesignCharts` collection with the following schema:
+
+```typescript
+{
+  _id: ObjectId,
+  birthDate: string,
+  birthTime: string,
+  birthLocation: string,
+  chartData: Object, // Full chart data as returned by the API
+  createdAt: Date
+}
+```
+
+When requesting a chart, the service first checks the database for an existing entry with matching birth information. If found, it returns the cached data; otherwise, it fetches new data from the API and caches it.
+
+## Usage in Bot Commands
+
+The API service is utilized by two main bot commands:
+
+1. **Generate Human Design** - Collects user birth information and generates their chart
+2. **Human Design Chat** - Provides consultation based on the user's stored chart
+
+See the command documentation for detailed implementation.
+
 Timezone API
 Endpoint: GET https://api.humandesign.ai/locations
 Returns a filtered list of matching city + timezone data based on partial query input. Supports autocomplete functionality for timezone lookups.
@@ -1008,4 +1132,5 @@ Exanple Json Resp
       }
     ]
   }
+}
   

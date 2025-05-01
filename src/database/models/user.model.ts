@@ -95,6 +95,12 @@ const userSchema = new Schema<IUser>(
             type: String,
             enum: ['en', 'ru'],
             default: 'en'
+        },
+        // Human Design Integration
+        humanDesignChartId: {
+            type: Schema.Types.ObjectId,
+            ref: 'HumanDesignChart',
+            required: false
         }
     },
     {
@@ -138,7 +144,7 @@ export async function getAllUsers(): Promise<IUser[]> {
 // Journal application specific functions
 export async function updateUserProfile(
     telegramId: number,
-    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'timezone' | 'showTranscriptions' | 'aiLanguage'>> // Use Partial<Pick<IUser, ...>> for updates
+    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'timezone' | 'showTranscriptions' | 'aiLanguage' | 'humanDesignChartId'>> // Added humanDesignChartId
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(
         { telegramId },
@@ -153,6 +159,24 @@ export async function completeUserOnboarding(
     return User.findOneAndUpdate(
         { telegramId },
         { $set: { onboardingCompleted: true } },
+        { new: true }
+    );
+}
+
+// Human Design specific functions
+export async function getUserWithHumanDesignChart(
+    telegramId: number
+): Promise<IUser | null> {
+    return User.findOne({ telegramId }).populate('humanDesignChartId');
+}
+
+export async function setUserHumanDesignChart(
+    telegramId: number,
+    chartId: mongoose.Types.ObjectId
+): Promise<IUser | null> {
+    return User.findOneAndUpdate(
+        { telegramId },
+        { $set: { humanDesignChartId: chartId } },
         { new: true }
     );
 } 

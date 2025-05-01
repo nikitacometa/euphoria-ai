@@ -20,6 +20,42 @@ export interface IUser extends Document {
     lastNotificationError?: string; // Stores error message from last failed notification
     showTranscriptions?: boolean; // Whether to show transcription texts to the user
     aiLanguage?: string; // 'en' or 'ru' for AI interactions
+    humanDesignChartId?: Types.ObjectId; // Reference to the user's Human Design chart
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+// --- Human Design Chart Model ---
+export interface IHumanDesignChart extends Document {
+    birthDate: string; // Format: "YYYY-MM-DD"
+    birthTime: string; // Format: "HH:MM" (24-hour)
+    birthLocation: string; // City and/or country
+    timezone: string; // IANA timezone format
+    locationData?: {
+      latitude: number;
+      longitude: number;
+      timezone: string;
+      utcOffset: string;
+    };
+    chartData: any; // Full chart data as returned by the API
+    // Quick access to common chart properties
+    profile?: string; // e.g., "1/3", "4/6"
+    type?: string; // e.g., "Generator", "Projector"
+    authority?: string; // e.g., "Emotional", "Sacral"
+    definition?: string; // e.g., "Single Definition"
+    centers?: {
+        head: boolean;
+        ajna: boolean;
+        throat: boolean;
+        g: boolean;
+        heart: boolean;
+        solar: boolean;
+        sacral: boolean;
+        spleen: boolean;
+        root: boolean;
+    };
+    channels?: string[]; // e.g., ["20-57", "10-20"]
+    gates?: number[]; // e.g., [10, 20, 57]
     createdAt: Date;
     updatedAt: Date;
 }
