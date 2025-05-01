@@ -25,7 +25,11 @@ export function createJournalHistoryKeyboard(entries: IJournalEntry[]): InlineKe
             }
         }
         
-        keyboard.text(`${formattedDate} ${textSnippet}`, `view_entry:${entry._id}`).row();
+        // Add view and delete buttons in the same row
+        keyboard
+          .text(`${formattedDate} ${textSnippet}`, `view_entry:${entry._id}`)
+          .text("🗑️ Delete", `delete_entry:${entry._id}`)
+          .row();
     });
     
     // Always add back button

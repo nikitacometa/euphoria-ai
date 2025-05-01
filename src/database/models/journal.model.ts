@@ -173,4 +173,14 @@ export async function updateJournalEntryFullText(
         { $set: { fullText } },
         { new: true }
     );
+}
+
+/**
+ * Deletes a specific journal entry by its ID.
+ * @param entryId - The ID of the journal entry to delete.
+ * @returns True if the entry was deleted, false otherwise.
+ */
+export async function deleteJournalEntry(entryId: Types.ObjectId): Promise<boolean> {
+    const result = await JournalEntry.deleteOne({ _id: entryId });
+    return result.deletedCount === 1;
 } 
