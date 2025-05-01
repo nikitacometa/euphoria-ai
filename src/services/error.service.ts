@@ -1,8 +1,9 @@
 import { JournalBotContext } from '../types/session';
 import { AppError, ErrorCode, ErrorCodes } from '../types/errors';
 import { logger } from '../utils/logger';
-import { ADMIN_CHAT_ID } from '../config';
+import { ADMIN_CHAT_ID } from '../config/index';
 import { bot } from '../app';
+import { AIError } from '../errors/classes/ai-error';
 
 /**
  * Centralized error handling service for consistent error management
@@ -44,6 +45,16 @@ export class ErrorService {
     // Log with the appropriate level
     if (level === 'error') {
       logger.error(logMessage, logContext);
+      
+      // Send critical errors to admin chat, even if not from handleBotError
+      if (ADMIN_CHAT_ID && (error instanceof AIError || (error instanceof AppError && error.code === ErrorCodes.AI_ERROR))) {
+        this.sendAdminAlert(error, logContext).catch(alertError => {
+          logger.error('Failed to send AIError alert to admin chat', { 
+            originalError: error.message,
+            alertError
+          });
+        });
+      }
     } else if (level === 'warn') {
       logger.warn(logMessage, logContext);
     } else {
@@ -73,14 +84,7 @@ export class ErrorService {
     // Send alert to admin chat if configured
     if (ADMIN_CHAT_ID) {
       try {
-        const errorMessage = `🚨 *Critical Bot Error* 🚨\n\n*User:* ${ctx.from?.id || 'N/A'} (${ctx.from?.username || 'N/A'})\n*Chat:* ${ctx.chat?.id || 'N/A'} (${ctx.chat?.type || 'N/A'})\n*Error:* ${error.name}: ${error.message}\n\n*Stack Trace:*\n\`\`\`\n${error.stack || 'No stack trace available'}\n\`\`\`\n\n*Context:*\n\`\`\`json\n${JSON.stringify(logContext, null, 2)}\n\`\`\``;
-        // Truncate message if too long for Telegram
-        const MAX_TELEGRAM_MESSAGE_LENGTH = 4096;
-        const truncatedMessage = errorMessage.length > MAX_TELEGRAM_MESSAGE_LENGTH 
-          ? errorMessage.substring(0, MAX_TELEGRAM_MESSAGE_LENGTH - 100) + '\n... [TRUNCATED]'
-          : errorMessage;
-        
-        await bot.api.sendMessage(ADMIN_CHAT_ID, truncatedMessage, { parse_mode: 'MarkdownV2' });
+        await this.sendAdminAlert(error, logContext);
       } catch (adminAlertError) {
         logger.error('Failed to send error alert to admin chat', { 
           adminChatId: ADMIN_CHAT_ID,
@@ -103,6 +107,26 @@ export class ErrorService {
         replyError 
       });
     }
+  }
+
+  /**
+   * Send an alert to the admin chat about an error
+   */
+  private async sendAdminAlert(error: Error | AppError, context: Record<string, any>): Promise<void> {
+    if (!ADMIN_CHAT_ID) return;
+    
+    const errorMessage = `🚨 *Critical Bot Error* 🚨\n\n*Error Type:* ${error.name}\n*Message:* ${error.message}\n\n*Stack Trace:*\n\`\`\`\n${error.stack || 'No stack trace available'}\n\`\`\`\n\n*Context:*\n\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\``;
+    
+    // Escape characters for MarkdownV2
+    let escapedMessage = errorMessage.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+    
+    // Truncate message if too long for Telegram
+    const MAX_TELEGRAM_MESSAGE_LENGTH = 4096;
+    const truncatedMessage = escapedMessage.length > MAX_TELEGRAM_MESSAGE_LENGTH 
+      ? escapedMessage.substring(0, MAX_TELEGRAM_MESSAGE_LENGTH - 100) + '\n... [TRUNCATED]'
+      : escapedMessage;
+    
+    await bot.api.sendMessage(ADMIN_CHAT_ID, truncatedMessage, { parse_mode: 'MarkdownV2' });
   }
 
   /**
@@ -141,4 +165,4 @@ export class ErrorService {
 }
 
 // Create and export a singleton instance
-export const errorService = new ErrorService(); 
+export const errorService = new ErrorService();
