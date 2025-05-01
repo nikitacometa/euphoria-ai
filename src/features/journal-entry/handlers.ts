@@ -254,6 +254,8 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
     
     const waitMsg = await ctx.reply("⏳");
     
+    let rawApiResponseContent: string | null = null; // Declare outside to be accessible in catch
+    
     try {
         const entryContent = await extractFullText(entry); // Use utility
         if (!entryContent) {
@@ -285,11 +287,11 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
             response_format: { type: "json_object" }
         });
         
-        const content = response.choices[0].message.content || "{}";
+        rawApiResponseContent = response.choices[0].message.content; // Assign here
         
         // Use our helper to parse JSON safely
         const parsedResponse = openAIService.parseJsonResponse(
-            content,
+            rawApiResponseContent || "{}", // Use the captured content
             { summary: "Thank you for sharing.", question: "What stood out to you?" }
         );
         
@@ -312,13 +314,14 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
 
     } catch (error) {
         errorService.logError(
-            error instanceof AIError 
-                ? error 
+            error instanceof AIError
+                ? error
                 : new AIError(
-                    'Error finishing journal entry', 
-                    { 
+                    'Error finishing journal entry',
+                    {
                         entryId: entryId.toString(),
-                        userId: user._id?.toString() || ''
+                        userId: user._id?.toString() || '',
+                        rawApiResponse: rawApiResponseContent ?? '[Not Available]' // Include raw content
                     },
                     error instanceof Error ? error : undefined
                 ),
@@ -404,7 +407,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                         'Error generating questions', 
                         { 
                             entryId: entryId.toString(),
-                            userId: user._id?.toString() 
+                            userId: user._id?.toString() || '[Unknown User ID]'
                         },
                         error instanceof Error ? error : undefined
                     ),
@@ -646,8 +649,8 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         // Update the journal entry with the deeper analysis and questions
         await updateEntryAnalysisAndQuestions(
             entryId,
-            `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis}`,
-            sanitizedQuestions
+            `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis || '[Analysis Unavailable]'}`,
+            sanitizedQuestions || ['[Questions Unavailable]'] // Ensure it's an array of strings
         );
         
         // Delete wait message
