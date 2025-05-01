@@ -1,9 +1,9 @@
 import { NextFunction } from 'grammy';
 import { JournalBotContext } from '../types/session';
-import { createLogger, LogLevel } from './logger';
+import { createComponentLogger } from './logger/index';
 
 // Create a dedicated logger for bot messages
-const botLogger = createLogger('BotMessages', LogLevel.DEBUG);
+const botLogger = createComponentLogger('BotMessages');
 
 /**
  * Middleware to log all incoming bot messages and context objects at debug level
@@ -11,11 +11,11 @@ const botLogger = createLogger('BotMessages', LogLevel.DEBUG);
 export function botLoggerMiddleware() {
   return async (ctx: JournalBotContext, next: NextFunction) => {
     // Log the update object (contains all data from Telegram)
-    botLogger.debug('Received update:', JSON.stringify(ctx.update, null, 2));
+    botLogger.debug('Received update', { update: ctx.update });
 
     // Log specific message details if present
     if (ctx.message) {
-      botLogger.debug('Message content:', {
+      botLogger.debug('Message content', {
         messageId: ctx.message.message_id,
         from: ctx.message.from,
         chat: ctx.message.chat,
@@ -27,7 +27,7 @@ export function botLoggerMiddleware() {
     
     // Log callback query data if present
     if (ctx.callbackQuery) {
-      botLogger.debug('Callback query:', {
+      botLogger.debug('Callback query', {
         id: ctx.callbackQuery.id,
         from: ctx.callbackQuery.from,
         data: ctx.callbackQuery.data,
@@ -39,12 +39,12 @@ export function botLoggerMiddleware() {
     }
 
     // Log session state
-    botLogger.debug('Session state:', ctx.session);
+    botLogger.debug('Session state', { session: ctx.session });
 
     // Continue to the next middleware/handler
     await next();
     
     // Optional: log after handling (to see what changed)
-    botLogger.debug('Session state after handling:', ctx.session);
+    botLogger.debug('Session state after handling', { session: ctx.session });
   };
 } 
