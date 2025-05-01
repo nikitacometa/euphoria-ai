@@ -6,6 +6,7 @@ import { registerJournalHistoryHandlers } from '../features/journal-history';
 import { registerJournalChatHandlers } from '../features/journal-chat';
 import { registerSettingsHandlers } from '../features/settings';
 import { registerOnboardingHandlers } from '../features/onboarding';
+import { registerHumanDesignHandlers } from '../features/human-design/handlers/generate-chart.handler';
 import { logger } from '../utils/logger';
 
 /**
@@ -24,6 +25,7 @@ export function registerFeatures(bot: Bot<JournalBotContext>): void {
     registerJournalHistoryHandlers(bot);
     registerJournalChatHandlers(bot);
     registerSettingsHandlers(bot);
+    registerHumanDesignHandlers(bot);
     
     logger.info('All feature handlers registered successfully');
     // ============================
