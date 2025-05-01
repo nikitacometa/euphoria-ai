@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { InlineKeyboard } from 'grammy';
 import { JournalBotContext } from '../../types/session';
 import { IUser, IMessage, MessageType } from '../../types/models';
-import { getUserJournalEntries, getJournalEntryById } from '../../database';
+import { getUserJournalEntries, getJournalEntryById, deleteJournalEntry } from '../../database';
 import { showMainMenu } from '../core/handlers';
 import { createJournalHistoryKeyboard, createViewEntryKeyboard } from './keyboards';
 import { logger } from '../../utils/logger';
@@ -117,6 +117,57 @@ export async function viewJournalEntryHandler(ctx: JournalBotContext, user: IUse
                 await ctx.editMessageText("Error displaying entry.").catch(e => logger.warn("Failed to edit message on display error", e));
             }
         }
+}
+
+/**
+ * Handles the `delete_entry:[id]` callback query.
+ * Deletes a specific journal entry after confirmation.
+ */
+export async function deleteJournalEntryHandler(ctx: JournalBotContext, user: IUser, entryIdStr: string) {
+    try {
+        const entryId = new Types.ObjectId(entryIdStr);
+        
+        // First verify the entry exists and belongs to the user
+        const entry = await getJournalEntryById(entryId);
+        if (!entry) {
+            await ctx.answerCallbackQuery({ text: "Error: Entry not found" });
+            await ctx.editMessageText("Sorry, that entry could not be found.").catch(e => 
+                logger.warn("Failed to edit message on entry not found", e));
+            return;
+        }
+
+        // Verify ownership
+        const entryUserId = getUserIdString(entry.user);
+        const currentUserId = getUserIdString(user);
+        if (entryUserId !== currentUserId) {
+            await ctx.answerCallbackQuery({ text: "Error: Access denied" });
+            logger.warn(`User ${user.telegramId} tried to delete entry ${entryIdStr} belonging to ${entryUserId}`);
+            await ctx.editMessageText("Access Denied.").catch(e => 
+                logger.warn("Failed to edit message on access denied", e));
+            return;
+        }
+
+        // Acknowledge the request
+        await ctx.answerCallbackQuery({ text: "Deleting entry..." });
+        
+        // Delete the entry
+        await deleteJournalEntry(entryId);
+        
+        // Show updated journal history
+        await showJournalHistoryCallbackHandler(ctx, user);
+        
+    } catch (error: any) {
+        logger.error(`Error deleting entry ${entryIdStr}:`, error);
+        if (error.name === 'CastError' && error.kind === 'ObjectId') {
+            await ctx.answerCallbackQuery({ text: "Error: Invalid entry format." });
+            await ctx.editMessageText("Invalid entry format.").catch(e => 
+                logger.warn("Failed to edit message on cast error", e));
+        } else {
+            await ctx.answerCallbackQuery({ text: "Error deleting entry." });
+            await ctx.editMessageText("Sorry, there was an error deleting the entry.").catch(e => 
+                logger.warn("Failed to edit message on delete error", e));
+        }
+    }
 }
 
 /**
