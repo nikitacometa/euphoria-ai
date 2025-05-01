@@ -74,6 +74,10 @@ export const envSchema = {
     desc: 'Telegram chat ID for admin notifications',
     default: ''
   }),
+  ADMIN_CHAT_ID: str({
+    desc: 'Telegram chat ID exclusively for critical error alerts', 
+    default: '' // Optional, but recommended for production
+  }),
   ADMIN_IDS: str({
     desc: 'Comma-separated list of Telegram admin user IDs',
     default: ''
@@ -104,6 +108,7 @@ export type CleanEnv = CleanedEnvAccessors & {
   LOG_LEVEL: LogLevel;
   MAX_VOICE_MESSAGE_LENGTH_SECONDS: number;
   SUPPORT_CHAT_ID: string;
+  ADMIN_CHAT_ID: string;
   ADMIN_IDS: string;
   NOTIFICATION_ALERT_THRESHOLD: number;
   MAX_NOTIFICATION_RETRIES: number;

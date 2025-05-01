@@ -1,6 +1,8 @@
 import { JournalBotContext } from '../types/session';
 import { AppError, ErrorCode, ErrorCodes } from '../types/errors';
 import { logger } from '../utils/logger';
+import { ADMIN_CHAT_ID } from '../config';
+import { bot } from '../app';
 
 /**
  * Centralized error handling service for consistent error management
@@ -58,12 +60,35 @@ export class ErrorService {
     error: Error | AppError,
     userContext?: Record<string, any>
   ): Promise<void> {
-    // First, log the error
-    this.logError(error, {
+    const logContext = {
       telegramUserId: ctx.from?.id,
       chatId: ctx.chat?.id,
+      update: JSON.stringify(ctx.update, null, 2),
       ...userContext
-    });
+    };
+
+    // First, log the error
+    this.logError(error, logContext);
+
+    // Send alert to admin chat if configured
+    if (ADMIN_CHAT_ID) {
+      try {
+        const errorMessage = `🚨 *Critical Bot Error* 🚨\n\n*User:* ${ctx.from?.id || 'N/A'} (${ctx.from?.username || 'N/A'})\n*Chat:* ${ctx.chat?.id || 'N/A'} (${ctx.chat?.type || 'N/A'})\n*Error:* ${error.name}: ${error.message}\n\n*Stack Trace:*\n\`\`\`\n${error.stack || 'No stack trace available'}\n\`\`\`\n\n*Context:*\n\`\`\`json\n${JSON.stringify(logContext, null, 2)}\n\`\`\``;
+        // Truncate message if too long for Telegram
+        const MAX_TELEGRAM_MESSAGE_LENGTH = 4096;
+        const truncatedMessage = errorMessage.length > MAX_TELEGRAM_MESSAGE_LENGTH 
+          ? errorMessage.substring(0, MAX_TELEGRAM_MESSAGE_LENGTH - 100) + '\n... [TRUNCATED]'
+          : errorMessage;
+        
+        await bot.api.sendMessage(ADMIN_CHAT_ID, truncatedMessage, { parse_mode: 'MarkdownV2' });
+      } catch (adminAlertError) {
+        logger.error('Failed to send error alert to admin chat', { 
+          adminChatId: ADMIN_CHAT_ID,
+          originalError: error.message,
+          adminAlertError
+        });
+      }
+    }
 
     // Get user-friendly message based on error type
     const userMessage = this.getUserFriendlyMessage(error);

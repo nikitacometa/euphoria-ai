@@ -90,9 +90,14 @@ export interface LoggingConfig {
  */
 export interface SupportConfig {
   /**
-   * Telegram chat ID for admin notifications
+   * Telegram chat ID for general admin notifications (e.g., reminders failed)
    */
   supportChatId: string;
+  
+  /**
+   * Telegram chat ID exclusively for critical error alerts (optional)
+   */
+  adminChatId?: string;
   
   /**
    * List of admin user IDs

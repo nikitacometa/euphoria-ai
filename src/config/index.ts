@@ -13,10 +13,21 @@ import {
 } from './types';
 
 // Load environment variables from .env file
-dotenv.config({
-    path: process.env.NODE_ENV === 'test' 
-        ? path.resolve(process.cwd(), '.env.test')
-        : path.resolve(process.cwd(), '.env')
+// Determine the environment and load the appropriate .env file
+const envPath = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env';
+dotenv.config({ path: path.resolve(process.cwd(), envPath) });
+
+// Check required environment variables
+const requiredEnvVars = [
+    'TELEGRAM_API_TOKEN',
+    'MONGODB_URI',
+    'CLAUDE_API_KEY'
+];
+
+requiredEnvVars.forEach(varName => {
+    if (!process.env[varName]) {
+        throw new Error(`Missing required environment variable: ${varName}`);
+    }
 });
 
 /**
@@ -179,4 +190,5 @@ export const LOG_LEVEL = config.logging.level;
 export const SUPPORT_CHAT_ID = config.support.supportChatId;
 export const ADMIN_IDS = config.support.adminIds;
 export const NOTIFICATION_ALERT_THRESHOLD = config.support.notificationAlertThreshold;
-export const MAX_NOTIFICATION_RETRIES = config.support.maxNotificationRetries; 
+export const MAX_NOTIFICATION_RETRIES = config.support.maxNotificationRetries;
+export const ADMIN_CHAT_ID = env.ADMIN_CHAT_ID;
