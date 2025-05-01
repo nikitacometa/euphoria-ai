@@ -4,6 +4,12 @@ import { Logger } from '../../utils/logger';
 import { ApiHttpError, ApiNetworkError } from '../../errors/classes/api-errors'; // Import custom errors
 // Import specific types
 import { ILocationTimezone, IHumanDesignChartResponse } from './humanDesign.types';
+// Import database functions and type
+import {
+  findExistingChart,
+  createChart,
+} from '../../database/models/human-design-chart.model';
+import { IHumanDesignChart } from '../../types/models';
 
 /**
  * Configuration for the Human Design API Service.
@@ -234,28 +240,108 @@ export class HumanDesignService {
   // }
 
   /**
-   * Retrieves a Human Design chart from the API.
-   * Uses the /hd-data endpoint.
+   * Retrieves a Human Design chart, checking the database cache first.
+   * If not cached, fetches from the API and saves to the database.
    *
-   * @param {string} date The birth date and time in ISO 8601 format (e.g., "1999-07-22 17:00").
-   * @param {string} timezone The timezone identifier (e.g., "Europe/London").
+   * @param {string} date The birth date in "YYYY-MM-DD" format.
+   * @param {string} time The birth time in "HH:MM" format.
+   * @param {string} location The birth location string.
+   * @param {string} timezone The IANA timezone identifier.
    * @returns {Promise<IHumanDesignChartResponse>} The generated chart data.
+   * @throws {Error} If validation fails.
    * @throws {ApiHttpError} If the API returns an error status.
    * @throws {ApiNetworkError} If a network error occurs.
    */
-  public async getChart(date: string, timezone: string): Promise<IHumanDesignChartResponse> {
+  public async getChart(
+    date: string, // YYYY-MM-DD
+    time: string, // HH:MM
+    location: string,
+    timezone: string,
+  ): Promise<IHumanDesignChartResponse> {
     // Basic validation
-    if (!date || typeof date !== 'string' || !/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(date)) {
-        throw new Error('Invalid date format. Expected \"YYYY-MM-DD HH:MM\".');
+    if (!date || !/\d{4}-\d{2}-\d{2}/.test(date)) {
+      throw new Error('Invalid date format. Expected \"YYYY-MM-DD\".');
+    }
+    if (!time || !/^([01]?\d|2[0-3]):([0-5]\d)$/.test(time)) {
+        throw new Error('Invalid time format. Expected \"HH:MM\".');
+    }
+    if (!location || typeof location !== 'string' || location.trim().length === 0) {
+        throw new Error('Location must be a non-empty string.');
     }
     if (!timezone || typeof timezone !== 'string' || timezone.trim().length === 0) {
       throw new Error('Timezone must be a non-empty string.');
     }
 
-    this.logger.info(`Getting Human Design chart for date: ${date}, timezone: ${timezone}`);
-    // Pass api_key in query params as per humandesign_api.md
-    const params = { date, timezone, api_key: this.config.apiKey };
-    return this.get<IHumanDesignChartResponse>('/hd-data', params);
+    this.logger.info(`Getting Human Design chart for: ${date} ${time}, ${location}, ${timezone}`);
+
+    // 1. Check database cache
+    try {
+      const existingChart = await findExistingChart(date, time, location);
+      if (existingChart) {
+        this.logger.info('Chart found in database cache.');
+        // Ensure the returned data matches the API response structure
+        // The model might store extra fields; we only return the API-like structure.
+        // Assuming `existingChart.chartData` holds the original API response.
+        if (!existingChart.chartData) {
+            this.logger.warn('Cached chart found but chartData is missing. Refetching...');
+        } else {
+            // TODO: Validate if the cached chartData structure matches IHumanDesignChartResponse
+            return existingChart.chartData as IHumanDesignChartResponse;
+        }
+      }
+    } catch (dbError) {
+      this.logger.error('Error checking database cache:', dbError);
+      // Decide whether to proceed without cache or throw. Proceeding for now.
+    }
+
+    // 2. Fetch from API if not cached or cache read failed
+    this.logger.info('Chart not found in cache or cache read failed. Fetching from API...');
+    const apiDateTime = `${date} ${time}`; // Combine date and time for API
+    const params = { date: apiDateTime, timezone, api_key: this.config.apiKey };
+
+    try {
+      const chartResponse = await this.get<IHumanDesignChartResponse>('/hd-data', params);
+      this.logger.info('Successfully fetched chart from API.');
+
+      // 3. Save to database cache (async, don't wait)
+      createChart({
+        birthDate: date,
+        birthTime: time,
+        birthLocation: location,
+        timezone: timezone,
+        chartData: chartResponse,
+        // Store key properties for potential direct query/display later
+        profile: chartResponse.Properties?.Profile?.Id,
+        type: chartResponse.Properties?.Type?.Id,
+        authority: chartResponse.Properties?.InnerAuthority?.Id,
+        definition: chartResponse.Properties?.Definition?.Id,
+        centers: {
+            head: chartResponse.DefinedCenters?.includes('Head center'),
+            ajna: chartResponse.DefinedCenters?.includes('Ajna center'),
+            throat: chartResponse.DefinedCenters?.includes('Throat center'),
+            g: chartResponse.DefinedCenters?.includes('G center'),
+            heart: chartResponse.DefinedCenters?.includes('Heart center'),
+            solar: chartResponse.DefinedCenters?.includes('Solar Plexus center'),
+            sacral: chartResponse.DefinedCenters?.includes('Sacral center'),
+            spleen: chartResponse.DefinedCenters?.includes('Splenic center'),
+            root: chartResponse.DefinedCenters?.includes('Root center'),
+        },
+        channels: chartResponse.Channels,
+        gates: chartResponse.Gates,
+      }).then(savedChart => {
+          this.logger.info(`Successfully saved chart to database cache. ID: ${savedChart._id}`);
+      }).catch(saveError => {
+          this.logger.error('Error saving chart to database cache:', saveError);
+          // Don't fail the whole operation if caching fails
+      });
+
+      return chartResponse;
+
+    } catch (apiError) {
+      this.logger.error('Failed to fetch chart from API:', apiError);
+      // Re-throw the specific API error (ApiHttpError or ApiNetworkError)
+      throw apiError;
+    }
   }
 
   /**
