@@ -282,12 +282,34 @@ class NotificationService {
         }
     }
 
+    /**
+     * Gets a flirty notification message template based on user's language
+     * @param user User object containing name/firstName and language preference
+     * @param timeDisplay Formatted notification time
+     * @returns Formatted HTML message string
+     */
+    private getNotificationMessageTemplate(user: IUser, timeDisplay: string): string {
+        const userName = user.name || user.firstName;
+        const aiLanguage = user.aiLanguage || 'en';
+        
+        if (aiLanguage === 'ru') {
+            return `<b>Привет, ${userName}!</b> 😏\n\n` +
+                  `Как твой день? Поделись любыми мыслями, своим состоянием, <b>хотя бы коротенький войс 🥹</b>\n\n` +
+                  `<i>Записывал(-а) войсы/видео другим людям? Наверняка интересные, давай запомним, пересылай сюда 😉</i>`;
+        }
+        
+        // Default to English
+        return `<b>Hey ${userName}!</b> 😏\n\n` +
+              `How is your day? Share any thoughts, your mood, what you done today?\n\n` +
+              `<i>At least a quick voice 🥹</i>\n\n` +
+              `Also, if you did voices/video to other people today, let's save those!\n\n`;
+    }
+
     private async sendNotification(user: IUser): Promise<void> {
         notificationLogger.info(`Sending actual notification message to user ${user.telegramId}...`);
         const sendStartTime = Date.now();
         const keyboard = new Keyboard()
             .text("✅ Share")
-            .row()
             .text("❌ Ignore")
             .resized();
 
@@ -303,15 +325,27 @@ class NotificationService {
             timeDisplay = formatTimeWithTimezone(localTime, user.timezone);
         }
 
+        // Get the appropriate message template based on user's language
+        const messageText = this.getNotificationMessageTemplate(user, timeDisplay);
+
         await bot.api.sendMessage(
             user.telegramId,
-            `Hey ${user.name || user.firstName} 😏\n\nShare any thoughts about today. E.g. how is it going? Have any plans? \n\nRecord voice, resend your video messages from other chats or just text one word.\n\nYour notification time is set to ${timeDisplay}.`,
+            messageText,
             {
                 reply_markup: keyboard,
                 parse_mode: 'HTML'
             }
         );
         notificationLogger.info(`Successfully sent notification message to user ${user.telegramId}. Duration: ${Date.now() - sendStartTime}ms`);
+    }
+
+    /**
+     * Sends a notification to a specific user without time checks
+     * @param user User to send notification to
+     * @returns Promise<void>
+     */
+    public async sendBroadcastNotification(user: IUser): Promise<void> {
+        return this.sendNotification(user);
     }
 
     /**

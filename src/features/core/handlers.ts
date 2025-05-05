@@ -246,6 +246,94 @@ export const checkNotificationsHandler = withCommandLogging('check_notifications
 });
 
 /**
+ * Handles /notify_all command to send notifications to all users
+ * This is an admin-only command to broadcast notifications to all users
+ */
+export const notifyAllHandler = withCommandLogging('notify_all', async (ctx: JournalBotContext) => {
+    // Only run for admins
+    if (!ADMIN_IDS.includes(ctx.from?.id || 0)) {
+        return await ctx.reply("Sorry, this command is only available to administrators.");
+    }
+
+    try {
+        await ctx.reply("🚀 Starting notification broadcast to all users...");
+        
+        // Get all users from the database
+        const users = await User.find();
+        const userCount = users.length;
+        
+        if (userCount === 0) {
+            return await ctx.reply("❌ No users found in the database.");
+        }
+        
+        // Notify admin with count
+        await ctx.reply(`📤 Preparing to send notifications to ${userCount} users. This may take some time...`);
+        
+        // Process and track notification sending
+        let successCount = 0;
+        let errorCount = 0;
+        let errorUsers: Array<{id: number, error: string}> = [];
+        
+        // Process users in batches to prevent overloading
+        for (const user of users) {
+            try {
+                // Use the notification service's sendBroadcastNotification method
+                await notificationService.sendBroadcastNotification(user);
+                successCount++;
+                
+                // Update last notification sent timestamp
+                await User.findByIdAndUpdate(user._id, {
+                    lastNotificationSent: new Date(),
+                    lastNotificationError: null
+                });
+                
+                // Log progress for every 10 users
+                if (successCount % 10 === 0) {
+                    logger.info(`Notification broadcast progress: ${successCount}/${userCount} users processed`);
+                }
+                
+            } catch (error) {
+                errorCount++;
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                errorUsers.push({ id: user.telegramId, error: errorMessage });
+                
+                // Update error information in user record
+                await User.findByIdAndUpdate(user._id, {
+                    lastNotificationError: errorMessage,
+                    lastNotificationAttempt: new Date()
+                }).catch(err => {
+                    logger.error(`Failed to update error status for user ${user.telegramId}:`, err);
+                });
+                
+                logger.error(`Error sending notification to user ${user.telegramId}:`, error);
+            }
+            
+            // Small delay between notifications to prevent rate limiting
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Send summary to admin
+        let summary = `✅ *Notification Broadcast Complete*\n\n`;
+        summary += `Total Users: ${userCount}\n`;
+        summary += `Successful Notifications: ${successCount}\n`;
+        summary += `Failed Notifications: ${errorCount}\n\n`;
+        
+        if (errorCount > 0) {
+            summary += `*Error Details* (showing first ${Math.min(5, errorCount)}):\n`;
+            errorUsers.slice(0, 5).forEach(user => {
+                summary += `- User ${user.id}: ${user.error.substring(0, 50)}${user.error.length > 50 ? '...' : ''}\n`;
+            });
+        }
+        
+        await ctx.reply(summary, { parse_mode: 'Markdown' });
+        
+    } catch (error) {
+        logger.error('Error in notify_all command:', error);
+        await ctx.reply("❌ Error during notification broadcast. Please check logs for details.");
+    }
+});
+
+/**
  * Registers all command handlers with the bot
  */
 export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
@@ -265,4 +353,5 @@ export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
     
     // Admin commands
     bot.command('check_notifications', checkNotificationsHandler);
+    bot.command('notify_all', notifyAllHandler);
 }
