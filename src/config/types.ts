@@ -116,6 +116,21 @@ export interface SupportConfig {
 }
 
 /**
+ * Human Design API configuration
+ */
+export interface HumanDesignConfig {
+  /**
+   * Human Design API key
+   */
+  apiKey: string;
+  
+  /**
+   * Human Design API base URL
+   */
+  baseUrl: string;
+}
+
+/**
  * Application configuration
  */
 export interface AppConfig {
@@ -148,4 +163,9 @@ export interface AppConfig {
    * Support and monitoring configuration
    */
   support: SupportConfig;
+  
+  /**
+   * Human Design API configuration
+   */
+  humanDesign: HumanDesignConfig;
 } 

@@ -20,8 +20,6 @@ dotenv.config({ path: path.resolve(process.cwd(), envPath) });
 // Check required environment variables
 const requiredEnvVars = [
     'TELEGRAM_API_TOKEN',
-    'MONGODB_URI',
-    'CLAUDE_API_KEY'
 ];
 
 requiredEnvVars.forEach(varName => {
@@ -68,6 +66,21 @@ export const openAIConfig: OpenAIConfig = {
    * OpenAI GPT model version
    */
   gptVersion: env.GPT_VERSION,
+};
+
+/**
+ * Human Design API configuration
+ */
+export const humanDesignConfig = {
+  /**
+   * Human Design API key
+   */
+  apiKey: env.HUMAN_DESIGN_API_KEY,
+  
+  /**
+   * Human Design API base URL
+   */
+  baseUrl: env.HUMAN_DESIGN_API_BASE_URL,
 };
 
 /**
@@ -157,7 +170,8 @@ const config: AppConfig = {
   openai: openAIConfig,
   database: databaseConfig,
   logging: loggingConfig,
-  support: supportConfig
+  support: supportConfig,
+  humanDesign: humanDesignConfig
 };
 
 export default config;
@@ -192,3 +206,5 @@ export const ADMIN_IDS = config.support.adminIds;
 export const NOTIFICATION_ALERT_THRESHOLD = config.support.notificationAlertThreshold;
 export const MAX_NOTIFICATION_RETRIES = config.support.maxNotificationRetries;
 export const ADMIN_CHAT_ID = env.ADMIN_CHAT_ID;
+export const HUMAN_DESIGN_API_KEY = config.humanDesign.apiKey;
+export const HUMAN_DESIGN_API_BASE_URL = config.humanDesign.baseUrl;

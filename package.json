@@ -5,15 +5,18 @@
         "start": "tsx ./src/index.ts",
         "test": "jest",
         "test:watch": "jest --watch",
-        "test:coverage": "jest --coverage"
+        "test:coverage": "jest --coverage",
+        "get-hd-chart": "tsx ./scripts/get-hd-chart.ts"
     },
     "dependencies": {
+        "@types/inquirer": "^9.0.7",
         "axios": "^1.9.0",
         "axios-retry": "^4.5.0",
         "chalk": "^5.4.1",
         "dotenv": "^16.4.7",
         "envalid": "^8.0.0",
         "grammy": "^1.35.0",
+        "inquirer": "^12.6.0",
         "mongoose": "^8.12.1",
         "openai": "^4.86.2",
         "pino": "^9.6.0",

@@ -31,6 +31,18 @@ export const envSchema = {
     default: 'gpt-4-turbo'
   }),
   
+  // Human Design API
+  HUMAN_DESIGN_API_KEY: str({
+    desc: 'Human Design API key',
+    example: 'hd-api-key-123456',
+    default: ''
+  }),
+  HUMAN_DESIGN_API_BASE_URL: str({
+    desc: 'Human Design API base URL',
+    example: 'https://api.humandesign.com/v1',
+    default: ''
+  }),
+  
   // MongoDB
   MONGODB_HOST: str({
     desc: 'MongoDB host',
@@ -99,6 +111,8 @@ export type CleanEnv = CleanedEnvAccessors & {
   TELEGRAM_API_TOKEN: string;
   OPENAI_API_KEY: string;
   GPT_VERSION: string;
+  HUMAN_DESIGN_API_KEY: string;
+  HUMAN_DESIGN_API_BASE_URL: string;
   MONGODB_HOST: string;
   MONGODB_PORT: number;
   MONGODB_USER: string;

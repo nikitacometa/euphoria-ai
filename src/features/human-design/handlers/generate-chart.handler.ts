@@ -3,7 +3,7 @@ import { JournalBotContext } from '../../../types/session';
 import { findOrCreateUser } from '../../../database';
 import { HumanDesignService, IHumanDesignServiceConfig } from '../../../services/ai/HumanDesignService';
 import { createLogger } from '../../../utils/logger';
-import config from '../../../config'; // Using default export again
+import { HUMAN_DESIGN_API_KEY, HUMAN_DESIGN_API_BASE_URL } from '../../../config';
 import { setUserHumanDesignChart } from '../../../database/models/user.model';
 import { findExistingChart } from '../../../database/models/human-design-chart.model';
 import mongoose, { Types } from 'mongoose'; // Import Types
@@ -23,13 +23,9 @@ const userStates = new Map<number, UserState>();
 // ---------------------------------
 
 // Instantiate the service
-// TODO: Ensure AppConfig in config/types.ts includes a 'humanDesign' property 
-//       of type { apiKey: string; baseUrl: string; }
-// TODO: Ensure config/validation.ts loads and validates HUMAN_DESIGN_API_KEY and HUMAN_DESIGN_API_BASE_URL
 const hdServiceConfig: IHumanDesignServiceConfig = {
-  // Accessing via assumed structure on default config export
-  apiKey: (config as any).humanDesign?.apiKey || 'MISSING_API_KEY',
-  baseUrl: (config as any).humanDesign?.baseUrl || 'MISSING_BASE_URL',
+  apiKey: HUMAN_DESIGN_API_KEY || 'MISSING_API_KEY',
+  baseUrl: HUMAN_DESIGN_API_BASE_URL || 'MISSING_BASE_URL',
   logger: createLogger('HumanDesignService'),
 };
 if (hdServiceConfig.apiKey === 'MISSING_API_KEY' || hdServiceConfig.baseUrl === 'MISSING_BASE_URL') {

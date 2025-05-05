@@ -126,26 +126,62 @@ export class HumanDesignService {
       data,
     };
 
-    this.logger.debug(`Making API request: ${method} ${this.config.baseUrl}${endpoint}`, { params, data: !!data });
+    // Enhanced request logging - Log full URL and request body
+    const fullUrl = `${this.config.baseUrl}${endpoint}`;
+    this.logger.info(`API REQUEST: ${method} ${fullUrl}`, { 
+      params, 
+      body: data, 
+      headers: { 
+        Authorization: 'Bearer [REDACTED]', // Hide actual token value
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      }
+    });
 
     try {
       // Use the configured axios instance which includes retry logic
       const response = await this.axiosInstance.request<T>(requestConfig);
-      this.logger.debug(`API request successful: ${response.status} ${response.statusText}`); // Removed data logging for brevity/security
+      
+      // Enhanced response logging - Log full response details
+      this.logger.info(`API RESPONSE: ${response.status} ${response.statusText}`, {
+        url: fullUrl,
+        method,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: response.data, // Log complete response body
+      });
+      
       return response.data;
     } catch (error) {
-      this.logger.error('API request failed after retries:', { url: `${this.config.baseUrl}${endpoint}`, method, error });
+      // Enhanced error logging - Log detailed error information
+      this.logger.error('API REQUEST FAILED:', { 
+        url: fullUrl, 
+        method, 
+        errorType: axios.isAxiosError(error) ? 'AxiosError' : (error instanceof Error ? error.constructor.name : typeof error),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
 
       if (axios.isAxiosError(error)) {
         const axiosError = error as AxiosError<any>;
         if (axiosError.response) {
-          this.logger.warn('API HTTP Error:', {
+          // Log response error details
+          this.logger.error('API HTTP ERROR RESPONSE:', {
+            url: fullUrl,
+            method,
             status: axiosError.response.status,
-            data: axiosError.response.data,
+            statusText: axiosError.response.statusText,
+            headers: axiosError.response.headers,
+            data: axiosError.response.data, // Complete error response
+            errorMessage: axiosError.message
           });
+          
           // Specific handling for Rate Limit (429)
           if (axiosError.response.status === 429) {
-              this.logger.error('API Rate Limit Exceeded.', { details: axiosError.response.data });
+              this.logger.error('API RATE LIMIT EXCEEDED:', { 
+                url: fullUrl,
+                details: axiosError.response.data 
+              });
               // Consider throwing a specific ApiRateLimitError here
               throw new ApiHttpError(429, 'Rate limit exceeded', axiosError.response.data);
           }
@@ -155,14 +191,30 @@ export class HumanDesignService {
             axiosError.response.data,
           );
         } else if (axiosError.request) {
-          this.logger.warn('API Network Error (no response):', { message: axiosError.message });
+          // Log request error details (no response received)
+          this.logger.error('API NETWORK ERROR (NO RESPONSE):', { 
+            url: fullUrl,
+            method,
+            request: axiosError.request,
+            message: axiosError.message 
+          });
           throw new ApiNetworkError(axiosError.message, axiosError.request);
         } else {
-          this.logger.warn('API Request Setup Error:', { message: axiosError.message });
+          // Log setup error details
+          this.logger.error('API REQUEST SETUP ERROR:', { 
+            url: fullUrl,
+            method,
+            message: axiosError.message 
+          });
           throw new ApiNetworkError(`Request setup error: ${axiosError.message}`);
         }
       } else {
-        this.logger.warn('Non-API Error during request:', { message: (error as Error).message });
+        // Log non-Axios error details
+        this.logger.error('NON-AXIOS ERROR DURING REQUEST:', { 
+          url: fullUrl,
+          method,
+          error: error instanceof Error ? error.message : String(error)
+        });
         throw error;
       }
     }
@@ -202,20 +254,26 @@ export class HumanDesignService {
     // Check cache
     const cachedEntry = this.locationCache.get(lowerCaseQuery);
     if (cachedEntry && Date.now() - cachedEntry.timestamp < this.cacheTTL) {
-      this.logger.info(`Cache hit for location query: "${query}"`);
+      this.logger.info(`CACHE HIT: Found cached timezone data for query "${query}"`);
       return cachedEntry.data;
     }
 
-    this.logger.info(`Cache miss. Finding timezone for query: "${query}"`);
+    this.logger.info(`CACHE MISS: Finding timezone for location query: "${query}"`);
     const params = { query: lowerCaseQuery, api_key: this.config.apiKey };
+    
+    this.logger.info('CALLING LOCATION API ENDPOINT', {
+      endpoint: '/locations', 
+      query: lowerCaseQuery
+    });
+    
     const results = await this.get<ILocationTimezone[]>('/locations', params);
 
     // Update cache
     this.locationCache.set(lowerCaseQuery, { data: results, timestamp: Date.now() });
-    this.logger.debug(`Cached ${results.length} results for query: "${query}"`);
-
-    // Optional: Prune old cache entries periodically if memory becomes an issue
-    // this.pruneLocationCache();
+    this.logger.info(`LOCATION API RESULT: Cached ${results.length} results for query "${query}"`, {
+      resultCount: results.length,
+      firstResult: results.length > 0 ? results[0] : null
+    });
 
     return results;
   }
@@ -272,36 +330,74 @@ export class HumanDesignService {
       throw new Error('Timezone must be a non-empty string.');
     }
 
-    this.logger.info(`Getting Human Design chart for: ${date} ${time}, ${location}, ${timezone}`);
+    this.logger.info('HUMAN DESIGN CHART REQUEST', {
+      date,
+      time,
+      location,
+      timezone
+    });
 
     // 1. Check database cache
     try {
       const existingChart = await findExistingChart(date, time, location);
       if (existingChart) {
-        this.logger.info('Chart found in database cache.');
+        this.logger.info('DB CACHE HIT: Chart found in database cache', {
+          chartId: existingChart._id,
+          date,
+          time,
+          location
+        });
+        
         // Ensure the returned data matches the API response structure
         // The model might store extra fields; we only return the API-like structure.
         // Assuming `existingChart.chartData` holds the original API response.
         if (!existingChart.chartData) {
-            this.logger.warn('Cached chart found but chartData is missing. Refetching...');
+            this.logger.warn('DB CACHE ISSUE: Cached chart found but chartData is missing. Refetching...', {
+              chartId: existingChart._id
+            });
         } else {
             // TODO: Validate if the cached chartData structure matches IHumanDesignChartResponse
             return existingChart.chartData as IHumanDesignChartResponse;
         }
       }
     } catch (dbError) {
-      this.logger.error('Error checking database cache:', dbError);
+      this.logger.error('DB CACHE ERROR: Error checking database cache:', { 
+        error: dbError, 
+        date, 
+        time, 
+        location 
+      });
       // Decide whether to proceed without cache or throw. Proceeding for now.
     }
 
     // 2. Fetch from API if not cached or cache read failed
-    this.logger.info('Chart not found in cache or cache read failed. Fetching from API...');
+    this.logger.info('DB CACHE MISS: Chart not found in cache or cache read failed. Fetching from API...', {
+      date,
+      time,
+      location,
+      timezone
+    });
+    
     const apiDateTime = `${date} ${time}`; // Combine date and time for API
     const params = { date: apiDateTime, timezone, api_key: this.config.apiKey };
 
+    this.logger.info('CALLING HD-DATA API ENDPOINT', {
+      endpoint: '/hd-data',
+      dateTime: apiDateTime,
+      timezone
+    });
+
     try {
       const chartResponse = await this.get<IHumanDesignChartResponse>('/hd-data', params);
-      this.logger.info('Successfully fetched chart from API.');
+      this.logger.info('HD-DATA API SUCCESS: Chart successfully retrieved from API', {
+        date,
+        time,
+        location,
+        type: chartResponse.Properties?.Type?.Id,
+        profile: chartResponse.Properties?.Profile?.Id,
+        authority: chartResponse.Properties?.InnerAuthority?.Id,
+        definedCenters: chartResponse.DefinedCenters?.length
+      });
 
       // 3. Save to database cache (async, don't wait)
       createChart({
@@ -329,16 +425,32 @@ export class HumanDesignService {
         channels: chartResponse.Channels,
         gates: chartResponse.Gates,
       }).then(savedChart => {
-          this.logger.info(`Successfully saved chart to database cache. ID: ${savedChart._id}`);
+          this.logger.info(`DB CACHE SAVE SUCCESS: Chart saved to database with ID: ${savedChart._id}`, {
+            chartId: savedChart._id,
+            date,
+            time,
+            location
+          });
       }).catch(saveError => {
-          this.logger.error('Error saving chart to database cache:', saveError);
+          this.logger.error('DB CACHE SAVE ERROR: Failed to save chart to database', {
+            error: saveError,
+            date,
+            time,
+            location
+          });
           // Don't fail the whole operation if caching fails
       });
 
       return chartResponse;
 
     } catch (apiError) {
-      this.logger.error('Failed to fetch chart from API:', apiError);
+      this.logger.error('HD-DATA API ERROR: Failed to fetch chart from API', {
+        error: apiError,
+        date,
+        time,
+        location,
+        timezone
+      });
       // Re-throw the specific API error (ApiHttpError or ApiNetworkError)
       throw apiError;
     }
@@ -351,14 +463,17 @@ export class HumanDesignService {
    * @returns {Promise<{ status: 'ok' | 'error', message?: string }>} The health status.
    */
   public async checkApiHealth(): Promise<{ status: 'ok' | 'error'; message?: string }> {
-    this.logger.info('Checking API health...');
+    this.logger.info('API HEALTH CHECK: Starting health check for Human Design API');
     try {
       // Make a simple request to a known endpoint, e.g., timezone lookup for a common city
       await this.findLocationTimezone('London');
-      this.logger.info('API health check successful.');
+      this.logger.info('API HEALTH CHECK: Successful - API is responding correctly');
       return { status: 'ok' };
     } catch (error) {
-      this.logger.error('API health check failed:', { error });
+      this.logger.error('API HEALTH CHECK: Failed - API is not responding correctly', { 
+        error: error instanceof Error ? error.message : String(error),
+        details: error
+      });
       const message = error instanceof Error ? error.message : 'Unknown health check error';
       return { status: 'error', message };
     }
