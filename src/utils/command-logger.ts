@@ -1,5 +1,5 @@
 import { createLogger, LogLevel } from './logger';
-import { LOG_LEVEL } from '../config';
+import { LOG_LEVEL } from '../config/index';
 
 // Create a logger for commands
 const commandLogger = createLogger('Command', LOG_LEVEL);

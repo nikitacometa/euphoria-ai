@@ -321,7 +321,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна задумайся вот о чем:' : '🤌 Tonight instead of sleep think about this:';
         const formattedQuestion = `<i>${questionIntro}</i>\n\n<code>${question}</code>`;
         
-        await ctx.reply(`<b>You are the best, ${user.name || user.firstName} 😘</b> Let me share the summary of what you shared.\n\n${summary}\n\n${formattedQuestion}`, {
+        await ctx.reply(`<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`, {
             parse_mode: 'HTML'
         });
         
@@ -409,7 +409,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 // Sanitize HTML tags for Telegram
                 const sanitizedQuestions = questions.map((q: string) => sanitizeHtmlForTelegram(q));
                 const questionsText = sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n');
-                await ctx.reply(`<i>Hm, interesting...</i>\n\n${questionsText}\n\n`, { 
+                await ctx.reply(`${questionsText}`, { 
                     reply_markup: journalActionKeyboard,
                     parse_mode: 'HTML'
                 });

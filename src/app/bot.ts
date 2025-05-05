@@ -1,5 +1,5 @@
 import { Bot, session } from 'grammy';
-import { TELEGRAM_API_TOKEN } from '../config';
+import { TELEGRAM_API_TOKEN } from '../config/index';
 import { JournalBotContext, JournalBotSession } from '../types/session';
 import { errorService } from '../services/error.service';
 import { AppError } from '../types/errors';

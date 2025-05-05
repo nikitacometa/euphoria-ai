@@ -1,7 +1,7 @@
 import { User } from '../database/models/user.model';
 import { bot } from '../app';
 import { createLogger } from '../utils/logger';
-import { LOG_LEVEL, SUPPORT_CHAT_ID, NOTIFICATION_ALERT_THRESHOLD, MAX_NOTIFICATION_RETRIES } from '../config';
+import { LOG_LEVEL, SUPPORT_CHAT_ID, NOTIFICATION_ALERT_THRESHOLD, MAX_NOTIFICATION_RETRIES } from '../config/index';
 import { Keyboard } from 'grammy';
 import { convertFromUTC, convertToUTC, formatTimeWithTimezone } from '../utils/timezone';
 import { IUser } from '../types/models';

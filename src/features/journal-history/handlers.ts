@@ -95,7 +95,7 @@ export async function viewJournalEntryHandler(ctx: JournalBotContext, user: IUse
 
             // Truncate if too long for a single message
             const MAX_MSG_LENGTH = 4000; // Leave room for formatting and labels
-            const analysisText = entry.analysis ? `\n\n<i>Briefly, it was about:</i>\n\n${entry.analysis}` : '';
+            const analysisText = entry.analysis ? `<i>Summary:</i>\n\n${entry.analysis}` : '';
             const header = `📚 <b>${entryName}</b>  [${formattedDate}]`;
             const tags = keywordsTags ? `\n${keywordsTags}\n` : '';
 

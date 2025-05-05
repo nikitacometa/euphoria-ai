@@ -4,7 +4,7 @@ import { registerFeatures } from './feature-registry';
 import { connectToDatabase } from '../database';
 import { notificationService } from '../services/notification.service';
 import { logger, createLogger } from '../utils/logger';
-import { LOG_LEVEL } from '../config';
+import { LOG_LEVEL } from '../config/index';
 import { JournalBotContext } from '../types/session';
 
 // Create a logger for the app

@@ -20,8 +20,7 @@ dotenv.config({ path: path.resolve(process.cwd(), envPath) });
 // Check required environment variables
 const requiredEnvVars = [
     'TELEGRAM_API_TOKEN',
-    'MONGODB_URI',
-    'CLAUDE_API_KEY'
+    'OPENAI_API_KEY'
 ];
 
 requiredEnvVars.forEach(varName => {
