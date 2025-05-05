@@ -25,6 +25,14 @@ const journalEntrySchema = new Schema<IJournalEntry>(
             type: String,
             required: false
         },
+        name: {
+            type: String,
+            required: false
+        },
+        keywords: [{
+            type: String,
+            required: false
+        }],
         messages: [{
             type: Schema.Types.ObjectId,
             ref: 'Message'
@@ -138,17 +146,27 @@ export async function updateJournalEntryInsights(
 export async function completeJournalEntry(
     entryId: Types.ObjectId,
     analysis: string,
-    insights: string
+    insights: string,
+    name?: string,
+    keywords?: string[]
 ): Promise<IJournalEntry | null> {
+    const updateData: any = { 
+        status: JournalEntryStatus.COMPLETED,
+        analysis,
+        aiInsights: insights
+    };
+    
+    if (name) {
+        updateData.name = name;
+    }
+    
+    if (keywords && keywords.length > 0) {
+        updateData.keywords = keywords;
+    }
+    
     return JournalEntry.findByIdAndUpdate(
         entryId,
-        { 
-            $set: { 
-                status: JournalEntryStatus.COMPLETED,
-                analysis,
-                aiInsights: insights
-            } 
-        },
+        { $set: updateData },
         { new: true }
     );
 }
@@ -173,4 +191,14 @@ export async function updateJournalEntryFullText(
         { $set: { fullText } },
         { new: true }
     );
+}
+
+/**
+ * Deletes a specific journal entry by its ID.
+ * @param entryId - The ID of the journal entry to delete.
+ * @returns True if the entry was deleted, false otherwise.
+ */
+export async function deleteJournalEntry(entryId: Types.ObjectId): Promise<boolean> {
+    const result = await JournalEntry.deleteOne({ _id: entryId });
+    return result.deletedCount === 1;
 } 

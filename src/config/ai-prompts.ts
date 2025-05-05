@@ -77,8 +77,10 @@ Format as JSON:
   completionSystemPrompt: `You are Infinity, an insightful and supportive guide...
 Format as JSON:
 {
-  "summary": "Your insightful summary, format each new sentence with 2 linebreaks \n\n, use 2-3 html tags <b><i> to highlight important words",
-  "question": "Your thought-provoking question?"
+  "summary": "Your insightful summary, format the output to be max readable - each new sentence with 2 linebreaks \n\n, use 2-3 html tags <b><i> to highlight important words",
+  "question": "Your thought-provoking question?",
+  "name": "A catchy, creative name for this entry (max 20 characters)",
+  "keywords": ["keyword1", "keyword2", "keyword3"] 
 }`
 };
 

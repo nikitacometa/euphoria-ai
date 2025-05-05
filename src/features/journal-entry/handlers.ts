@@ -254,6 +254,8 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
     
     const waitMsg = await ctx.reply("⏳");
     
+    let rawApiResponseContent: string | null = null;
+    
     try {
         const entryContent = await extractFullText(entry); // Use utility
         if (!entryContent) {
@@ -285,40 +287,60 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
             response_format: { type: "json_object" }
         });
         
-        const content = response.choices[0].message.content || "{}";
+        rawApiResponseContent = response.choices[0].message.content; // Assign here
         
         // Use our helper to parse JSON safely
         const parsedResponse = openAIService.parseJsonResponse(
-            content,
-            { summary: "Thank you for sharing.", question: "What stood out to you?" }
+            rawApiResponseContent || "{}", // Use the captured content
+            { 
+                summary: "Thank you for sharing.", 
+                question: "What stood out to you?",
+                name: "Journal Entry",
+                keywords: ["journal", "entry"]
+            }
         );
         
         const summary = parsedResponse.summary || "Thank you for sharing.";
         const question = parsedResponse.question || "What stood out to you?";
+        const entryName = parsedResponse.name || "Journal Entry";
+        const entryKeywords = parsedResponse.keywords || ["journal", "entry"];
         
-        // Sanitize HTML tags - Telegram only supports a limited set of HTML tags
-        const sanitizedSummary = sanitizeHtmlForTelegram(summary);
-        const sanitizedQuestion = sanitizeHtmlForTelegram(question);
+        // Use updated completeEntry function with name and keywords
+        await completeEntry(
+            entryId,
+            summary,
+            question,
+            entryName,
+            entryKeywords
+        );
         
-        await completeEntry(entryId, sanitizedSummary, sanitizedQuestion);
+        // Delete the waiting message
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
-        const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна навязчиво размыщляй о следующей рандомной мысли:' : '🤌 Tonight instead of sleep think about the following random thing:';
-        const formattedMessage = `<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n<i>Love reading your thoughts. Remembered everything, but briefly, you shared about...</i>\n\n${sanitizedSummary}\n\n<i>${questionIntro}</i>\n\n<code>${sanitizedQuestion}</code>`;
-        await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
+        // Send the completion message with summary and question
+        const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна задумайся вот о чем:' : '🤌 Tonight instead of sleep think about this:';
+        const formattedQuestion = `<i>${questionIntro}</i>\n\n<code>${question}</code>`;
         
+        await ctx.reply(`<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`, {
+            parse_mode: 'HTML'
+        });
+        
+        // Clear the active entry from session
         ctx.session.journalEntryId = undefined;
+        
+        // Show the main menu
         await showMainMenu(ctx, user);
-
+        
     } catch (error) {
         errorService.logError(
-            error instanceof AIError 
-                ? error 
+            error instanceof AIError
+                ? error
                 : new AIError(
-                    'Error finishing journal entry', 
-                    { 
+                    'Error finishing journal entry',
+                    {
                         entryId: entryId.toString(),
-                        userId: user._id?.toString() || ''
+                        userId: user._id?.toString() || '',
+                        rawApiResponse: rawApiResponseContent ?? '[Not Available]' // Include raw content
                     },
                     error instanceof Error ? error : undefined
                 ),
@@ -387,7 +409,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 // Sanitize HTML tags for Telegram
                 const sanitizedQuestions = questions.map((q: string) => sanitizeHtmlForTelegram(q));
                 const questionsText = sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n');
-                await ctx.reply(`<i>Love reading you.. Got a few thoughts.</i>\n\n${questionsText}\n\n<i>Answer any or ignore, use as inspiration.</i>`, { 
+                await ctx.reply(`${questionsText}`, { 
                     reply_markup: journalActionKeyboard,
                     parse_mode: 'HTML'
                 });
@@ -404,7 +426,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                         'Error generating questions', 
                         { 
                             entryId: entryId.toString(),
-                            userId: user._id?.toString() 
+                            userId: user._id?.toString() || '[Unknown User ID]'
                         },
                         error instanceof Error ? error : undefined
                     ),
@@ -459,7 +481,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? '<b>Continuing your reflection...</b>' : '🎤 <i>Send any messages — texts, voices, videos. The more messages you send — the deeper insights you get.</i>\n\nBtw, do not forget to forward me your smart videos/voices from other chats! Please, do not forget those 🥹 \n\n<i>Use bottom menu buttons to save or to ask me for reflection/analysis assistance.</i>'}`, {
+        await ctx.reply(`${entry.messages.length > 0 ? '<b>Continuing your reflection...</b>' : '🎤 Send texts, voices, videos. The more you send — the deeper insights you get.\n\n<i>Use buttons to save or get AI insights.</i>'}`, {
             reply_markup: journalActionKeyboard,
             parse_mode: 'HTML'
         });
@@ -646,8 +668,8 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         // Update the journal entry with the deeper analysis and questions
         await updateEntryAnalysisAndQuestions(
             entryId,
-            `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis}`,
-            sanitizedQuestions
+            `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis || '[Analysis Unavailable]'}`,
+            sanitizedQuestions || ['[Questions Unavailable]'] // Ensure it's an array of strings
         );
         
         // Delete wait message

@@ -77,6 +77,8 @@ export enum JournalEntryStatus {
 export interface IJournalEntry extends Document {
     user: Types.ObjectId | IUser;
     title?: string;
+    name?: string; // New field: catchy name for the entry (max 20 chars)
+    keywords?: string[]; // New field: keywords/tags for the entry
     messages: Types.ObjectId[] | IMessage[];
     status: JournalEntryStatus;
     analysis?: string;

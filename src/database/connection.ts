@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { MONGODB_URI } from '../config';
+import { MONGODB_URI } from '../config/index';
 
 // Function to connect to MongoDB
 export async function connectToDatabase(): Promise<void> {
