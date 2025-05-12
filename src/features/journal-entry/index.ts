@@ -45,14 +45,14 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
         }
     });
 
-    // Register callback queries for journal entry feature
-    bot.callbackQuery("analyze_journal", async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
+    // Register /new_entry command handler
+    bot.command('new_entry', async (ctx) => {
         if (!ctx.from) return;
         const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await analyzeAndSuggestQuestionsHandler(ctx, user);
+        await newEntryHandler(ctx, user);
     });
 
+    // Register callback queries for journal entry feature
     bot.callbackQuery("go_deeper", async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
@@ -60,14 +60,7 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
         await handleGoDeeper(ctx, user);
     });
 
-    bot.callbackQuery("finish_journal", async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
-        if (!ctx.from) return;
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await finishJournalEntryHandler(ctx, user);
-    });
-
-    // Handle the new inline keyboard callbacks
+    // Handle the inline keyboard callbacks
     bot.callbackQuery(CALLBACKS.SAVE, async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;

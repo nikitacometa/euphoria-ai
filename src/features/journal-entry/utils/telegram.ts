@@ -1,6 +1,6 @@
 import { Context, Keyboard, InlineKeyboard } from 'grammy';
 import { IUser } from '../../../types/models';
-import { journalActionKeyboard } from '../keyboards';
+import { journalActionKeyboard } from '../keyboards/index';
 import { formatTranscription } from './formatting';
 
 /**

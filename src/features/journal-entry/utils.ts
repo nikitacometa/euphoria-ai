@@ -1,6 +1,6 @@
 import { Context, Keyboard, InlineKeyboard } from 'grammy';
 import { IMessage, IJournalEntry, MessageType, IUser } from '../../types/models';
-import { journalActionKeyboard } from './keyboards';
+import { journalActionKeyboard } from './keyboards/index';
 import { JournalEntry } from '../../database/models/journal.model';
 
 /**
@@ -133,3 +133,55 @@ export const ErrorMessages = {
     EMPTY_ENTRY: "There's nothing to analyze yet. Share some thoughts first! ✨",
     SESSION_EXPIRED: "Looks like that reflection session ended. Let's start fresh! 💫"
 } as const;
+
+/**
+ * Creates a message summary of the journal entry
+ * @param entry Journal entry to summarize
+ * @returns Summary text showing message counts
+ */
+export async function createEntrySummary(entry: IJournalEntry): Promise<string> {
+    if (!entry.messages || !Array.isArray(entry.messages) || entry.messages.length === 0) {
+        return 'No messages yet.';
+    }
+
+    // Ensure messages are populated
+    if (typeof entry.messages[0] === 'string') {
+        try {
+            const populatedEntry = await JournalEntry.findById(entry._id).populate('messages');
+            if (populatedEntry && Array.isArray(populatedEntry.messages) && typeof populatedEntry.messages[0] !== 'string') {
+                return createEntrySummary(populatedEntry); // Recursively call with populated entry
+            }
+            return 'Entry details unavailable.';
+        } catch (error) {
+            console.warn(`Failed to re-fetch entry with populated messages: ${entry._id}`, error);
+            return 'Entry details unavailable.';
+        }
+    }
+
+    const messages = entry.messages as IMessage[];
+    
+    // Count message types
+    const textCount = messages.filter(m => m.type === MessageType.TEXT).length;
+    const voiceCount = messages.filter(m => m.type === MessageType.VOICE).length;
+    const videoCount = messages.filter(m => m.type === MessageType.VIDEO).length;
+    const imageCount = messages.filter(m => m.type === MessageType.IMAGE).length;
+    
+    // Create summary
+    const parts = [];
+    if (textCount > 0) parts.push(`${textCount} text${textCount !== 1 ? 's' : ''}`);
+    if (voiceCount > 0) parts.push(`${voiceCount} voice${voiceCount !== 1 ? 's' : ''}`);
+    if (videoCount > 0) parts.push(`${videoCount} video${videoCount !== 1 ? 's' : ''}`);
+    if (imageCount > 0) parts.push(`${imageCount} image${imageCount !== 1 ? 's' : ''}`);
+    
+    const summary = parts.join(', ');
+    return summary || 'No messages yet.';
+}
+
+/**
+ * Creates a status message for the current journal entry
+ * Shows message counts and prompts for next action
+ */
+export async function createEntryStatusMessage(entry: IJournalEntry): Promise<string> {
+    const summary = await createEntrySummary(entry);
+    return `<b>Current journal entry</b>\n${summary}\n\n<i>Send more messages or use the buttons below.</i>`;
+}

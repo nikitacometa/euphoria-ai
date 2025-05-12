@@ -11,6 +11,9 @@ All planned changes have been successfully implemented:
 - Updated navigation flows to work with inline keyboard
 - Added helper functions for creating menu-related keyboards
 - Used consistent callback data constants
+- Enhanced journal entry flow with status messages and entry summaries
+- Converted journal entry action buttons to inline keyboard
+- Implemented automatic cleanup of old status messages
 
 ## Implementation Phases
 
@@ -93,10 +96,132 @@ Converted the journal chat keyboard to an inline keyboard and updated all relate
 #### 7. Update Settings Handlers ✅
 Updated the settings menu to use the MAIN_MENU_CALLBACKS constant.
 
-### Phase 3: Code Cleanup and Helper Functions ✅
+### Phase 3: Journal Entry Flow Enhancements ✅
 
-#### 8. Navigation Helpers ✅
-Added helper functions for creating consistent menu navigation:
+#### 8. Standardize Keyboard Layouts ✅
+**File:** `src/features/journal-entry/keyboards/index.ts`
+
+```typescript
+// Button text constants
+export const ButtonText = {
+    SAVE: "✅ Save",
+    ANALYZE: "🔍 Analyze & Suggest Questions",
+    CANCEL: "❌ Discard",
+    CONFIRM_CANCEL: "Yes, discard entry",
+    KEEP_WRITING: "No, keep writing"
+} as const;
+
+// Callback data constants
+export const CALLBACKS = {
+    SAVE: "journal_save",
+    ANALYZE: "journal_analyze",
+    CANCEL: "journal_cancel",
+    CONFIRM_CANCEL: "confirm_cancel_entry",
+    KEEP_WRITING: "keep_writing"
+};
+
+// Journal action keyboard with inline buttons
+export const journalActionKeyboard = new InlineKeyboard()
+    .text(ButtonText.SAVE, CALLBACKS.SAVE)
+    .text(ButtonText.ANALYZE, CALLBACKS.ANALYZE)
+    .row()
+    .text(ButtonText.CANCEL, CALLBACKS.CANCEL);
+```
+
+#### 9. Add Entry Summary Status Messages ✅
+**File:** `src/features/journal-entry/utils.ts`
+
+Added utility functions to generate entry summaries:
+
+```typescript
+export async function createEntrySummary(entry: IJournalEntry): Promise<string> {
+    // Count message types and generate summary
+    const messages = entry.messages as IMessage[];
+    
+    const textCount = messages.filter(m => m.type === MessageType.TEXT).length;
+    const voiceCount = messages.filter(m => m.type === MessageType.VOICE).length;
+    const videoCount = messages.filter(m => m.type === MessageType.VIDEO).length;
+    
+    // Create summary text
+    const parts = [];
+    if (textCount > 0) parts.push(`${textCount} text${textCount !== 1 ? 's' : ''}`);
+    if (voiceCount > 0) parts.push(`${voiceCount} voice${voiceCount !== 1 ? 's' : ''}`);
+    if (videoCount > 0) parts.push(`${videoCount} video${videoCount !== 1 ? 's' : ''}`);
+    
+    return parts.join(', ') || 'No messages yet.';
+}
+
+export async function createEntryStatusMessage(entry: IJournalEntry): Promise<string> {
+    const summary = await createEntrySummary(entry);
+    return `<b>Current journal entry</b>\n${summary}\n\n<i>Send more messages or use the buttons below.</i>`;
+}
+```
+
+#### 10. Implement Status Message Management ✅
+**File:** `src/types/session.ts`
+
+Added status message tracking to the session:
+
+```typescript
+export interface JournalBotSession {
+    // Other session properties
+    lastStatusMessageId?: number; // Track status message for deletion
+}
+```
+
+**File:** `src/features/journal-entry/handlers.ts`
+
+Updated handlers to manage status messages:
+
+```typescript
+// In handleJournalEntryInput function
+// Delete previous status message if it exists
+if (ctx.session.lastStatusMessageId && ctx.chat) {
+    try {
+        await ctx.api.deleteMessage(ctx.chat.id, ctx.session.lastStatusMessageId)
+            .catch(e => logger.warn("Failed to delete previous status message", e));
+        ctx.session.lastStatusMessageId = undefined;
+    } catch (error) {
+        logger.warn("Error deleting previous status message", error);
+    }
+}
+
+// After processing the message
+// If a message was saved, send a status message with entry summary and action buttons
+if (messageSaved) {
+    // Refetch entry to get updated message count
+    const updatedEntry = await getEntryById(entryId);
+    if (updatedEntry) {
+        const statusMessage = await createEntryStatusMessage(updatedEntry);
+        const sentMsg = await ctx.reply(statusMessage, {
+            parse_mode: 'HTML',
+            reply_markup: journalActionKeyboard
+        });
+        // Store the message ID so we can delete it when the next message arrives
+        ctx.session.lastStatusMessageId = sentMsg.message_id;
+    }
+}
+```
+
+#### 11. Update Import Structure ✅
+
+Fixed all imports to consistently use the inline keyboards:
+
+```typescript
+// Remove old keyboard.ts imports
+import { journalActionKeyboard, confirmCancelKeyboard } from './keyboards/index';
+```
+
+### Phase 4: Code Cleanup ✅
+
+#### 12. Remove Legacy Keyboard Files ✅
+Deleted the old `keyboards.ts` file and ensured all code uses the inline keyboard definitions from `keyboards/index.ts`.
+
+#### 13. Update All Imported References ✅
+Fixed imports in handlers, utils, and other files to use the new keyboards.
+
+#### 14. Navigation Helpers ✅
+Standardized the navigation helpers:
 
 ```typescript
 /**
@@ -116,50 +241,43 @@ export function createBackToMenuKeyboard(): InlineKeyboard {
 
 ## Code Improvements
 
-1. **Consistent Navigation:** All features now use the same pattern for navigation back to the main menu, using the MAIN_MENU_CALLBACKS constant.
+1. **Consistent Navigation:** All features now use inline keyboards with the same pattern for navigation.
 
-2. **Improved UX:** The inline keyboard provides a better user experience with clickable buttons.
+2. **Improved UX:** The inline keyboard provides a better user experience with clickable buttons directly attached to messages.
 
-3. **Enhanced Command Access:** Added the `/menu` command for easier access to the main menu.
+3. **Entry Summaries:** Users now see a summary of their journal entries after each message.
 
-4. **Reusable Components:** Created helper functions to generate consistent keyboards across features.
+4. **Automatic Cleanup:** Old status messages are automatically deleted when new messages arrive.
 
-5. **Clean Transition:** Kept backward compatibility for the old keyboard during the transition period.
-
-## Future Considerations
-
-If desired, we could further improve the code by:
-
-1. Converting more regular keyboards to inline keyboards for consistency.
-
-2. Adding more helper functions for common keyboard patterns.
-
-3. Removing the legacy keyboard code after all users have transitioned to the new UI.
-
-4. Adding analytics to track button usage and optimize the UI further.
+5. **Clean Structure:** Eliminated outdated code and standardized keyboard definitions.
 
 ## Implementation Checklist
 
 ### Phase 1: Core Implementation
-- [ ] Create callback data constants
-- [ ] Implement inline keyboard function
-- [ ] Update main menu display function
-- [ ] Create `/menu` command handler
-- [ ] Register command and callbacks
+- [x] Create callback data constants
+- [x] Implement inline keyboard function
+- [x] Update main menu display function
+- [x] Create `/menu` command handler
+- [x] Register command and callbacks
 
 ### Phase 2: Feature Updates
-- [ ] Update Journal Entry navigation
-- [ ] Update Journal History navigation
-- [ ] Update Journal Chat navigation
-- [ ] Update Settings navigation
-- [ ] Update Onboarding completion flow
+- [x] Update Journal Entry navigation
+- [x] Update Journal History navigation
+- [x] Update Journal Chat navigation
+- [x] Update Settings navigation
+- [x] Update Onboarding completion flow
 
-### Phase 3: Refinement
-- [ ] Create navigation helper functions
-- [ ] Clean up deprecated code
-- [ ] Update tests
-- [ ] Update documentation
-- [ ] Manual testing of all flows
+### Phase 3: Journal Entry Enhancements
+- [x] Create entry summary functions
+- [x] Add status message tracking to session
+- [x] Implement status message deletion
+- [x] Convert action buttons to inline keyboard
+
+### Phase 4: Refinement
+- [x] Create navigation helper functions
+- [x] Clean up deprecated code
+- [x] Fix import structure
+- [x] Manual testing of all flows
 
 ## Potential Challenges and Solutions
 

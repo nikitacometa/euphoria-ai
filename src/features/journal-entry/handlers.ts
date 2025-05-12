@@ -7,8 +7,8 @@ import {
     findOrCreateUser, // Need this for hears handlers
 } from '../../database';
 import { transcribeAudio } from '../../services/ai/openai.service';
-import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram } from './utils';
-import { journalActionKeyboard } from './keyboards';
+import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram, createEntryStatusMessage } from './utils';
+import { journalActionKeyboard, confirmCancelKeyboard } from './keyboards/index';
 import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -96,6 +96,17 @@ async function replyWithHTML(ctx: JournalBotContext, message: string, options: P
  */
 export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUser) {
     if (!ctx.message || !ctx.from || !ctx.session.journalEntryId) return;
+
+    // Delete previous status message if it exists
+    if (ctx.session.lastStatusMessageId && ctx.chat) {
+        try {
+            await ctx.api.deleteMessage(ctx.chat.id, ctx.session.lastStatusMessageId)
+                .catch(e => logger.warn("Failed to delete previous status message", e));
+            ctx.session.lastStatusMessageId = undefined;
+        } catch (error) {
+            logger.warn("Error deleting previous status message", error);
+        }
+    }
 
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
     // Re-fetch entry to ensure it's still active and get populated messages if needed
@@ -207,6 +218,20 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             );
         }
 
+        // If a message was saved, send a status message with entry summary and action buttons
+        if (messageSaved) {
+            // Refetch entry to get updated message count
+            const updatedEntry = await getEntryById(entryId);
+            if (updatedEntry) {
+                const statusMessage = await createEntryStatusMessage(updatedEntry);
+                const sentMsg = await ctx.reply(statusMessage, {
+                    parse_mode: 'HTML',
+                    reply_markup: journalActionKeyboard
+                });
+                // Store the message ID so we can delete it when the next message arrives
+                ctx.session.lastStatusMessageId = sentMsg.message_id;
+            }
+        }
     } catch (error) {
         errorService.logError(
             error instanceof AIError 
@@ -235,12 +260,15 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
  * Handles the action of finishing and analyzing a journal entry.
  */
 export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IUser) {
-     if (!ctx.session.journalEntryId) {
-         logger.warn(`finishJournalEntryHandler called without active session entryId for user ${user.telegramId}`);
-         await ctx.reply("No active journal entry found to save.");
-         await showMainMenu(ctx, user);
-         return;
-     }
+    if (!ctx.session.journalEntryId) {
+        logger.warn(`finishJournalEntryHandler called without active session entryId for user ${user.telegramId}`);
+        await ctx.reply("No active journal entry found to save.");
+        await showMainMenu(ctx, user);
+        return;
+    }
+    
+    // Clear the status message ID as we're going to finish the entry
+    ctx.session.lastStatusMessageId = undefined;
     
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
     const entry = await getEntryById(entryId); // Fetch entry with populated messages
@@ -324,12 +352,13 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         const formattedQuestion = `<i>${questionIntro}</i>\n\n<code>${question}</code>`;
         
         await ctx.reply(`<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`, {
-            parse_mode: 'HTML',
-            reply_markup: createBackToMenuKeyboard()
+            parse_mode: 'HTML'
         });
         
         // Clear the active entry from session
         ctx.session.journalEntryId = undefined;
+
+        await showMainMenu(ctx, user);
         
     } catch (error) {
         errorService.logError(
@@ -373,6 +402,9 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         await showMainMenu(ctx, user);
         return;
     }
+    
+    // Clear the status message ID since we're going to do an analyze operation
+    ctx.session.lastStatusMessageId = undefined;
     
     try {
         const entryId = new Types.ObjectId(ctx.session.journalEntryId);
@@ -482,10 +514,26 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
     try {
         const entry = await getOrCreateActiveEntry(user._id as Types.ObjectId);
         ctx.session.journalEntryId = entry._id?.toString() || '';
-        await ctx.reply(`${entry.messages.length > 0 ? '<b>Continuing your reflection...</b>' : '🎤 Send texts, voices, videos. The more you send — the deeper insights you get.\n\n<i>Use buttons to save or get AI insights.</i>'}`, {
-            reply_markup: journalActionKeyboard,
-            parse_mode: 'HTML'
-        });
+
+        if (entry.messages.length > 0) {
+            // Continuing an existing entry
+            // Get status message with summary
+            const statusMessage = await createEntryStatusMessage(entry);
+            const sentMsg = await ctx.reply(statusMessage, {
+                parse_mode: 'HTML',
+                reply_markup: journalActionKeyboard
+            });
+            // Store message ID for later deletion
+            ctx.session.lastStatusMessageId = sentMsg.message_id;
+        } else {
+            // Starting a new entry
+            const sentMsg = await ctx.reply('🎤 <b>New journal entry started</b>\n\nSend texts, voices, videos. The more you send — the deeper insights you get.\n\n<i>Use buttons below when you\'re done.</i>', {
+                reply_markup: journalActionKeyboard,
+                parse_mode: 'HTML'
+            });
+            // Store message ID for later deletion
+            ctx.session.lastStatusMessageId = sentMsg.message_id;
+        }
     } catch (error) {
         errorService.logError(
             error instanceof AIError 
@@ -509,16 +557,15 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
  * Handles the "Cancel" button press during journaling.
  */
 export async function cancelJournalEntryHandler(ctx: JournalBotContext, user: IUser) {
+    // Clear the status message ID since we're going to exit
+    ctx.session.lastStatusMessageId = undefined;
+    
     // This handler is only relevant if called when a journal entry *might* be active
     if (ctx.session?.journalEntryId) {
         // Ask for confirmation before cancelling
-        const confirmKeyboard = new InlineKeyboard()
-            .text("Yes, discard entry", "confirm_cancel_entry")
-            .text("No, keep writing", "keep_writing");
-            
         await ctx.reply(`Are you sure you want to discard this journal entry? Any progress will be lost.`, { 
             parse_mode: 'HTML',
-            reply_markup: confirmKeyboard
+            reply_markup: confirmCancelKeyboard
         });
         
         // The actual cancellation will be handled by the callback handler
@@ -571,15 +618,32 @@ export async function handleCancelConfirmation(ctx: JournalBotContext, user: IUs
         // User confirmed cancellation, clear the entry ID
         logger.info(`User ${user.telegramId} confirmed cancellation of journal entry ${ctx.session.journalEntryId}`);
         ctx.session.journalEntryId = undefined;
+        ctx.session.lastStatusMessageId = undefined;
         await ctx.reply(`Entry discarded. We can start fresh anytime ✨`, { parse_mode: 'HTML' });
         await showMainMenu(ctx, user);
     } else if (callbackData === 'keep_writing') {
         // User wants to keep writing, just return to the journal interface
         logger.info(`User ${user.telegramId} chose to continue journal entry ${ctx.session.journalEntryId}`);
-        await ctx.reply(`Great! Let's continue where we left off...`, {
-            parse_mode: 'HTML',
-            reply_markup: journalActionKeyboard
-        });
+        
+        // Get a fresh entry with updated message count
+        const entryId = new Types.ObjectId(ctx.session.journalEntryId || '');
+        const entry = await getEntryById(entryId);
+        
+        if (entry) {
+            // Show status message with current entry summary
+            const statusMessage = await createEntryStatusMessage(entry);
+            const sentMsg = await ctx.reply(statusMessage, {
+                parse_mode: 'HTML',
+                reply_markup: journalActionKeyboard
+            });
+            // Store for later deletion
+            ctx.session.lastStatusMessageId = sentMsg.message_id;
+        } else {
+            await ctx.reply(`Great! Let's continue where we left off...`, {
+                parse_mode: 'HTML',
+                reply_markup: journalActionKeyboard
+            });
+        }
     }
 }
 

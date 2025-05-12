@@ -2,7 +2,7 @@ import { Bot } from 'grammy';
 import { JournalBotContext } from '../../../types/session';
 import { IUser } from '../../../types/models';
 import { logger } from '../../../utils/logger';
-import { journalActionKeyboard } from '../keyboards';
+import { journalActionKeyboard } from '../keyboards/index';
 import { handleCallback } from './button-handlers';
 import { showMainMenu } from '../../core/handlers';
 import { 

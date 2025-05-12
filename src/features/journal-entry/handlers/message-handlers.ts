@@ -3,7 +3,7 @@ import { JournalBotContext } from '../../../types/session';
 import { IUser } from '../../../types/models';
 import { logger } from '../../../utils/logger';
 import { sendTranscriptionReply } from '../utils';
-import { journalActionKeyboard } from '../keyboards';
+import { journalActionKeyboard } from '../keyboards/index';
 import { processMediaMessage, MAX_VOICE_MESSAGE_LENGTH_SECONDS } from './media-processor';
 import { addTextMessage, addVideoMessage, addVoiceMessage } from '../../../services/journal-entry.service';
 import * as fs from 'fs';

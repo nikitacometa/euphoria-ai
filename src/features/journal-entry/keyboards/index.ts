@@ -7,7 +7,7 @@ export const ButtonText = {
     SAVE: "✅ Save",
     FINISH_REFLECTION: "✅ Finish Reflection",
     ANALYZE: "🔍 Analyze & Suggest Questions",
-    CANCEL: "❌ Cancel",
+    CANCEL: "❌ Discard",
     GO_DEEPER: "🤔 Go Deeper",
     CONFIRM_CANCEL: "Yes, discard entry",
     KEEP_WRITING: "No, keep writing"
@@ -25,7 +25,6 @@ export const CALLBACKS = {
 // Keyboard layouts - using inline keyboards for consistency
 export const journalActionKeyboard = new InlineKeyboard()
     .text(ButtonText.SAVE, CALLBACKS.SAVE)
-    .row()
     .text(ButtonText.ANALYZE, CALLBACKS.ANALYZE)
     .row()
     .text(ButtonText.CANCEL, CALLBACKS.CANCEL);

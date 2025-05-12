@@ -7,7 +7,7 @@
 - Each feature typically includes:
   - `index.ts`: Exports the feature registration function
   - `handlers.ts`: Contains the bot handlers for the feature
-  - `keyboards.ts`: Defines keyboard layouts for the feature
+  - `keyboards/index.ts`: Defines keyboard layouts for the feature (inline keyboards)
   - `utils.ts`: Feature-specific utility functions
   - Subdirectories for complex features (handlers/, utils/, etc.)
 
@@ -39,14 +39,14 @@ export function registerFeatureHandlers(bot: Bot<JournalBotContext>): void {
 ### State Management
 - Session-based state management for multi-step processes
 - State is stored in `ctx.session` using Grammy's sessions middleware
-- Feature-specific session properties (e.g., `ctx.session.onboardingStep`)
+- Feature-specific session properties (e.g., `ctx.session.onboardingStep`, `ctx.session.lastStatusMessageId`)
 - Clear session state when flows complete
 
 ### Navigation System
-- Main menu uses inline keyboard pattern
-- Consistent callback data patterns for menu options
-- Navigation helpers used across features
-- `/menu` command to show main menu from anywhere
+- Consistent use of inline keyboards across all features
+- Callback data constants defined for each feature
+- Standardized buttons for common actions (save, cancel, back to menu)
+- Helper functions for creating consistent keyboards
 
 ```typescript
 // Main menu inline keyboard pattern
@@ -98,24 +98,21 @@ export const MAIN_MENU_CALLBACKS = {
 
 ### Keyboard Patterns
 ```typescript
-// Inline keyboard pattern
+// Standard pattern for feature keyboards - always use inline keyboards
 export function createFeatureKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text('Option 1', 'feature_option1')
     .text('Option 2', 'feature_option2')
     .row()
-    .text('Back', 'main_menu');
+    .text('Back to Menu', MAIN_MENU_CALLBACKS.MAIN_MENU);
 }
 
-// Reply keyboard pattern
-export function createFeatureMenu(): Keyboard {
-  return new Keyboard()
-    .text('Option A')
-    .text('Option B')
-    .row()
-    .text('Main Menu')
-    .resized();
-}
+// Callback data constants pattern
+export const FEATURE_CALLBACKS = {
+  OPTION_1: 'feature_option1',
+  OPTION_2: 'feature_option2',
+  BACK: 'feature_back'
+};
 ```
 
 ### Middleware Pattern
@@ -164,9 +161,35 @@ export class FeatureService {
 
 ### Journal Entry Creation
 - Multi-message collection into a single entry
+- Tracking status messages with `lastStatusMessageId` in session
+- Showing entry summary after each message with inline buttons
 - Support for different input types (text, voice, video)
 - AI analysis of content
 - Saving and finalizing entries
+
+```typescript
+// Pattern for status message after processing user input
+async function processUserInput(ctx: JournalBotContext, user: IUser) {
+  // Process the input
+  await processMessageContent(ctx);
+  
+  // Delete previous status message if it exists
+  if (ctx.session.lastStatusMessageId && ctx.chat) {
+    await ctx.api.deleteMessage(ctx.chat.id, ctx.session.lastStatusMessageId)
+      .catch(e => logger.warn("Failed to delete status message", e));
+  }
+  
+  // Create new status message with entry summary
+  const statusMessage = await createEntryStatusMessage(entry);
+  const sentMsg = await ctx.reply(statusMessage, {
+    parse_mode: 'HTML',
+    reply_markup: journalActionKeyboard // Inline keyboard with actions
+  });
+  
+  // Store message ID for deletion when next message arrives
+  ctx.session.lastStatusMessageId = sentMsg.message_id;
+}
+```
 
 ### Notification System
 - Scheduled notifications based on user preferences
