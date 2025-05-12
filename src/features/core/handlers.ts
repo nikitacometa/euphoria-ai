@@ -58,11 +58,11 @@ export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: '
  * Displays the main menu to the user with varied greetings.
  * Uses inline keyboard for better UI and more consistent experience.
  */
-export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
-    const greeting = getMainMenuGreeting(user);
+export async function showMainMenu(ctx: JournalBotContext, user: IUser, messageText?: string) {
+    const greeting = messageText ? { text: messageText, parse_mode: 'HTML' } : getMainMenuGreeting(user);
     await ctx.reply(greeting.text, {
         reply_markup: createMainMenuInlineKeyboard(),
-        parse_mode: greeting.parse_mode 
+        parse_mode: greeting.parse_mode as 'HTML' | undefined
     });
 }
 

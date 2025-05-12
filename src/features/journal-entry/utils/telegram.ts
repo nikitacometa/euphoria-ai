@@ -20,7 +20,7 @@ export async function sendTranscriptionReply(
     
     await ctx.reply(formatTranscription(transcription), {
         reply_to_message_id: messageId,
-        parse_mode: 'HTML',
-        reply_markup: customKeyboard || journalActionKeyboard
+        parse_mode: 'HTML'
+        // No keyboard for transcription replies
     });
 } 

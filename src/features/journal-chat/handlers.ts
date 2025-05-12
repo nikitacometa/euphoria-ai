@@ -36,7 +36,7 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.journalChatMode = true;
     ctx.session.waitingForJournalQuestion = true;
     
-    await ctx.reply(`<i>Hey, let's have a deep talk... Ask me anything 🤌</i>\n\n• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals\n\n<i>Of course, you can use voice/videos.</i>`, {
+    await ctx.reply(`<i>Hey, my love 😘 Let's have a deep talk. Ask me anything 🤌</i>\n\n• Recognize any patterns in your thoughts/actions\n• Analyze mood changes, correlations\n• Find any information just by meaning\n\n<i>🎤 ${user.name || user.firstName}, of course you can send voices/videos.</i>`, {
         reply_markup: createChatInlineKeyboard(),
         parse_mode: 'HTML'
     });

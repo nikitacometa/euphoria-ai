@@ -6,11 +6,11 @@ export const ButtonText = {
     SHARE: "✅ Share", // From notification
     SAVE: "✅ Save",
     FINISH_REFLECTION: "✅ Finish Reflection",
-    ANALYZE: "🔍 Analyze & Suggest Questions",
-    CANCEL: "❌ Discard",
+    ANALYZE: "👁️ AI Thoughts",
+    CANCEL: "❌ Cancel",
     GO_DEEPER: "🤔 Go Deeper",
-    CONFIRM_CANCEL: "Yes, discard entry",
-    KEEP_WRITING: "No, keep writing"
+    CONFIRM_CANCEL: "❌ Yes, Discard",
+    KEEP_WRITING: "✍️ No, Continue"
 } as const;
 
 // Callback data constants
@@ -26,7 +26,6 @@ export const CALLBACKS = {
 export const journalActionKeyboard = new InlineKeyboard()
     .text(ButtonText.SAVE, CALLBACKS.SAVE)
     .text(ButtonText.ANALYZE, CALLBACKS.ANALYZE)
-    .row()
     .text(ButtonText.CANCEL, CALLBACKS.CANCEL);
 
 export const confirmCancelKeyboard = new InlineKeyboard()

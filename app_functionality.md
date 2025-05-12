@@ -30,11 +30,11 @@
     *   **Trigger:** User presses "📝 New Entry" or "✅ Share" (from a notification context, apparently).
     *   **Flow:**
         *   Checks for an existing *active* entry (`getActiveJournalEntry`).
-        *   **If active entry exists:** Asks user to continue with it, showing "✅ Save", "🔍 Analyze & Suggest Questions", "❌ Cancel" keyboard. Sets `ctx.session.journalEntryId`.
-        *   **If no active entry:** Creates a new entry (`createJournalEntry`), sets `ctx.session.journalEntryId`, prompts user to share thoughts (text, voice, video), showing the same keyboard.
+        *   **If active entry exists:** Asks user to continue with it, showing "✅ Save", "🍑 Analyze", "❌ Cancel" keyboard. Sets `ctx.session.journalEntryId`.
+        *   **If no active entry:** Creates a new entry (`createJournalEntry`), sets `ctx.session.journalEntryId`, prompts user to share thoughts (text, voice, video), showing just the "❌ Cancel" button initially.
         *   **User Input (Text/Voice/Video):**
             *   **Text:** Saved directly (`saveTextMessage`, `addMessageToJournalEntry`).
-            *   **Voice/Video:** (Likely) Downloads file, transcribes using AI (`transcribeAudio` via `chatgpt.ts`/OpenAI), saves transcription (`saveVoiceMessage`/`saveVideoMessage`, `addMessageToJournalEntry`), replies with transcription (`sendTranscriptionReply`).
+            *   **Voice/Video:** (Likely) Downloads file, transcribes using AI (`transcribeAudio` via `chatgpt.ts`/OpenAI), saves transcription (`saveVoiceMessage`/`saveVideoMessage`, `addMessageToJournalEntry`), replies with transcription (`sendTranscriptionReply`) without showing a keyboard.
         *   **"✅ Save":** Finalizes the entry (`finishJournalEntry`). This likely involves:
             *   Compiling full text (`extractFullText`).
             *   Saving full text (`updateJournalEntryFullText`).
@@ -42,10 +42,10 @@
             *   Updating entry status (`completeJournalEntry`).
             *   Clearing `ctx.session.journalEntryId`.
             *   Returning user to Main Menu.
-        *   **"🔍 Analyze & Suggest Questions":**
-            *   Triggers AI analysis (`generateJournalQuestions` via `journal-ai.ts`).
-            *   Sends suggested questions back to the user.
-            *   Keeps the entry active, showing the same interaction keyboard.
+        *   **"🍑 Analyze":**
+            *   Triggers AI analysis to generate a formatted summary of the entry and 2-3 insights/ideas/questions.
+            *   Sends the summary and insights back to the user.
+            *   Keeps the entry active, showing the full keyboard.
         *   **"❌ Cancel":** Discards the current active entry, clears `ctx.session.journalEntryId`, returns to Main Menu.
     *   **Mechanism:** Relies heavily on `ctx.session.journalEntryId` to track the active entry state. Uses database functions (`createJournalEntry`, `addMessageToJournalEntry`, `getJournalEntryById`, etc.) and AI services (`journal-ai.ts`, `chatgpt.ts`).
 

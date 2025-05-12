@@ -11,6 +11,6 @@ export const CHAT_CALLBACKS = {
  */
 export function createChatInlineKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("❌ Exit Chat Mode", CHAT_CALLBACKS.EXIT_CHAT)
-    .text("↩️ Main Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
+    .text("📝 Save This Chat", MAIN_MENU_CALLBACKS.NEW_ENTRY)
+    .text("↩️ To Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
 }

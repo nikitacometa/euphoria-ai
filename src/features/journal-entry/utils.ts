@@ -183,5 +183,5 @@ export async function createEntrySummary(entry: IJournalEntry): Promise<string> 
  */
 export async function createEntryStatusMessage(entry: IJournalEntry): Promise<string> {
     const summary = await createEntrySummary(entry);
-    return `<b>Current journal entry</b>\n${summary}\n\n<i>Send more messages or use the buttons below.</i>`;
+    return `<b>Your messages make me really excited, you know... I want more 😏</b>\n\n${summary}\n\n<i>🎤 Any texts, voices, videos.</i>`;
 }

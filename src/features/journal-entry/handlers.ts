@@ -8,7 +8,7 @@ import {
 } from '../../database';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram, createEntryStatusMessage } from './utils';
-import { journalActionKeyboard, confirmCancelKeyboard } from './keyboards/index';
+import { journalActionKeyboard, confirmCancelKeyboard, ButtonText, CALLBACKS } from './keyboards/index';
 import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -350,15 +350,15 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         // Send the completion message with summary and question
         const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна задумайся вот о чем:' : '🤌 Tonight instead of sleep think about this:';
         const formattedQuestion = `<i>${questionIntro}</i>\n\n<code>${question}</code>`;
-        
-        await ctx.reply(`<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`, {
-            parse_mode: 'HTML'
-        });
-        
+
         // Clear the active entry from session
         ctx.session.journalEntryId = undefined;
 
-        await showMainMenu(ctx, user);
+        await showMainMenu(
+            ctx, 
+            user,
+            `<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`
+        );
         
     } catch (error) {
         errorService.logError(
@@ -394,7 +394,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
 }
 
 /**
- * Handles the "Analyze & Suggest Questions" action.
+ * Handles the "🍑 Analyze" action.
  */
 export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, user: IUser) {
     if (!ctx.session.journalEntryId) {
@@ -430,7 +430,23 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         const waitMsg = await ctx.reply("⏳");
         
         try {
-            const questions = await generateQuestionsForEntry(entryId, user);
+            // Create prompt for analysis and insights
+            const userInfo = `User: ${user.name || user.firstName}`;
+            
+            const chatMessages: IChatMessage[] = [
+                { role: 'system', content: journalPrompts.analysisSystemPrompt },
+                { 
+                    role: 'user', 
+                    content: `${userInfo}\n\nEntry:\n${entryContent}\n\nPlease provide:\n1. A short summary of the key points\n2. 2-3 insights/ideas/questions based on the content` 
+                }
+            ];
+            
+            // Call OpenAI API through our centralized service
+            const response = await openAIService.createChatCompletion(chatMessages, {
+                temperature: 0.7,
+                max_tokens: 500,
+                response_format: { type: "json_object" }
+            });
             
             if (ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => {
@@ -438,25 +454,56 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 });
             }
             
-            if (questions && questions.length > 0) {
-                // Sanitize HTML tags for Telegram
-                const sanitizedQuestions = questions.map((q: string) => sanitizeHtmlForTelegram(q));
-                const questionsText = sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n');
-                await ctx.reply(`${questionsText}`, { 
-                    reply_markup: journalActionKeyboard,
-                    parse_mode: 'HTML'
-                });
-            } else {
-                await ctx.reply(`<b>Hmm, I couldn't generate specific questions this time.</b> But feel free to continue sharing! ✨`, { 
-                    parse_mode: 'HTML'
-                });
+            const responseContent = response.choices[0].message.content || "{}";
+            
+            // Parse the response - expect summary and insights
+            const parsedResponse = openAIService.parseJsonResponse(
+                responseContent,
+                { 
+                    summary: "Here's a brief summary of your entry.",
+                    insights: [
+                        "What else would you like to explore?",
+                        "How do you feel about this situation now?",
+                        "What might be a different perspective to consider?"
+                    ]
+                }
+            );
+            
+            const summary = parsedResponse.summary || "Here's a brief summary of your entry.";
+            const insights = parsedResponse.insights || [
+                "What else would you like to explore?",
+                "How do you feel about this situation now?",
+                "What might be a different perspective to consider?"
+            ];
+            
+            // Sanitize HTML tags for Telegram
+            const sanitizedSummary = sanitizeHtmlForTelegram(summary);
+            const sanitizedInsights = Array.isArray(insights) 
+                ? insights.map((q: string) => sanitizeHtmlForTelegram(q))
+                : ["What else would you like to explore?"];
+            
+            // Format the message with summary and insights/questions
+            let formattedSummary = `<b>📝 Summary</b>\n\n${sanitizedSummary}`;
+            
+            let insightsText = "";
+            if (sanitizedInsights.length > 0) {
+                insightsText = `\n\n<b>💡 Insights & Questions</b>\n\n${sanitizedInsights.map((q: string, i: number) => `• ${q}`).join('\n\n')}`;
             }
+            
+            // Combine summary and insights
+            const fullAnalysis = `${formattedSummary}${insightsText}`;
+            
+            await ctx.reply(fullAnalysis, { 
+                reply_markup: journalActionKeyboard,
+                parse_mode: 'HTML'
+            });
+            
         } catch (error) {
             errorService.logError(
                 error instanceof AIError 
                     ? error 
                     : new AIError(
-                        'Error generating questions', 
+                        'Error generating analysis', 
                         { 
                             entryId: entryId.toString(),
                             userId: user._id?.toString() || '[Unknown User ID]'
@@ -473,16 +520,10 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 });
             }
             
-            await ctx.reply(`<b>Oops!</b> I had trouble thinking of questions. Please try again or continue sharing. ✨`, { 
+            await ctx.reply(`<b>Oops!</b> I had trouble analyzing your entry. Please try again or continue sharing. ✨`, { 
                 parse_mode: 'HTML'
             });
         }
-        
-        // // Always show the journal action keyboard after any response
-        // await ctx.reply(`Keep sharing, or use the buttons below... 💫`, {
-        //     reply_markup: journalActionKeyboard,
-        //     parse_mode: 'HTML'
-        // });
         
     } catch (error) {
         errorService.logError(
@@ -500,7 +541,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             'error'
         );
         
-        await ctx.reply(`<b>Oops!</b> My question generator is feeling shy. Let's try again later!`, {
+        await ctx.reply(`<b>Oops!</b> My analysis engine is feeling shy. Let's try again later!`, {
             parse_mode: 'HTML',
             reply_markup: journalActionKeyboard // Always show keyboard even after error
         });
@@ -526,9 +567,12 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
             // Store message ID for later deletion
             ctx.session.lastStatusMessageId = sentMsg.message_id;
         } else {
-            // Starting a new entry
-            const sentMsg = await ctx.reply('🎤 <b>New journal entry started</b>\n\nSend texts, voices, videos. The more you send — the deeper insights you get.\n\n<i>Use buttons below when you\'re done.</i>', {
-                reply_markup: journalActionKeyboard,
+            // Starting a new entry - use the specific text requested with only cancel button
+            const onlyCancelKeyboard = new InlineKeyboard()
+                .text(ButtonText.CANCEL, CALLBACKS.CANCEL);
+                
+            const sentMsg = await ctx.reply('🎤 <b>Share any number of texts/voices/videos, I want maximum of you...</b>\n\nForward from other chats.\n\n<i>Record short PS voices to share any small detail that feels important.</i>', {
+                reply_markup: onlyCancelKeyboard,
                 parse_mode: 'HTML'
             });
             // Store message ID for later deletion
@@ -563,7 +607,7 @@ export async function cancelJournalEntryHandler(ctx: JournalBotContext, user: IU
     // This handler is only relevant if called when a journal entry *might* be active
     if (ctx.session?.journalEntryId) {
         // Ask for confirmation before cancelling
-        await ctx.reply(`Are you sure you want to discard this journal entry? Any progress will be lost.`, { 
+        await ctx.reply(`🥺 Oh God, ${user.name || user.firstName}, my love, you sure? I'll forget all those things <b>forever</b>.\n\nMaybe save it, mm?..`, { 
             parse_mode: 'HTML',
             reply_markup: confirmCancelKeyboard
         });
