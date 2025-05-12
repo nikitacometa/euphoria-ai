@@ -11,6 +11,11 @@ export const CHAT_CALLBACKS = {
  */
 export function createChatInlineKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("📝 Save This Chat", MAIN_MENU_CALLBACKS.NEW_ENTRY)
-    .text("↩️ To Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
+    .text("✅ Save As New Entry", MAIN_MENU_CALLBACKS.NEW_ENTRY)
+    .text("🍌 Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
+}
+
+export function notNowInlineKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("🙄 Not Now, Show Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
 }

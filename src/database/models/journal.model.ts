@@ -58,6 +58,26 @@ const journalEntrySchema = new Schema<IJournalEntry>(
         fullText: {
             type: String,
             required: false
+        },
+        textMessages: {
+            type: Number,
+            default: 0,
+            required: false
+        },
+        voiceMessages: {
+            type: Number,
+            default: 0,
+            required: false
+        },
+        videoMessages: {
+            type: Number,
+            default: 0,
+            required: false
+        },
+        fileMessages: {
+            type: Number,
+            default: 0,
+            required: false
         }
     },
     {

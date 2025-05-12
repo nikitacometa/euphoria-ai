@@ -85,6 +85,10 @@ export interface IJournalEntry extends Document {
     aiQuestions?: string[];
     aiInsights?: string;
     fullText?: string;
+    textMessages?: number; // Count of text messages
+    voiceMessages?: number; // Count of voice messages
+    videoMessages?: number; // Count of video messages
+    fileMessages?: number; // Count of file messages
     createdAt: Date;
     updatedAt: Date;
 }

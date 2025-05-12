@@ -15,6 +15,7 @@ import {
     createJournalEntry as dbCreateJournalEntry,
     updateJournalEntryAnalysis as dbUpdateJournalEntryAnalysis
 } from '../database';
+import { JournalEntry } from '../database/models/journal.model';
 import { generateJournalQuestions, analyzeJournalEntry } from './ai/journal-ai.service';
 
 /**
@@ -120,6 +121,13 @@ export async function addTextMessage(
             );
             
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
+            
+            // Increment text message counter
+            await JournalEntry.findByIdAndUpdate(
+                entryId,
+                { $inc: { textMessages: 1 } }
+            );
+            
             await updateEntryFullText(entryId);
             return message;
         }
@@ -160,6 +168,13 @@ export async function addVoiceMessage(
             );
             
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
+            
+            // Increment voice message counter
+            await JournalEntry.findByIdAndUpdate(
+                entryId,
+                { $inc: { voiceMessages: 1 } }
+            );
+            
             await updateEntryFullText(entryId);
             return message;
         }
@@ -200,6 +215,13 @@ export async function addVideoMessage(
             );
             
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
+            
+            // Increment video message counter
+            await JournalEntry.findByIdAndUpdate(
+                entryId,
+                { $inc: { videoMessages: 1 } }
+            );
+            
             await updateEntryFullText(entryId);
             return message;
         }

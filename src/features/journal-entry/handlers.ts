@@ -29,6 +29,7 @@ import {
     updateEntryAnalysisAndQuestions
 } from '../../services/journal-entry.service';
 import { createBackToMenuKeyboard } from '../core/keyboards';
+import { MAIN_MENU_CALLBACKS } from '../core/keyboards';
 
 // Define a constant for max voice message duration
 export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = 300; // 5 minutes
@@ -51,8 +52,11 @@ async function processMediaMessage(
     fileId: string,
     mediaType: 'voice' | 'video'
 ): Promise<{ transcription: string; localFilePath: string }> {
-    // Send transcription progress indicator
-    const progressMsg = await ctx.reply("⏳");
+    // Send transcription progress indicator without keyboard
+    const progressMsg = await ctx.reply("⏳", {
+        parse_mode: 'HTML'
+        // No reply_markup to ensure no keyboard is shown
+    });
     
     try {
         const file = await ctx.api.getFile(fileId);
@@ -281,7 +285,10 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         return;
     }
     
-    const waitMsg = await ctx.reply("⏳");
+    const waitMsg = await ctx.reply("⏳", {
+        parse_mode: 'HTML'
+        // No reply_markup to ensure no keyboard is shown with progress indicator
+    });
     
     let rawApiResponseContent: string | null = null;
     
@@ -347,17 +354,37 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         // Delete the waiting message
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
         
+        // Format the summary as bullet points
+        const sanitizedSummary = sanitizeHtmlForTelegram(summary);
+        const formattedSummary = formatAsSummaryBullets(sanitizedSummary);
+        
         // Send the completion message with summary and question
-        const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна задумайся вот о чем:' : '🤌 Tonight instead of sleep think about this:';
-        const formattedQuestion = `<i>${questionIntro}</i>\n\n<code>${question}</code>`;
+        // TODO: finalize fromatting
+        // const questionIntro = user.aiLanguage === 'ru' ? '🤌 Ночью вместо сна задумайся вот о чем:' : '🤌 Tonight instead of sleep think about this:';
+        const formattedQuestion = `🤔 <code>${question}</code>`;
+
+        // Format keywords as hashtags
+        const formattedKeywordTags = entryKeywords && entryKeywords.length > 0 
+        ? entryKeywords.map(k => `#${k.replace(/\s+/g, '_')}`).join(' ') 
+        : "";
 
         // Clear the active entry from session
         ctx.session.journalEntryId = undefined;
 
-        await showMainMenu(
-            ctx, 
-            user,
-            `<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`
+        // Create post-save keyboard with the new buttons
+        const postSaveKeyboard = new InlineKeyboard()
+            .text("📝 One More Entry", MAIN_MENU_CALLBACKS.NEW_ENTRY)
+            .text("📚 Manage Entries", MAIN_MENU_CALLBACKS.JOURNAL_HISTORY)
+            .row()
+            .text("💭 Discuss With AI", MAIN_MENU_CALLBACKS.JOURNAL_CHAT)
+            .text("⚙️ Settings", MAIN_MENU_CALLBACKS.SETTINGS);
+
+        await ctx.reply(
+            `<b>📚 ${entryName}</b>\n\n${formattedSummary}\n\n${formattedKeywordTags}\n\n${formattedQuestion}`,
+            {
+                parse_mode: 'HTML',
+                reply_markup: postSaveKeyboard
+            }
         );
         
     } catch (error) {
@@ -391,6 +418,15 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         
         ctx.session.journalEntryId = undefined;
     }
+}
+
+// Helper function to convert newline-separated text to bullet points
+function formatAsSummaryBullets(text: string): string {
+    // Split by double newlines
+    const points = text.split('\n\n').filter(point => point.trim().length > 0);
+    
+    // Convert to bullet points
+    return points.map(point => `• ${point.trim()}`).join('\n\n');
 }
 
 /**
@@ -427,7 +463,10 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             return; // Keep the entry active
         }
         
-        const waitMsg = await ctx.reply("⏳");
+        const waitMsg = await ctx.reply("⏳", {
+            parse_mode: 'HTML'
+            // No reply_markup to ensure no keyboard is shown with progress indicator
+        });
         
         try {
             // Create prompt for analysis and insights
@@ -482,16 +521,24 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 ? questions.map((q: string) => sanitizeHtmlForTelegram(q))
                 : ["What else would you like to explore?"];
 
+            // Format the summary as bullet points
+            const formattedSummary = formatAsSummaryBullets(sanitizedSummary);
+
             let insightsText = "";
             if (sanitizedQuestions.length > 0) {
                 insightsText = `\n\n🤔 <b>I feel you good enough? Anyway, had a few thoughs...</b>\n\n${sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n')}`;
             }
             
             // Combine summary and insights
-            const fullAnalysis = `${sanitizedSummary}${insightsText}`;
+            const fullAnalysis = `${formattedSummary}${insightsText}`;
             
+            const aiAnalysisKeyboard = new InlineKeyboard()
+                .text("✅ Just Save", CALLBACKS.SAVE)
+                .text("💭 More Insights", CALLBACKS.ANALYZE)
+                .text("❌ Cancel Entry", CALLBACKS.CANCEL);
+
             await ctx.reply(fullAnalysis, { 
-                reply_markup: journalActionKeyboard,
+                reply_markup: aiAnalysisKeyboard,
                 parse_mode: 'HTML'
             });
             
@@ -568,7 +615,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
             const onlyCancelKeyboard = new InlineKeyboard()
                 .text(ButtonText.CANCEL, CALLBACKS.CANCEL);
                 
-            const sentMsg = await ctx.reply('🎤 <b>Share texts/voices/videos, the more the better 😘</b>\n\n- forward from other chats\n- record short explanitory voices for any small details', {
+            const sentMsg = await ctx.reply('💁‍♀️ <b>Share any texts/voices/videos 🎤 </b>\n\n- forward informative messages from other chats\n- instantly RECORD HERE short explanitory voices for any small detail/idea\n- ask ai to analyze and help you reflect deeper\n\n💡 <i>More info you share -> better I understand you -> more insights you get.</i>', {
                 reply_markup: onlyCancelKeyboard,
                 parse_mode: 'HTML'
             });
@@ -714,7 +761,10 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         }
         
         // Send wait message with sand clock emoji
-        const waitMsg = await ctx.reply("⏳");
+        const waitMsg = await ctx.reply("⏳", {
+            parse_mode: 'HTML'
+            // No reply_markup to ensure no keyboard is shown with progress indicator
+        });
         
         // Get all messages from the entry
         const messages = entry.messages as IMessage[];

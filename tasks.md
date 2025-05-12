@@ -1,60 +1,89 @@
-# Task: Update Inline Keyboard Handling
+# Task: Refactor Bot Interactions and Entry Handling
 
-**Complexity Level:** 2 (Simple Enhancement)
+## Complexity
+Level: 3
+Type: Feature
 
-## 1. Overview of Changes
+## Description
+This task involves several updates across different features to improve user interaction flow, AI analysis quality and formatting, and journal entry metadata storage and display.
 
-The goal is to modify how the bot handles interactions with inline keyboards. When a user clicks a button on an inline keyboard:
-1. The inline keyboard should be removed from the message.
-2. The message text **should remain the same**.
-3. If the message has already been deleted, the bot should gracefully handle the error and not attempt to edit it.
+- **Keyboard Changes:** Remove transcription/AI thoughts keyboards, update post-save, AI chat, and history view keyboards.
+- **AI Interaction:** Improve AI analysis formatting (both prompt and saving), enhance AI's ability to answer questions about entries.
+- **Database:** Add fields to track message types per entry.
+- **Display:** Show message type counts in entry history summaries.
 
-This change will improve the user experience by preventing interactions with outdated keyboards and providing clear feedback.
+## Technology Stack
+- Framework: Telegraf
+- Language: TypeScript
+- AI Service: OpenAI API
+- Database: MongoDB/Mongoose
 
-## 2. Files Modified
+## Technology Validation Checkpoints
+- [x] Project initialization command verified (Existing project)
+- [x] Required dependencies identified and installed (Existing project)
+- [x] Build configuration validated (Existing project)
+- [x] Hello world verification completed (Existing project)
+- [x] Test build passes successfully
 
-The following files were modified to implement the required changes:
+## Status
+- [x] Initialization complete
+- [x] Planning complete
+- [x] Technology validation complete
+- [x] Implementation Phase 1: Database Schema & Migration
+- [x] Implementation Phase 2: Update Entry Creation/Update Logic
+- [x] Implementation Phase 3: Keyboard Removals & Modifications
+- [x] Implementation Phase 4: AI Prompt & Formatting Updates
+- [x] Implementation Phase 5: Update Entry Summary Display Logic
+- [x] Implementation Phase 6: Testing & Verification
+- [x] Implementation Complete
 
-* Created utility file:
-  * `src/utils/inline-keyboard.ts` - Contains utility functions for removing inline keyboards and error handling
+## Implementation Details
 
-* Updated callback handlers in:
-  * `src/features/core/index.ts` - Main menu callbacks
-  * `src/features/journal-entry/index.ts` - Journal entry handling callbacks
-  * `src/features/journal-history/index.ts` - Journal history viewing/deleting callbacks
-  * `src/features/journal-chat/handlers.ts` - Journal chat callbacks
-  * `src/features/settings/index.ts` - Settings callbacks
+### 1. Database Schema Update
+- [x] Updated `IJournalEntry` interface in `src/types/models.ts`
+- [x] Added fields: `textMessages`, `voiceMessages`, `videoMessages`, `fileMessages` to the Mongoose schema
+- [x] Implemented counter incrementing in `src/services/journal-entry.service.ts` for each message type
 
-## 3. Implementation Details
+### 2. Entry Logic Update
+- [x] Modified message handlers to increment the appropriate counters when messages are added
+- [x] Updated `addTextMessage`, `addVoiceMessage`, and `addVideoMessage` functions to track message types
 
-1. ✅ **Created a Utility Function:**
-   * Created `removeInlineKeyboard()` function that removes the keyboard and handles errors
-   * Created `withKeyboardRemoval()` wrapper function for future use if needed
-   * Added proper error handling for cases where the message was already deleted
+### 3. Keyboard Modifications
+- [x] Removed transcription keyboard from replies by updating `sendTranscriptionReply`
+- [x] Removed "AI Thoughts" button from the `journalActionKeyboard`
+- [x] Removed keyboards from progress messages (sand clock emoji)
+- [x] Updated post-save entry keyboard with "📝 One More Entry", "📚 Manage Entries", "💭 Discuss With AI", "⚙️ Settings"
+- [x] Updated AI chat keyboard to "✅ Save As New Entry", "🍌 Menu"
+- [x] Updated history view keyboard to show 3 buttons per row and changed "Main Menu" to "🍌 Menu"
+- [x] Added specialized `aiAnalysisKeyboard` with "✅ Just Save", "💭 More Insights", "❌ Cancel Entry"
+- [x] Improved new entry prompt message with better instructions
 
-2. ✅ **Updated Callback Handlers:**
-   * Added the utility function to all callback query handlers
-   * Ensured keyboards are removed immediately after button press
-   * Added try/catch blocks to prevent errors from interrupting the flow
-   * Added proper logging for error cases
+### 4. AI Interaction & Formatting
+- [x] Modified AI prompts to format summaries as single-sentence points separated by double newlines
+- [x] Added `formatAsSummaryBullets` function to convert AI responses to bullet points
+- [x] Enhanced `insightsSystemPrompt` to better handle entries with minimal data
+- [x] Improved formatting for entry completion with entry name, summary, and hashtag keywords
+- [x] Modified question formatting to be more concise
 
-3. ✅ **Error Handling:**
-   * Added specific handling for "message not found" and "message is not modified" errors
-   * Implemented logging of errors without crashing the application
+### 5. Entry Summary Display
+- [x] Implemented concise message count format (e.g., `[T:5 V:1 F:2]`)
+- [x] Simplified entry status message to focus on the main prompt
 
-## 4. Testing
+## Challenges & Solutions
+- **Challenge:** Identifying all code locations for keyboard generation/handling.
+  - **Solution:** Used code search for keyboard-related functions and systematically reviewed feature directories.
+- **Challenge:** Ensuring AI prompt changes consistently produce the desired format.
+  - **Solution:** Implemented formatting functions that handle AI responses consistently regardless of output format.
+- **Challenge:** Tracking message counts efficiently.
+  - **Solution:** Added direct database update in the message handling functions to update counters atomically.
+- **Challenge:** Making entry summaries concise yet informative.
+  - **Solution:** Used abbreviated format for message counts and positioned them at the end of messages.
 
-* **Unit Tests:** Not required as the implementation doesn't contain complex logic
-* **Manual Testing:** Required to verify that:
-  * Keyboards are properly removed after button press
-  * Original message text remains unchanged
-  * No errors occur if message is deleted before keyboard removal attempt
-  * Normal functionality continues to work as expected
-
-## 5. Potential Extensions
-
-* The `withKeyboardRemoval()` wrapper function could be used in the future to simplify adding this behavior to new handlers
-* Error handling could be expanded to include more specific Telegram API error codes if needed
+## Future Considerations
+- Fine-tune AI prompts based on user feedback and response quality
+- Consider adding analytics on message type distribution
+- Explore optimizations for entries with many messages
+- Add specialized handling for other message types (stickers, photos, documents)
 
 ---
 **Status:** Implementation Complete ✅ 

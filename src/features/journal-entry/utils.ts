@@ -27,8 +27,8 @@ export async function sendTranscriptionReply(
     
     await ctx.reply(formatTranscription(transcription), {
         reply_to_message_id: messageId,
-        parse_mode: 'HTML',
-        reply_markup: customKeyboard || journalActionKeyboard
+        parse_mode: 'HTML'
+        // Removed reply_markup to eliminate inline keyboard
     });
 }
 
@@ -140,6 +140,34 @@ export const ErrorMessages = {
  * @returns Summary text showing message counts
  */
 export async function createEntrySummary(entry: IJournalEntry): Promise<string> {
+    if (!entry) {
+        return 'No messages yet.';
+    }
+
+    // Use the new counter fields if available
+    if (typeof entry.textMessages === 'number' || 
+        typeof entry.voiceMessages === 'number' || 
+        typeof entry.videoMessages === 'number' || 
+        typeof entry.fileMessages === 'number') {
+        
+        const textCount = entry.textMessages || 0;
+        const voiceCount = entry.voiceMessages || 0;
+        const videoCount = entry.videoMessages || 0;
+        const fileCount = entry.fileMessages || 0;
+        
+        // Create a concise summary in the required format
+        const formatCounts = [];
+        if (textCount > 0) formatCounts.push(`T:${textCount}`);
+        if (voiceCount > 0) formatCounts.push(`V:${voiceCount}`);
+        if (videoCount > 0) formatCounts.push(`Vi:${videoCount}`);
+        if (fileCount > 0) formatCounts.push(`F:${fileCount}`);
+        
+        if (formatCounts.length > 0) {
+            return `[${formatCounts.join(' ')}]`;
+        }
+    }
+
+    // Fall back to the original method for older entries
     if (!entry.messages || !Array.isArray(entry.messages) || entry.messages.length === 0) {
         return 'No messages yet.';
     }
@@ -168,13 +196,16 @@ export async function createEntrySummary(entry: IJournalEntry): Promise<string> 
     
     // Create summary
     const parts = [];
-    if (textCount > 0) parts.push(`•${textCount} text${textCount !== 1 ? 's' : ''}`);
-    if (voiceCount > 0) parts.push(`•${voiceCount} voice${voiceCount !== 1 ? 's' : ''}`);
-    if (videoCount > 0) parts.push(`•${videoCount} video${videoCount !== 1 ? 's' : ''}`);
-    if (imageCount > 0) parts.push(`•${imageCount} image${imageCount !== 1 ? 's' : ''}`);
+    if (textCount > 0) parts.push(`T:${textCount}`);
+    if (voiceCount > 0) parts.push(`V:${voiceCount}`);
+    if (videoCount > 0) parts.push(`Vi:${videoCount}`);
+    if (imageCount > 0) parts.push(`I:${imageCount}`);
     
-    const summary = parts.join('\n');
-    return summary || 'No messages yet.';
+    if (parts.length > 0) {
+        return `[${parts.join(' ')}]`;
+    }
+    
+    return 'No messages yet.';
 }
 
 /**
@@ -182,9 +213,8 @@ export async function createEntrySummary(entry: IJournalEntry): Promise<string> 
  * Shows message counts and prompts for next action
  */
 export async function createEntryStatusMessage(entry: IJournalEntry): Promise<string> {
-    // TODO: Add a status message for the current journal entry
+    // TODO: think is there a good format to show the summary?
     // const summary = await createEntrySummary(entry);
-    // return `<b>The more messages you send, the more I love you 🙂‍↕</b>\n\n${summary}\n\n<i>🎤 Share texts, voices, videos.</i>`;
-    return `<b>I love reading you. Give me more, please 🥹</b>\n\n<i>🎤 Texts, voices, videos.</i>`;
-
+    // return `<b>I love reading you. Give me more, please 🥹</b>\n\n<i>🎤 Texts, voices, videos.</i>${summary ? ' ' + summary : ''}`;
+    return `<b>I love reading you!! Tell me more, please ☺️</b>\n\n<i>🎤 Texts, voices, videos.</i>`;
 }

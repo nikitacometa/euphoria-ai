@@ -3,7 +3,7 @@ import { IUser, IJournalEntry } from '../../types/models';
 import { logger } from '../../utils/logger';
 import { getUserJournalEntries } from '../../database';
 import { showMainMenu } from '../core/handlers';
-import { createChatInlineKeyboard, CHAT_CALLBACKS } from './keyboards';
+import { createChatInlineKeyboard, CHAT_CALLBACKS, notNowInlineKeyboard } from './keyboards';
 import { generateJournalInsights } from '../../services/ai/journal-ai.service';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply } from '../journal-entry/utils';
@@ -38,7 +38,7 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.waitingForJournalQuestion = true;
     
     await ctx.reply(`<b>Hey, let's have a deep talk! Ask me anything 🤌</b>\n\n• Recognize any patterns in your thoughts/actions\n• Analyze mood changes, correlations\n• Find any information just by meaning\n\n<i>🎤 Haha, ${user.name || user.firstName}! Of course use voices/videos.</i>`, {
-        reply_markup: createChatInlineKeyboard(),
+        reply_markup: notNowInlineKeyboard(),
         parse_mode: 'HTML'
     });
 }
@@ -112,7 +112,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             // React with thumbs up to acknowledge message received
             await ctx.react("👍").catch(e => logger.warn("Failed to react with thumbs up", e));
             
-            const waitMsg = await ctx.reply(`⏳`, { reply_markup: createChatInlineKeyboard() });
+            const waitMsg = await ctx.reply(`⏳`);
             waitMsgId = waitMsg.message_id;
 
         } else {
