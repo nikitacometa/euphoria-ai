@@ -20,6 +20,7 @@ dev-debug.log
 # Environment variables
 # Editor directories and files
 .idea
+.cursor*
 .vscode
 *.suo
 *.ntvs*
