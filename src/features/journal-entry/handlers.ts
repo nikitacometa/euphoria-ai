@@ -313,7 +313,7 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         // Call OpenAI API through our centralized service
         const response = await openAIService.createChatCompletion(chatMessages, {
             temperature: 0.7,
-            max_tokens: 300,
+            max_tokens: 500,
             response_format: { type: "json_object" }
         });
         
@@ -434,10 +434,10 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             const userInfo = `User: ${user.name || user.firstName}`;
             
             const chatMessages: IChatMessage[] = [
-                { role: 'system', content: journalPrompts.analysisSystemPrompt },
+                { role: 'system', content: journalPrompts.deeperAnalysisPrompt },
                 { 
                     role: 'user', 
-                    content: `${userInfo}\n\nEntry:\n${entryContent}\n\nPlease provide:\n1. A short summary of the key points\n2. 2-3 insights/ideas/questions based on the content` 
+                    content: `${userInfo}\n\nEntry:\n${entryContent}\n\n` 
                 }
             ];
             
@@ -461,7 +461,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 responseContent,
                 { 
                     summary: "Here's a brief summary of your entry.",
-                    insights: [
+                    questions: [
                         "What else would you like to explore?",
                         "How do you feel about this situation now?",
                         "What might be a different perspective to consider?"
@@ -470,7 +470,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             );
             
             const summary = parsedResponse.summary || "Here's a brief summary of your entry.";
-            const insights = parsedResponse.insights || [
+            const questions = parsedResponse.questions || [
                 "What else would you like to explore?",
                 "How do you feel about this situation now?",
                 "What might be a different perspective to consider?"
@@ -478,20 +478,17 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             
             // Sanitize HTML tags for Telegram
             const sanitizedSummary = sanitizeHtmlForTelegram(summary);
-            const sanitizedInsights = Array.isArray(insights) 
-                ? insights.map((q: string) => sanitizeHtmlForTelegram(q))
+            const sanitizedQuestions = Array.isArray(questions) 
+                ? questions.map((q: string) => sanitizeHtmlForTelegram(q))
                 : ["What else would you like to explore?"];
-            
-            // Format the message with summary and insights/questions
-            let formattedSummary = `<b>📝 Summary</b>\n\n${sanitizedSummary}`;
-            
+
             let insightsText = "";
-            if (sanitizedInsights.length > 0) {
-                insightsText = `\n\n<b>💡 Insights & Questions</b>\n\n${sanitizedInsights.map((q: string, i: number) => `• ${q}`).join('\n\n')}`;
+            if (sanitizedQuestions.length > 0) {
+                insightsText = `\n\n🤔 <b>I feel you good enough? Anyway, had a few thoughs...</b>\n\n${sanitizedQuestions.map((q: string, i: number) => `• ${q}`).join('\n\n')}`;
             }
             
             // Combine summary and insights
-            const fullAnalysis = `${formattedSummary}${insightsText}`;
+            const fullAnalysis = `${sanitizedSummary}${insightsText}`;
             
             await ctx.reply(fullAnalysis, { 
                 reply_markup: journalActionKeyboard,
@@ -738,14 +735,14 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         
         // Get previous questions and analysis
         const previousQuestions = entry.aiQuestions || '';
-        const previousAnalysis = entry.analysis || '';
+        const previousSummary = entry.analysis || '';
         
         // Use the chatMessages format from our central type
         const chatMessages: IChatMessage[] = [
             { role: 'system', content: journalPrompts.deeperAnalysisPrompt },
             { 
                 role: 'user', 
-                content: `User's Journal Entry and Responses:\n${userResponses}\n\nPrevious Questions:\n${previousQuestions}\n\nPrevious Analysis:\n${previousAnalysis}\n\nPlease generate a deeper analysis and more probing questions.` 
+                content: `User's Journal Entry and Responses:\n${userResponses}\n\nPrevious Questions:\n${previousQuestions}\n\nPrevious Analysis:\n${previousSummary}\n\nPlease generate a deeper analysis and more probing questions.` 
             }
         ];
         
@@ -762,22 +759,22 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
         const parsedResponse = openAIService.parseJsonResponse(
             responseContent,
             { 
-                analysis: "Looking deeper at your reflections...",
+                summary: "Looking deeper at your reflections...",
                 questions: ["What else would you like to explore about this experience?"]
             }
         );
         
-        const deeperAnalysis = parsedResponse.analysis;
+        const summary = parsedResponse.summary;
         const deeperQuestions = parsedResponse.questions;
         
         // Sanitize HTML tags for Telegram (reuse the sanitization function defined in finishJournalEntryHandler)
-        const sanitizedAnalysis = sanitizeHtmlForTelegram(deeperAnalysis);
+        const sanitizedSummary = sanitizeHtmlForTelegram(summary);
         const sanitizedQuestions = deeperQuestions.map(q => sanitizeHtmlForTelegram(q));
         
         // Update the journal entry with the deeper analysis and questions
         await updateEntryAnalysisAndQuestions(
             entryId,
-            `${previousAnalysis}\n\nDeeper Analysis: ${sanitizedAnalysis || '[Analysis Unavailable]'}`,
+            `${previousSummary}\n\nSummary: ${sanitizedSummary || '[Summary Unavailable]'}`,
             sanitizedQuestions || ['[Questions Unavailable]'] // Ensure it's an array of strings
         );
         
@@ -792,7 +789,7 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
             questionsText = sanitizedQuestions.map((q: string, i: number) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
         }
         
-        const formattedMessage = `<b>${sanitizedAnalysis}</b>\n\n<b>🤔 Let's dig a bit deeper:</b>\n\n${questionsText}`;
+        const formattedMessage = `<b>${sanitizedSummary}</b>\n\n🙏 <b>Do I understand you correctly, dear? Also, I had a few thoughs...</b>\n\n${questionsText}`;
         
         await ctx.reply(formattedMessage, {
             parse_mode: 'HTML'

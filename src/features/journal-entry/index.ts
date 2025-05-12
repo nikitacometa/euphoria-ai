@@ -18,7 +18,7 @@ const NEW_ENTRY_TEXT = "📝 New Entry";
 const SHARE_TEXT = "✅ Share"; // From notification
 const SAVE_TEXT = "✅ Save";
 const FINISH_REFLECTION_TEXT = "✅ Finish Reflection"; // Another save trigger?
-const ANALYZE_TEXT = "🍑 Analyze";
+const ANALYZE_TEXT = "👁️ AI Thought";
 const CANCEL_TEXT = "❌ Cancel";
 
 export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {

@@ -168,12 +168,12 @@ export async function createEntrySummary(entry: IJournalEntry): Promise<string> 
     
     // Create summary
     const parts = [];
-    if (textCount > 0) parts.push(`${textCount} text${textCount !== 1 ? 's' : ''}`);
-    if (voiceCount > 0) parts.push(`${voiceCount} voice${voiceCount !== 1 ? 's' : ''}`);
-    if (videoCount > 0) parts.push(`${videoCount} video${videoCount !== 1 ? 's' : ''}`);
-    if (imageCount > 0) parts.push(`${imageCount} image${imageCount !== 1 ? 's' : ''}`);
+    if (textCount > 0) parts.push(`•${textCount} text${textCount !== 1 ? 's' : ''}`);
+    if (voiceCount > 0) parts.push(`•${voiceCount} voice${voiceCount !== 1 ? 's' : ''}`);
+    if (videoCount > 0) parts.push(`•${videoCount} video${videoCount !== 1 ? 's' : ''}`);
+    if (imageCount > 0) parts.push(`•${imageCount} image${imageCount !== 1 ? 's' : ''}`);
     
-    const summary = parts.join(', ');
+    const summary = parts.join('\n');
     return summary || 'No messages yet.';
 }
 
@@ -182,6 +182,9 @@ export async function createEntrySummary(entry: IJournalEntry): Promise<string> 
  * Shows message counts and prompts for next action
  */
 export async function createEntryStatusMessage(entry: IJournalEntry): Promise<string> {
-    const summary = await createEntrySummary(entry);
-    return `<b>Your messages make me really excited, you know... I want more 😏</b>\n\n${summary}\n\n<i>🎤 Any texts, voices, videos.</i>`;
+    // TODO: Add a status message for the current journal entry
+    // const summary = await createEntrySummary(entry);
+    // return `<b>The more messages you send, the more I love you 🙂‍↕</b>\n\n${summary}\n\n<i>🎤 Share texts, voices, videos.</i>`;
+    return `<b>I love reading you. Give me all you have, please 💖</b>\n\n<i>🎤 Share texts, voices, videos.</i>`;
+
 }
