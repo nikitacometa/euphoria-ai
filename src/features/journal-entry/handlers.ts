@@ -568,7 +568,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
             const onlyCancelKeyboard = new InlineKeyboard()
                 .text(ButtonText.CANCEL, CALLBACKS.CANCEL);
                 
-            const sentMsg = await ctx.reply('🎤 <b>Share any number of texts/voices/videos, I want maximum of you...</b>\n\nForward from other chats.\n\n<i>Record short PS voices to share any small detail that feels important.</i>', {
+            const sentMsg = await ctx.reply('🎤 <b>Share texts/voices/videos, the more the better 😘</b>\n\n- forward from other chats\n- record short explanitory voices for any small details', {
                 reply_markup: onlyCancelKeyboard,
                 parse_mode: 'HTML'
             });

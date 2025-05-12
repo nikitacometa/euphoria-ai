@@ -5,6 +5,7 @@ import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
 import { showMainMenu } from './handlers';
 import { MAIN_MENU_CALLBACKS } from './keyboards';
+import { removeInlineKeyboard } from '../../utils/inline-keyboard';
 
 /**
  * Registers all core handlers with the bot
@@ -24,7 +25,7 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
             ctx.from.username
         );
 
-        // Need to delete the inline message before showing the main menu keyboard
+        // This handler specifically deletes the message, so no need to remove the keyboard
         try {
             await ctx.deleteMessage();
         } catch (e) {
@@ -38,16 +39,23 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
 
-        const user = await findOrCreateUser(
-            ctx.from.id,
-            ctx.from.first_name,
-            ctx.from.last_name,
-            ctx.from.username
-        );
+        try {
+            // Remove the keyboard first to prevent multiple clicks
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(
+                ctx.from.id,
+                ctx.from.first_name,
+                ctx.from.last_name,
+                ctx.from.username
+            );
 
-        // Import and call the newEntryHandler from journal-entry feature
-        const { newEntryHandler } = await import('../journal-entry/handlers.js');
-        await newEntryHandler(ctx, user);
+            // Import and call the newEntryHandler from journal-entry feature
+            const { newEntryHandler } = await import('../journal-entry/handlers.js');
+            await newEntryHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in NEW_ENTRY callback handler', error);
+        }
     });
 
     // Journal history callback
@@ -55,16 +63,23 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
 
-        const user = await findOrCreateUser(
-            ctx.from.id,
-            ctx.from.first_name,
-            ctx.from.last_name,
-            ctx.from.username
-        );
+        try {
+            // Remove the keyboard first to prevent multiple clicks
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(
+                ctx.from.id,
+                ctx.from.first_name,
+                ctx.from.last_name,
+                ctx.from.username
+            );
 
-        // Import and call the showJournalHistoryHandler from journal-history feature
-        const { showJournalHistoryHandler } = await import('../journal-history/handlers.js');
-        await showJournalHistoryHandler(ctx, user);
+            // Import and call the showJournalHistoryHandler from journal-history feature
+            const { showJournalHistoryHandler } = await import('../journal-history/handlers.js');
+            await showJournalHistoryHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in JOURNAL_HISTORY callback handler', error);
+        }
     });
 
     // Journal chat callback
@@ -72,16 +87,23 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
 
-        const user = await findOrCreateUser(
-            ctx.from.id,
-            ctx.from.first_name,
-            ctx.from.last_name,
-            ctx.from.username
-        );
+        try {
+            // Remove the keyboard first to prevent multiple clicks
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(
+                ctx.from.id,
+                ctx.from.first_name,
+                ctx.from.last_name,
+                ctx.from.username
+            );
 
-        // Import and call the startJournalChatHandler from journal-chat feature
-        const { startJournalChatHandler } = await import('../journal-chat/handlers.js');
-        await startJournalChatHandler(ctx, user);
+            // Import and call the startJournalChatHandler from journal-chat feature
+            const { startJournalChatHandler } = await import('../journal-chat/handlers.js');
+            await startJournalChatHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in JOURNAL_CHAT callback handler', error);
+        }
     });
 
     // Settings callback
@@ -89,15 +111,22 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
 
-        const user = await findOrCreateUser(
-            ctx.from.id,
-            ctx.from.first_name,
-            ctx.from.last_name,
-            ctx.from.username
-        );
+        try {
+            // Remove the keyboard first to prevent multiple clicks
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(
+                ctx.from.id,
+                ctx.from.first_name,
+                ctx.from.last_name,
+                ctx.from.username
+            );
 
-        // Import and call the showSettingsHandler from settings feature
-        const { showSettingsHandler } = await import('../settings/handlers.js');
-        await showSettingsHandler(ctx, user);
+            // Import and call the showSettingsHandler from settings feature
+            const { showSettingsHandler } = await import('../settings/handlers.js');
+            await showSettingsHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in SETTINGS callback handler', error);
+        }
     });
 }

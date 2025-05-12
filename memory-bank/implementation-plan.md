@@ -309,3 +309,122 @@ export function createBackToMenuKeyboard(): InlineKeyboard {
 - Test all user flows with the new inline keyboard
 - Verify the UX is intuitive and works as expected
 - Test edge cases and error scenarios 
+
+# Implementation Plan: Inline Keyboard Handling Update
+
+## Overview
+
+This implementation updates the way the bot handles inline keyboards after a user clicks on a button. The primary goal is to improve UX by removing outdated keyboards while preserving the original message text.
+
+## Approach
+
+1. **Centralized Utility Function**: 
+   Created a reusable utility to handle keyboard removal across all callback handlers.
+
+2. **Error Handling**:
+   Added robust error handling for cases where messages were already deleted.
+
+3. **Consistency**:
+   Updated all callback handlers throughout the codebase to use the new utility.
+
+## Implementation Details
+
+### 1. Utility Function (`src/utils/inline-keyboard.ts`)
+
+```typescript
+/**
+ * Removes the inline keyboard from a message after a button has been pressed.
+ * Keeps the original message text unchanged.
+ * 
+ * @param ctx The Grammy context
+ * @returns Promise that resolves when the keyboard has been removed or when an error has been handled
+ */
+export async function removeInlineKeyboard(ctx: Context): Promise<void> {
+  // Only proceed if the callback query has a message
+  if (!ctx.callbackQuery?.message) {
+    return;
+  }
+
+  try {
+    // Remove the inline keyboard by setting it to an empty array
+    await ctx.editMessageReplyMarkup({
+      reply_markup: { inline_keyboard: [] },
+    });
+  } catch (error) {
+    // Check if it's a message not found error, which means the message was already deleted
+    if (
+      error instanceof Error &&
+      (error.message.includes('message to edit not found') ||
+       error.message.includes('message is not modified'))
+    ) {
+      // Message was already deleted or not modified, this is fine
+      logger.debug('Cannot remove keyboard: message was deleted or not modified');
+    } else {
+      // Log other errors but don't throw them to avoid interrupting the normal flow
+      logger.warn('Failed to remove inline keyboard', error);
+    }
+  }
+}
+```
+
+The utility also includes a higher-order function wrapper for possible future use:
+
+```typescript
+export function withKeyboardRemoval<T extends Context>(
+  handler: (ctx: T) => Promise<void>
+): (ctx: T) => Promise<void> {
+  return async (ctx: T) => {
+    try {
+      // Execute the original handler first
+      await handler(ctx);
+    } finally {
+      // Always try to remove the keyboard, even if the handler fails
+      await removeInlineKeyboard(ctx);
+    }
+  };
+}
+```
+
+### 2. Updated Callback Handlers
+
+All callback handlers were modified using this pattern:
+
+```typescript
+bot.callbackQuery(CALLBACK_NAME, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!ctx.from) return;
+  
+  try {
+    // Remove the keyboard first to prevent multiple clicks
+    await removeInlineKeyboard(ctx);
+    
+    // Original handler code
+    const user = await findOrCreateUser(/*...*/);
+    await originalHandlerFunction(ctx, user);
+  } catch (error) {
+    logger.error('Error in callback handler', error);
+  }
+});
+```
+
+### 3. Files Updated
+
+1. `src/utils/inline-keyboard.ts` (new file)
+2. `src/features/core/index.ts`
+3. `src/features/journal-entry/index.ts`
+4. `src/features/journal-history/index.ts`
+5. `src/features/journal-chat/handlers.ts`
+6. `src/features/settings/index.ts`
+
+## Benefits
+
+1. **Improved UX**: Users no longer see disabled buttons that they can't use anymore
+2. **Error Prevention**: Users can't press buttons multiple times, preventing potential errors
+3. **Maintainability**: Centralized error handling for keyboard removal
+4. **Consistent Behavior**: All inline keyboards now behave the same way across the app
+
+## Future Considerations
+
+- The withKeyboardRemoval wrapper could be used more extensively to further simplify callback handlers
+- Additional error types could be handled more specifically if needed
+- Performance impact should be monitored if the bot handles a large number of concurrent users 

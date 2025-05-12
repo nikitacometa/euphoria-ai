@@ -11,6 +11,8 @@ import {
     handleTimezoneInput
 } from './handlers';
 import { findOrCreateUser } from '../../database';
+import { removeInlineKeyboard } from '../../utils/inline-keyboard';
+import { logger } from '../../utils/logger';
 
 const SETTINGS_TEXT = "⚙️ Settings";
 const TOGGLE_NOTIFICATIONS_CALLBACK = 'toggle_notifications';
@@ -48,31 +50,69 @@ export function registerSettingsHandlers(bot: Bot<JournalBotContext>) {
 
     // Handle specific callback queries for this feature
     bot.callbackQuery(TOGGLE_NOTIFICATIONS_CALLBACK, async (ctx) => {
-         if (!ctx.from) return;
-         const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-         await toggleNotificationsHandler(ctx, user);
+        if (!ctx.from) return;
+        
+        try {
+            await ctx.answerCallbackQuery(); // Acknowledge the callback
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await toggleNotificationsHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in TOGGLE_NOTIFICATIONS callback handler', error);
+        }
     });
 
     bot.callbackQuery(SET_NOTIFICATION_TIME_CALLBACK, async (ctx) => {
-         // No need to find user here, handler just prompts
-         await setNotificationTimeHandler(ctx);
+        try {
+            await ctx.answerCallbackQuery(); // Acknowledge the callback
+            await removeInlineKeyboard(ctx);
+            
+            // No need to find user here, handler just prompts
+            await setNotificationTimeHandler(ctx);
+        } catch (error) {
+            logger.error('Error in SET_NOTIFICATION_TIME callback handler', error);
+        }
     });
     
     bot.callbackQuery(SET_TIMEZONE_CALLBACK, async (ctx) => {
-         // Handler prompts for timezone selection
-         await setTimezoneHandler(ctx);
+        try {
+            await ctx.answerCallbackQuery(); // Acknowledge the callback
+            await removeInlineKeyboard(ctx);
+            
+            // Handler prompts for timezone selection
+            await setTimezoneHandler(ctx);
+        } catch (error) {
+            logger.error('Error in SET_TIMEZONE callback handler', error);
+        }
     });
     
     bot.callbackQuery(TOGGLE_TRANSCRIPTIONS_CALLBACK, async (ctx) => {
-         if (!ctx.from) return;
-         const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-         await toggleTranscriptionsHandler(ctx, user);
+        if (!ctx.from) return;
+        
+        try {
+            await ctx.answerCallbackQuery(); // Acknowledge the callback
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await toggleTranscriptionsHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in TOGGLE_TRANSCRIPTIONS callback handler', error);
+        }
     });
     
     bot.callbackQuery(TOGGLE_LANGUAGE_CALLBACK, async (ctx) => {
-         if (!ctx.from) return;
-         const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-         await toggleLanguageHandler(ctx, user);
+        if (!ctx.from) return;
+        
+        try {
+            await ctx.answerCallbackQuery(); // Acknowledge the callback
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await toggleLanguageHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in TOGGLE_LANGUAGE callback handler', error);
+        }
     });
 
     // Note: The '❌ Cancel' button when setting time is handled by 

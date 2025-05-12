@@ -12,6 +12,7 @@ import {
 import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
 import { CALLBACKS } from './keyboards/index';
+import { removeInlineKeyboard } from '../../utils/inline-keyboard';
 
 // Define the button texts this module handles - make sure these match EXACTLY what's in keyboards.ts
 const NEW_ENTRY_TEXT = "📝 New Entry";
@@ -56,38 +57,73 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
     bot.callbackQuery("go_deeper", async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await handleGoDeeper(ctx, user);
+        
+        try {
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await handleGoDeeper(ctx, user);
+        } catch (error) {
+            logger.error('Error in go_deeper callback handler', error);
+        }
     });
 
     // Handle the inline keyboard callbacks
     bot.callbackQuery(CALLBACKS.SAVE, async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await finishJournalEntryHandler(ctx, user);
+        
+        try {
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await finishJournalEntryHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in SAVE callback handler', error);
+        }
     });
 
     bot.callbackQuery(CALLBACKS.ANALYZE, async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await analyzeAndSuggestQuestionsHandler(ctx, user);
+        
+        try {
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await analyzeAndSuggestQuestionsHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in ANALYZE callback handler', error);
+        }
     });
 
     bot.callbackQuery(CALLBACKS.CANCEL, async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await cancelJournalEntryHandler(ctx, user);
+        
+        try {
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await cancelJournalEntryHandler(ctx, user);
+        } catch (error) {
+            logger.error('Error in CANCEL callback handler', error);
+        }
     });
 
     // Handle cancel confirmation callbacks
     bot.callbackQuery([CALLBACKS.CONFIRM_CANCEL, CALLBACKS.KEEP_WRITING], async (ctx: JournalBotContext) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        await handleCancelConfirmation(ctx, user);
+        
+        try {
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            await handleCancelConfirmation(ctx, user);
+        } catch (error) {
+            logger.error('Error in confirmation callback handler', error);
+        }
     });
 
     // Handlers for specific button presses (hears) - these are backups for the in-context handlers

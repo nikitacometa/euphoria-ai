@@ -15,6 +15,7 @@ import { Bot } from "grammy";
 import { JournalBotContext } from "../../types/session";
 import { findOrCreateUser } from '../../database';
 import { MAIN_MENU_CALLBACKS } from '../core/keyboards';
+import { removeInlineKeyboard } from '../../utils/inline-keyboard';
 
 /**
  * Initiates the journal chat mode.
@@ -36,7 +37,7 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.journalChatMode = true;
     ctx.session.waitingForJournalQuestion = true;
     
-    await ctx.reply(`<i>Hey, my love 😘 Let's have a deep talk. Ask me anything 🤌</i>\n\n• Recognize any patterns in your thoughts/actions\n• Analyze mood changes, correlations\n• Find any information just by meaning\n\n<i>🎤 ${user.name || user.firstName}, of course you can send voices/videos.</i>`, {
+    await ctx.reply(`<b>Hey, let's have a deep talk! Ask me anything 🤌</b>\n\n• Recognize any patterns in your thoughts/actions\n• Analyze mood changes, correlations\n• Find any information just by meaning\n\n<i>🎤 Haha, ${user.name || user.firstName}! Of course use voices/videos.</i>`, {
         reply_markup: createChatInlineKeyboard(),
         parse_mode: 'HTML'
     });
@@ -55,9 +56,12 @@ function formatResponseWithHTML(text: string): string {
     
     // Add italic for emphasis
     formatted = formatted.replace(/(\*|_)(.*?)\1/g, '<i>$2</i>');
+    formatted = formatted.replaceAll("<p>", '');
+    formatted = formatted.replaceAll("</p>", '');
+    
     
     // Add the follow-up question
-    formatted += `\n\n<i>Would you like to ask anything else about your journal?</i>`;
+    formatted += `\n\n🙏 <i>You got what you wanted? Ask to clarify, ask other stuff, ask me hard...</i>`;
     
     return formatted;
 }
@@ -208,13 +212,19 @@ export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
         
-        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-        
-        ctx.session.journalChatMode = false;
-        ctx.session.waitingForJournalQuestion = false;
-        
-        await ctx.reply('Exiting chat mode. Returning to main menu.');
-        await showMainMenu(ctx, user);
+        try {
+            await removeInlineKeyboard(ctx);
+            
+            const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+            
+            ctx.session.journalChatMode = false;
+            ctx.session.waitingForJournalQuestion = false;
+            
+            await ctx.reply('Exiting chat mode. Returning to main menu.');
+            await showMainMenu(ctx, user);
+        } catch (error) {
+            logger.error('Error in EXIT_CHAT callback handler', error);
+        }
     });
     
     bot.command("journal_chat", async (ctx) => {

@@ -185,6 +185,6 @@ export async function createEntryStatusMessage(entry: IJournalEntry): Promise<st
     // TODO: Add a status message for the current journal entry
     // const summary = await createEntrySummary(entry);
     // return `<b>The more messages you send, the more I love you 🙂‍↕</b>\n\n${summary}\n\n<i>🎤 Share texts, voices, videos.</i>`;
-    return `<b>I love reading you. Give me all you have, please 💖</b>\n\n<i>🎤 Share texts, voices, videos.</i>`;
+    return `<b>I love reading you. Give me more, please 🥹</b>\n\n<i>🎤 Texts, voices, videos.</i>`;
 
 }
