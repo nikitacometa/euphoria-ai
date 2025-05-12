@@ -15,7 +15,7 @@ export function createJournalHistoryKeyboard(entries: IJournalEntry[]): InlineKe
     entries.slice(0, 10).forEach((entry, index) => {
         const date = new Date(entry.createdAt);
         // Consistent date formatting
-        const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear().toString().slice(-2)}`;
+        const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
         
         // Use entry name or fallback
         let entryName = entry.name || "Entry";
@@ -23,8 +23,8 @@ export function createJournalHistoryKeyboard(entries: IJournalEntry[]): InlineKe
         // Add the entry button to current row
         rowButtons.push({text: `[${formattedDate}] ${entryName}`, callback_data: `view_entry:${entry._id}`});
         
-        // Create a row when we have 3 buttons or it's the last entry
-        if (rowButtons.length === 3 || index === entries.length - 1) {
+        // Create a row when we have 2 buttons or it's the last entry
+        if (rowButtons.length === 2 || index === entries.length - 1) {
             keyboard.add(...rowButtons);
             keyboard.row();
             rowButtons = [];
