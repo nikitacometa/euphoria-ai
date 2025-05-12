@@ -1,5 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import { IUser } from '../../types/models';
+import { MAIN_MENU_CALLBACKS } from '../core/keyboards';
 
 /**
  * Creates the inline keyboard for the settings menu.
@@ -15,5 +16,5 @@ export function createSettingsKeyboard(user: IUser): InlineKeyboard {
 		.row()
 		.text("🌍 Set Timezone", "set_timezone").text(transcriptionButtonText, "toggle_transcriptions")
 		.row()
-		.text(languageButtonText, "toggle_language").text("↩️ Menu", "main_menu");
+		.text(languageButtonText, "toggle_language").text("↩️ Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
 }

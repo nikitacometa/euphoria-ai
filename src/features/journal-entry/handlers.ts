@@ -28,6 +28,7 @@ import {
     getOrCreateActiveEntry,
     updateEntryAnalysisAndQuestions
 } from '../../services/journal-entry.service';
+import { createBackToMenuKeyboard } from '../core/keyboards';
 
 // Define a constant for max voice message duration
 export const MAX_VOICE_MESSAGE_LENGTH_SECONDS = 300; // 5 minutes
@@ -267,9 +268,10 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
                  "Are you dead inside?"
              );
              if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
-             await ctx.reply("Your journal entry seems to be empty, but I've saved it. ✨");
+             await ctx.reply("Your journal entry seems to be empty, but I've saved it. ✨", {
+                 reply_markup: createBackToMenuKeyboard()
+             });
              ctx.session.journalEntryId = undefined;
-             await showMainMenu(ctx, user);
              return;
         }
 
@@ -322,14 +324,12 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         const formattedQuestion = `<i>${questionIntro}</i>\n\n<code>${question}</code>`;
         
         await ctx.reply(`<b>You are the best, ${user.name || user.firstName} 😘</b>\n\n${summary}\n\n${formattedQuestion}`, {
-            parse_mode: 'HTML'
+            parse_mode: 'HTML',
+            reply_markup: createBackToMenuKeyboard()
         });
         
         // Clear the active entry from session
         ctx.session.journalEntryId = undefined;
-        
-        // Show the main menu
-        await showMainMenu(ctx, user);
         
     } catch (error) {
         errorService.logError(
@@ -349,7 +349,9 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         );
         
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg", e));
-        await ctx.reply("I encountered an error analyzing your entry. It has been saved, but without detailed analysis.");
+        await ctx.reply("I encountered an error analyzing your entry. It has been saved, but without detailed analysis.", {
+            reply_markup: createBackToMenuKeyboard()
+        });
         
         // Attempt to complete entry even if AI fails
         try {
@@ -359,7 +361,6 @@ export async function finishJournalEntryHandler(ctx: JournalBotContext, user: IU
         }
         
         ctx.session.journalEntryId = undefined;
-        await showMainMenu(ctx, user);
     }
 }
 

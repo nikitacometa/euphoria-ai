@@ -1,5 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import { IJournalEntry, IMessage, MessageType } from '../../types/models';
+import { MAIN_MENU_CALLBACKS } from '../core/keyboards';
 
 /**
  * Generates the inline keyboard for displaying journal history entries.
@@ -21,7 +22,7 @@ export function createJournalHistoryKeyboard(entries: IJournalEntry[]): InlineKe
     });
     
     // Always add back button
-    keyboard.text("↩️ Main Menu", "main_menu");
+    keyboard.text("↩️ Main Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
     
     return keyboard;
 }
@@ -34,5 +35,5 @@ export function createViewEntryKeyboard(entryId: string): InlineKeyboard {
         .text("🗑️ Remove", `delete_entry:${entryId}`)
         .row()
         .text("📚 Back", "journal_history")
-        .text("↩️ Main Menu", "main_menu");
+        .text("↩️ Main Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
 }

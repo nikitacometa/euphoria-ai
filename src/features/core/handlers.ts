@@ -1,6 +1,6 @@
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
-import { MAIN_MENU_KEYBOARD } from './keyboards';
+import { MAIN_MENU_KEYBOARD, createMainMenuInlineKeyboard } from './keyboards';
 import { findOrCreateUser } from '../../database';
 import { withCommandLogging } from '../../utils/command-logger';
 import { startOnboarding } from '../onboarding/handlers';
@@ -14,30 +14,34 @@ import { registerHowToCommand } from '../../commands';
 /**
  * Generates a varied greeting message for the main menu.
  * Incorporates journaling theme, user name (sometimes), and random formatting.
+ * 
+ * Note: We standardize on HTML parse mode throughout the application for consistency
+ * and to avoid issues with special character escaping that occurs with MarkdownV2.
+ * This ensures all UI messages follow the same formatting pattern.
  */
-export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: 'HTML' | 'MarkdownV2' } {
+export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: 'HTML' } {
   const userName = user.name || user.firstName;
   const useName = Math.random() < 0.6; // Use name ~60% of the time
 
   // Define the type for the greeting functions and their return values
-  type GreetingFunction = (name?: string) => { text: string; parse_mode?: 'HTML' | 'MarkdownV2' };
+  type GreetingFunction = (name?: string) => { text: string; parse_mode?: 'HTML' };
 
   const greetings: GreetingFunction[] = [
     // Simple & Journaling focused
-    () => ({ text: `Back for more self-reflection? Let's dive in.` }),
-    () => ({ text: `Ready to chronicle your day? The journal awaits.` }),
-    () => ({ text: `What thoughts are swirling today? Let's capture them.` }),
-    () => ({ text: `Time to unload your mind? I'm ready.` }),
-    (name?: string) => ({ text: `Hey${name ? ` ${name}` : ''}! What's on the agenda? Journaling, insights, or settings?` }),
+    () => ({ text: `Back for more self-reflection? Let's dive in.`, parse_mode: 'HTML' }),
+    () => ({ text: `Ready to chronicle your day? The journal awaits.`, parse_mode: 'HTML' }),
+    () => ({ text: `What thoughts are swirling today? Let's capture them.`, parse_mode: 'HTML' }),
+    () => ({ text: `Time to unload your mind? I'm ready.`, parse_mode: 'HTML' }),
+    (name?: string) => ({ text: `Hey${name ? ` ${name}` : ''}! What's on the agenda? Journaling, insights, or settings?`, parse_mode: 'HTML' }),
 
-    // Playful / Slightly Sarcastic
-    (name?: string) => ({ text: `Oh, it's *you* again${name ? `, ${name}` : ''}. Ready to spill the tea... to yourself?`, parse_mode: 'MarkdownV2' }),
-    () => ({ text: `*Taps microphone* Is this thing on? Good. Main menu time.`, parse_mode: 'MarkdownV2' }),
-    () => ({ text: `_Another day, another existential thought dump? Let's go._`, parse_mode: 'MarkdownV2' }),
-    (name?: string) => ({ text: `Look who decided to grace us with their presence${name ? `, ${name}` : ''}. What journaling adventures await?` }),
-    () => ({ text: `Beep boop. Main menu initialized. Don't break anything.` }),
+    // Playful / Slightly Sarcastic - converted from MarkdownV2 to HTML
+    (name?: string) => ({ text: `Oh, it's <b>you</b> again${name ? `, ${name}` : ''}. Ready to spill the tea... to yourself?`, parse_mode: 'HTML' }),
+    () => ({ text: `<b>Taps microphone</b> Is this thing on? Good. Main menu time.`, parse_mode: 'HTML' }),
+    () => ({ text: `<i>Another day, another existential thought dump? Let's go.</i>`, parse_mode: 'HTML' }),
+    (name?: string) => ({ text: `Look who decided to grace us with their presence${name ? `, ${name}` : ''}. What journaling adventures await?`, parse_mode: 'HTML' }),
+    () => ({ text: `Beep boop. Main menu initialized. Don't break anything.`, parse_mode: 'HTML' }),
 
-    // Using HTML formatting
+    // Already using HTML formatting
     (name?: string) => ({ text: `<i>Well hello there${name ? `, ${name}` : ''}.</i> Ready for some introspection?`, parse_mode: 'HTML' }),
     () => ({ text: `<code>Loading main menu...</code> Complete. What's next?`, parse_mode: 'HTML' }),
     (name?: string) => ({ text: `<b>${name || 'Hey'}!</b> Your journal is calling.`, parse_mode: 'HTML' }),
@@ -46,26 +50,18 @@ export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: '
 
   const randomIndex = Math.floor(Math.random() * greetings.length);
   const selectedGreetingFn = greetings[randomIndex];
-
-  // Decide whether to pass the name based on the useName flag AND if the function accepts a name
-  // The type assertion isn't strictly needed now due to the explicit type definition, but kept for clarity.
-  const greeting = (selectedGreetingFn.length > 0 && useName ? selectedGreetingFn(userName) : selectedGreetingFn()) as { text: string; parse_mode?: 'HTML' | 'MarkdownV2' };
   
-  // No need to manually set parse_mode to undefined, TS handles optional properties.
-  // if (!greeting.parse_mode) {
-  //     greeting.parse_mode = undefined; 
-  // }
-
-  return greeting;
+  return (selectedGreetingFn.length > 0 && useName ? selectedGreetingFn(userName) : selectedGreetingFn());
 }
 
 /**
- * Displays the main menu keyboard to the user with varied greetings.
+ * Displays the main menu to the user with varied greetings.
+ * Uses inline keyboard for better UI and more consistent experience.
  */
 export async function showMainMenu(ctx: JournalBotContext, user: IUser) {
     const greeting = getMainMenuGreeting(user);
     await ctx.reply(greeting.text, {
-        reply_markup: MAIN_MENU_KEYBOARD,
+        reply_markup: createMainMenuInlineKeyboard(),
         parse_mode: greeting.parse_mode 
     });
 }
@@ -132,6 +128,7 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 <code>/howto</code> - <i>I will show you nice usecases of me</i>
 
 <code>/start</code> - <i>Restart the bot or return to main menu</i>
+<code>/menu</code> - <i>Show the main menu with clickable buttons</i>
 <code>/journal_chat</code> - <i>Have a conversation with your journal AI</i>
 <code>/new_entry</code> - <i>Create a new journal entry immediately</i>
 <code>/history</code> - <i>Browse your past journal entries</i>
@@ -334,6 +331,17 @@ export const notifyAllHandler = withCommandLogging('notify_all', async (ctx: Jou
 });
 
 /**
+ * Handles the /menu command to display the main menu
+ */
+export const handleMenuCommand = withCommandLogging('menu', async (ctx: JournalBotContext) => {
+    if (!ctx.from) return;
+
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    
+    await showMainMenu(ctx, user);
+});
+
+/**
  * Registers all command handlers with the bot
  */
 export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
@@ -344,6 +352,7 @@ export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
     bot.command('start', handleStartCommand);
     bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);
     bot.command('help', handleHelpCommand);
+    bot.command('menu', handleMenuCommand);
     
     // Register menu item commands
     bot.command('new_entry', handleNewEntryCommand);

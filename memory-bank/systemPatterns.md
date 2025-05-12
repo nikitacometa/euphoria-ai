@@ -11,6 +11,13 @@
   - `utils.ts`: Feature-specific utility functions
   - Subdirectories for complex features (handlers/, utils/, etc.)
 
+### Message Formatting
+- All bot messages use HTML parse mode for consistency (`parse_mode: 'HTML'`)
+- HTML tags supported by Telegram API: `<b>`, `<i>`, `<u>`, `<s>`, `<a>`, `<code>`, `<pre>`
+- Using a consistent format avoids issues with special character escaping
+- Standardized greeting messages with randomized content but consistent format
+- HTML formatting allows for rich text presentation while maintaining compatibility
+
 ### Handler Registration
 ```typescript
 // Pattern used to register feature handlers
@@ -57,7 +64,8 @@ export const MAIN_MENU_CALLBACKS = {
   NEW_ENTRY: 'main_new_entry',
   JOURNAL_HISTORY: 'main_journal_history',
   JOURNAL_CHAT: 'main_journal_chat',
-  SETTINGS: 'main_settings'
+  SETTINGS: 'main_settings',
+  MAIN_MENU: 'main_menu'
 };
 ```
 

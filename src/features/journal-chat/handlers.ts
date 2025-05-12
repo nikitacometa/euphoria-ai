@@ -3,7 +3,7 @@ import { IUser, IJournalEntry } from '../../types/models';
 import { logger } from '../../utils/logger';
 import { getUserJournalEntries } from '../../database';
 import { showMainMenu } from '../core/handlers';
-import { chatKeyboard } from './keyboards';
+import { chatKeyboard, createChatInlineKeyboard } from './keyboards';
 import { generateJournalInsights } from '../../services/ai/journal-ai.service';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply } from '../journal-entry/utils';
@@ -14,6 +14,7 @@ import { TELEGRAM_API_TOKEN, MAX_VOICE_MESSAGE_LENGTH_SECONDS } from '../../conf
 import { Bot } from "grammy";
 import { JournalBotContext } from "../../types/session";
 import { findOrCreateUser } from '../../database';
+import { MAIN_MENU_CALLBACKS } from '../core/keyboards';
 
 /**
  * Initiates the journal chat mode.
@@ -36,7 +37,7 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.waitingForJournalQuestion = true;
     
     await ctx.reply(`<i>Hey, let's have a deep talk... Ask me anything 🤌</i>\n\n• Any patterns in thoughts\n• Mood analysis\n• Important events\n• Hidden motivations\n• Goals\n\n<i>Of course, you can use voice/videos.</i>`, {
-        reply_markup: chatKeyboard,
+        reply_markup: createChatInlineKeyboard(),
         parse_mode: 'HTML'
     });
 }
@@ -82,7 +83,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             // Check duration - use configuration constant
             if (ctx.message.voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
                 await ctx.reply(`Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`, {
-                    reply_markup: chatKeyboard
+                    reply_markup: createChatInlineKeyboard()
                 });
                 return;
             }
@@ -95,7 +96,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             questionText = await transcribeAudio(localFilePath);
             
             // Send transcription if user wants it
-            await sendTranscriptionReply(ctx, ctx.message.message_id, questionText, user, chatKeyboard);
+            await sendTranscriptionReply(ctx, ctx.message.message_id, questionText, user, createChatInlineKeyboard());
 
             // Simply replace the eyes reaction with thumbs up
             await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
@@ -104,7 +105,7 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
         } else if (ctx.message.text) {
             questionText = ctx.message.text;
             
-            // Handle the main menu text button
+            // Legacy handler for the keyboard button
             if (questionText === "📋 Main Menu") {
                 await exitJournalChatHandler(ctx);
                 return;
@@ -113,11 +114,13 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             // React with thumbs up to acknowledge message received
             await ctx.react("👍").catch(e => logger.warn("Failed to react with thumbs up", e));
             
-            const waitMsg = await ctx.reply(`⏳`, { reply_markup: chatKeyboard });
+            const waitMsg = await ctx.reply(`⏳`, { reply_markup: createChatInlineKeyboard() });
             waitMsgId = waitMsg.message_id;
 
         } else {
-            await ctx.reply("I can currently only process text or voice questions in chat mode.", { reply_markup: chatKeyboard });
+            await ctx.reply("I can currently only process text or voice questions in chat mode.", { 
+                reply_markup: createChatInlineKeyboard() 
+            });
             return;
         }
 
@@ -128,7 +131,9 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
                  if (waitMsgId && ctx.chat) {
                      await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
                  }
-                await ctx.reply("You don't seem to have any journal entries yet to analyze.", { reply_markup: chatKeyboard });
+                await ctx.reply("You don't seem to have any journal entries yet to analyze.", { 
+                    reply_markup: createChatInlineKeyboard() 
+                });
                 return;
             }
 
@@ -139,7 +144,10 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
             if (waitMsgId && ctx.chat) {
                 await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg", e));
             }
-            await ctx.reply(formattedInsights, { reply_markup: chatKeyboard, parse_mode: 'HTML' });
+            await ctx.reply(formattedInsights, { 
+                reply_markup: createChatInlineKeyboard(), 
+                parse_mode: 'HTML' 
+            });
         }
 
     } catch (error) {
@@ -147,7 +155,9 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
         if (waitMsgId && ctx.chat) {
              await ctx.api.deleteMessage(ctx.chat.id, waitMsgId).catch(e => logger.warn("Failed to delete wait msg after error", e));
         }
-        await ctx.reply("😵‍💫 Oops! Something went wrong while processing your question. Please try again.", { reply_markup: chatKeyboard });
+        await ctx.reply("😵‍💫 Oops! Something went wrong while processing your question. Please try again.", { 
+            reply_markup: createChatInlineKeyboard() 
+        });
     } finally {
         // Clean up temp voice file
         if (localFilePath && fs.existsSync(localFilePath)) {
@@ -170,6 +180,7 @@ export async function exitJournalChatHandler(ctx: JournalBotContext) {
     ctx.session.journalChatMode = false;
     ctx.session.waitingForJournalQuestion = false;
     
+    await ctx.reply('Exiting chat mode. Returning to main menu.');
     await showMainMenu(ctx, user);
 }
 
@@ -198,7 +209,19 @@ async function downloadTelegramFile(filePath: string, fileType: string): Promise
 }
 
 export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
-    // We no longer need callback query handlers since we're using text buttons
+    // Register callback query handler for exit chat mode button
+    bot.callbackQuery("exit_chat_mode", async (ctx) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        
+        ctx.session.journalChatMode = false;
+        ctx.session.waitingForJournalQuestion = false;
+        
+        await ctx.reply('Exiting chat mode. Returning to main menu.');
+        await showMainMenu(ctx, user);
+    });
     
     bot.command("journal_chat", async (ctx) => {
         if (!ctx.from) return;
@@ -209,7 +232,9 @@ export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
     bot.on("message", async (ctx, next) => {
         if (ctx.session?.journalChatMode) {
             if (ctx.message?.text?.startsWith('/')) {
-                await ctx.reply("Please exit chat mode first to use commands.", { reply_markup: chatKeyboard });
+                await ctx.reply("Please exit chat mode first to use commands.", { 
+                    reply_markup: createChatInlineKeyboard() 
+                });
                 return;
             }
             if (!ctx.from) return;
