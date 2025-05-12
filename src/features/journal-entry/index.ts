@@ -11,6 +11,7 @@ import {
 } from './handlers';
 import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
+import { CALLBACKS } from './keyboards/index';
 
 // Define the button texts this module handles - make sure these match EXACTLY what's in keyboards.ts
 const NEW_ENTRY_TEXT = "📝 New Entry";
@@ -26,7 +27,7 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
     bot.on('message', async (ctx, next) => {
         if (ctx.session?.journalEntryId) {
             // We're in journal entry mode - this means message should be added to the entry
-            // Unless it's a command or button press
+            // Unless it's a command
             
             // Let commands pass through
             if (ctx.message && 'text' in ctx.message && ctx.message.text && ctx.message.text.startsWith('/')) {
@@ -34,37 +35,8 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
                 return;
             }
             
-            // User is journaling, handle their input - but not if it's a button press
-            if (!ctx.from) return; 
-            
-            // Check if the message is a button press by exact match
-            if (ctx.message && 'text' in ctx.message && ctx.message.text) {
-                const text = ctx.message.text;
-                
-                // Log for debugging
-                logger.debug(`Text message received during journal entry: "${text}"`);
-                
-                // Handle button presses directly here for reliability
-                if (text === SAVE_TEXT || text === FINISH_REFLECTION_TEXT) {
-                    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-                    await finishJournalEntryHandler(ctx, user);
-                    return;
-                }
-                
-                if (text === ANALYZE_TEXT) {
-                    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-                    await analyzeAndSuggestQuestionsHandler(ctx, user);
-                    return;
-                }
-                
-                if (text === CANCEL_TEXT) {
-                    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-                    await cancelJournalEntryHandler(ctx, user);
-                    return;
-                }
-            }
-            
             // It's a regular message to be added to the journal
+            if (!ctx.from) return;
             const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
             await handleJournalEntryInput(ctx, user);
         } else {
@@ -95,8 +67,31 @@ export function registerJournalEntryHandlers(bot: Bot<JournalBotContext>) {
         await finishJournalEntryHandler(ctx, user);
     });
 
+    // Handle the new inline keyboard callbacks
+    bot.callbackQuery(CALLBACKS.SAVE, async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await finishJournalEntryHandler(ctx, user);
+    });
+
+    bot.callbackQuery(CALLBACKS.ANALYZE, async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await analyzeAndSuggestQuestionsHandler(ctx, user);
+    });
+
+    bot.callbackQuery(CALLBACKS.CANCEL, async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
+        if (!ctx.from) return;
+        const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+        await cancelJournalEntryHandler(ctx, user);
+    });
+
     // Handle cancel confirmation callbacks
-    bot.callbackQuery(["confirm_cancel_entry", "keep_writing"], async (ctx: JournalBotContext) => {
+    bot.callbackQuery([CALLBACKS.CONFIRM_CANCEL, CALLBACKS.KEEP_WRITING], async (ctx: JournalBotContext) => {
+        await ctx.answerCallbackQuery();
         if (!ctx.from) return;
         const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
         await handleCancelConfirmation(ctx, user);

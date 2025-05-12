@@ -1,6 +1,6 @@
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
-import { MAIN_MENU_KEYBOARD, createMainMenuInlineKeyboard } from './keyboards';
+import { createMainMenuInlineKeyboard } from './keyboards';
 import { findOrCreateUser } from '../../database';
 import { withCommandLogging } from '../../utils/command-logger';
 import { startOnboarding } from '../onboarding/handlers';

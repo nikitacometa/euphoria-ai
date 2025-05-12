@@ -3,7 +3,7 @@ import { IUser, IJournalEntry } from '../../types/models';
 import { logger } from '../../utils/logger';
 import { getUserJournalEntries } from '../../database';
 import { showMainMenu } from '../core/handlers';
-import { chatKeyboard, createChatInlineKeyboard } from './keyboards';
+import { createChatInlineKeyboard, CHAT_CALLBACKS } from './keyboards';
 import { generateJournalInsights } from '../../services/ai/journal-ai.service';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply } from '../journal-entry/utils';
@@ -105,12 +105,6 @@ export async function handleJournalChatInput(ctx: JournalBotContext, user: IUser
         } else if (ctx.message.text) {
             questionText = ctx.message.text;
             
-            // Legacy handler for the keyboard button
-            if (questionText === "📋 Main Menu") {
-                await exitJournalChatHandler(ctx);
-                return;
-            }
-            
             // React with thumbs up to acknowledge message received
             await ctx.react("👍").catch(e => logger.warn("Failed to react with thumbs up", e));
             
@@ -210,7 +204,7 @@ async function downloadTelegramFile(filePath: string, fileType: string): Promise
 
 export const registerJournalChatHandlers = (bot: Bot<JournalBotContext>) => {
     // Register callback query handler for exit chat mode button
-    bot.callbackQuery("exit_chat_mode", async (ctx) => {
+    bot.callbackQuery(CHAT_CALLBACKS.EXIT_CHAT, async (ctx) => {
         await ctx.answerCallbackQuery();
         if (!ctx.from) return;
         

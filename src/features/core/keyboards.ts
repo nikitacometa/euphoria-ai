@@ -1,15 +1,4 @@
-import { Keyboard, InlineKeyboard } from 'grammy';
-
-// Legacy keyboard - keep for backward compatibility during transition
-export const MAIN_MENU_KEYBOARD = new Keyboard()
-    .text("📝 New Entry")
-    .row()
-    .text("📚 Journal History")
-    .row()
-    .text("🤔 Ask My Journal")
-    .row()
-    .text("⚙️ Settings")
-    .resized();
+import { InlineKeyboard } from 'grammy';
 
 // Callback data constants for inline keyboard
 export const MAIN_MENU_CALLBACKS = {
@@ -22,7 +11,6 @@ export const MAIN_MENU_CALLBACKS = {
 
 /**
  * Creates an inline keyboard for the main menu
- * This is the new preferred way to display the main menu
  */
 export function createMainMenuInlineKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
