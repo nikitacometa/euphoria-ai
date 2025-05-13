@@ -85,6 +85,10 @@ const userSchema = new Schema<IUser>(
             type: String,
             required: false
         },
+        nextNotificationScheduledAt: {
+            type: Date,
+            required: false
+        },
         // Display settings
         showTranscriptions: {
             type: Boolean,

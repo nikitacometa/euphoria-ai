@@ -138,64 +138,53 @@ class NotificationService {
             notificationLogger.info(`Found ${users.length} users with notifications enabled`);
             
             // Filter users who should receive notifications based on time conditions
-            const usersToNotify = [];
+            const usersToNotify: IUser[] = []; // Ensure IUser type for clarity
             
             for (const user of users) {
-                // Skip users without a notification time set
-                if (!user.notificationTime) {
-                    notificationLogger.debug(`User ${user.telegramId} has no notification time set, skipping`);
+                // Skip users without a next notification time set or if it's not a Date
+                if (!user.nextNotificationScheduledAt || !(user.nextNotificationScheduledAt instanceof Date)) {
+                    notificationLogger.debug(`User ${user.telegramId} has no valid nextNotificationScheduledAt set, skipping`);
+                    // Optionally, we could schedule one here if notificationTime is set,
+                    // but it's better handled in updateUserNotificationSettings for consistency.
                     continue;
                 }
                 
-                // Parse notificationTime (stored as "HH:MM" in UTC)
-                const [scheduledHours, scheduledMinutes] = user.notificationTime.split(':').map(Number);
-                
-                // Create Date objects for scheduled time today
-                const scheduledTime = new Date(now);
-                scheduledTime.setUTCHours(scheduledHours, scheduledMinutes, 0, 0);
-                
-                // Get time difference in minutes
-                const timeSinceScheduled = (now.getTime() - scheduledTime.getTime()) / (60 * 1000);
-                
-                // Check if the current time is within 5 minutes after the scheduled time
-                // If the scheduled time has passed, but not by more than 10 minutes
-                // We also handle the case when the scheduled time was yesterday
-                const isTimeToSend = (timeSinceScheduled > 0 && timeSinceScheduled <= 10) || 
-                                     (timeSinceScheduled < -23*60 && timeSinceScheduled > -24*60);
+                const now = new Date(); // current time for comparison
+
+                // Check if the next scheduled time has passed
+                const isTimeToSend = now.getTime() >= user.nextNotificationScheduledAt.getTime();
                 
                 if (!isTimeToSend) {
                     notificationLogger.debug(
-                        `Not time to send for user ${user.telegramId}: scheduled=${user.notificationTime} UTC, ` +
-                        `minutes since scheduled=${timeSinceScheduled.toFixed(2)}`
+                        `Not time to send for user ${user.telegramId}: next scheduled at ${user.nextNotificationScheduledAt.toISOString()}`
                     );
                     continue;
                 }
                 
-                // Check if we've sent a notification recently
-                const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
-                
-                // If user has never received a notification or it was sent more than 10 minutes ago
-                const canSendNotification = !user.lastNotificationSent || 
-                                           user.lastNotificationSent < tenMinutesAgo;
-                
-                if (!canSendNotification) {
-                    const lastSentMinutesAgo = user.lastNotificationSent ? 
-                        (now.getTime() - user.lastNotificationSent.getTime()) / (60 * 1000) : 0;
+                // Check if this specific scheduled notification has already been sent
+                // This handles scenarios where lastNotificationSent might be slightly different due to processing time
+                // but was intended for this user.nextNotificationScheduledAt slot.
+                // A small buffer (e.g., 5 minutes) could be added if exact timestamp match is too strict.
+                const wasAlreadySentForThisSchedule = user.lastNotificationSent && 
+                                                     user.lastNotificationSent.getTime() === user.nextNotificationScheduledAt.getTime();
+
+                if (wasAlreadySentForThisSchedule) {
                     notificationLogger.debug(
-                        `Too soon to resend notification to user ${user.telegramId}: ` +
-                        `last sent ${lastSentMinutesAgo.toFixed(2)} minutes ago (< 10 min)`
+                        `Notification for ${user.nextNotificationScheduledAt.toISOString()} was already sent to user ${user.telegramId} at ${user.lastNotificationSent?.toISOString()}. Skipping.`
                     );
+                    // This case might also indicate a need to schedule the *next* one if it's stuck.
+                    // However, the successful send path should handle rescheduling.
                     continue;
                 }
                 
-                // If we reach here, the user should receive a notification
+                // If we reach here, the user should receive a notification for this schedule
                 usersToNotify.push(user);
                 notificationLogger.debug(
                     `Scheduling notification for user ${user.telegramId} (${user.firstName}): ` +
-                    `scheduled=${user.notificationTime} UTC, minutes since scheduled=${timeSinceScheduled.toFixed(2)}` +
+                    `nextNotificationScheduledAt=${user.nextNotificationScheduledAt.toISOString()}` +
                     (user.lastNotificationSent ? 
-                        `, last sent=${((now.getTime() - user.lastNotificationSent.getTime()) / (60 * 1000)).toFixed(2)} minutes ago` : 
-                        ', first notification')
+                        `, last actual sent=${user.lastNotificationSent.toISOString()}` :
+                        ', first scheduled notification')
                 );
             }
             
@@ -239,10 +228,25 @@ class NotificationService {
             await this.sendNotification(user);
             
             // Mark as successfully sent after the notification is sent
+            // Use the timestamp of the schedule that was just processed for lastNotificationSent
+            const processedScheduleTime = user.nextNotificationScheduledAt; // Capture before it's updated
+
             await User.findByIdAndUpdate(user._id, {
-                lastNotificationSent: new Date(),
+                lastNotificationSent: processedScheduleTime, // Use the specific scheduled time
                 lastNotificationError: null
             });
+
+            // Schedule the next notification
+            try {
+                const nextScheduled = await this.calculateAndSetNextNotification(user);
+                notificationLogger.info(
+                    `✅ Notification successfully sent to user ${user.telegramId} (${user.firstName}) for schedule ${processedScheduleTime?.toISOString()}. ` +
+                    `Next notification scheduled for ${nextScheduled?.toISOString()}`
+                );
+            } catch (scheduleError) {
+                notificationLogger.error(`Error scheduling next notification for user ${user.telegramId} after successful send:`, scheduleError);
+                // Optionally send a monitoring alert here if scheduling fails consistently
+            }
             
             // Reset failure count on success
             this.resetFailureCount(user.telegramId);
@@ -279,6 +283,62 @@ class NotificationService {
             // If we've exhausted retries, propagate the error
             notificationLogger.error(`Final failure sending notification to user ${user.telegramId} after ${attempt} attempts. Duration: ${Date.now() - retryStartTime}ms`);
             throw error;
+        }
+    }
+
+    /**
+     * Calculates and sets the next notification time for a user.
+     * This should be called after a notification is successfully sent or when settings are updated.
+     * @param user The user for whom to schedule the next notification.
+     * @returns The Date object of the next scheduled notification, or null if scheduling failed or not applicable.
+     */
+    private async calculateAndSetNextNotification(user: IUser): Promise<Date | null> {
+        if (!user.notificationsEnabled || !user.notificationTime) {
+            notificationLogger.info(`User ${user.telegramId} has notifications disabled or no time set. Clearing nextNotificationScheduledAt.`);
+            await User.findByIdAndUpdate(user._id, { $unset: { nextNotificationScheduledAt: "" } });
+            return null;
+        }
+
+        try {
+            const userTimezone = user.timezone || 'UTC';
+            const [hours, minutes] = user.notificationTime.split(':').map(Number); // HH:MM in UTC
+
+            // Get current date in user's local timezone
+            let nowInUserTimezone = new Date(); 
+            if (userTimezone !== 'UTC') {
+                // If we need to be super precise about "now" in user's timezone for date component
+                // A full timezone library might be needed here for complex date math across timezones.
+                // For simplicity, using server's current date component and applying user's HH:MM locally.
+                // A robust solution uses a library to get "now" in the target timezone.
+                // For now, we assume server's date is close enough for calculating next day.
+            }
+
+            // Create a date object for today in user's local timezone at their preferred HH:MM
+            let nextNotificationLocal = new Date(nowInUserTimezone);
+            nextNotificationLocal.setHours(hours, minutes, 0, 0); // This sets HH:MM in server's local time initially
+
+            // Convert this local HH:MM intention to a UTC Date object for storage
+            // This requires knowing what 'hours' and 'minutes' mean in the user's timezone
+            // The current `user.notificationTime` is already UTC. So we work from that.
+            
+            let nextNotificationUtc = new Date(); // Start with now in UTC
+            nextNotificationUtc.setUTCHours(hours, minutes, 0, 0);
+
+            // If this UTC time has already passed *today* (or is very close to now), schedule for the next day (UTC)
+            if (nextNotificationUtc.getTime() <= Date.now() + 60000) { // Add a small buffer (1 min)
+                nextNotificationUtc.setUTCDate(nextNotificationUtc.getUTCDate() + 1);
+            }
+
+            await User.findByIdAndUpdate(user._id, {
+                nextNotificationScheduledAt: nextNotificationUtc
+            });
+            notificationLogger.info(`Next notification for user ${user.telegramId} scheduled to: ${nextNotificationUtc.toISOString()}`);
+            return nextNotificationUtc;
+        } catch (error) {
+            notificationLogger.error(`Failed to calculate and set next notification for user ${user.telegramId}:`, error);
+            // Potentially set nextNotificationScheduledAt to null or a future retry time if this fails?
+            // For now, we let it be, it will be caught in the main loop if invalid.
+            return null;
         }
     }
 
@@ -389,27 +449,13 @@ class NotificationService {
                 { $set: update }
             );
 
-            // Calculate next notification time to provide more context in logs
-            const scheduledUser = await User.findOne({ telegramId });
-            if (scheduledUser?.notificationsEnabled && scheduledUser?.notificationTime) {
-                const now = new Date();
-                const [hours, minutes] = scheduledUser.notificationTime.split(':').map(Number);
-                
-                // Create a date object for today at the notification time
-                const notificationDate = new Date(now);
-                notificationDate.setUTCHours(hours, minutes, 0, 0);
-                
-                // If the time has already passed today, schedule for tomorrow
-                if (notificationDate < now) {
-                    notificationDate.setDate(notificationDate.getDate() + 1);
-                }
-                
-                // Format date for logging
-                const formattedNextNotification = notificationDate.toISOString().replace('T', ' ').substring(0, 16);
-                
-                notificationLogger.info(`Scheduled next notification for user ${telegramId} at ${formattedNextNotification} UTC (${scheduledUser.notificationTime})`);
+            // Fetch the updated user to pass to calculateAndSetNextNotification
+            const updatedUser = await User.findOne({ telegramId });
+            if (updatedUser) {
+                await this.calculateAndSetNextNotification(updatedUser);
+                // Logging is now handled inside calculateAndSetNextNotification or if it returns null
             } else {
-                notificationLogger.info(`Updated notification settings for user ${telegramId} - notifications ${scheduledUser?.notificationsEnabled ? 'enabled' : 'disabled'}`);
+                notificationLogger.warn(`User ${telegramId} not found after update for scheduling next notification.`);
             }
         } catch (error) {
             notificationLogger.error(`Error updating notification settings for user ${telegramId}:`, error);

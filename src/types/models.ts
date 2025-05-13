@@ -18,6 +18,7 @@ export interface IUser extends Document {
     lastNotificationSent?: Date;
     lastNotificationAttempt?: Date; // Tracks when notification was last attempted
     lastNotificationError?: string; // Stores error message from last failed notification
+    nextNotificationScheduledAt?: Date; // Stores the timestamp for the next scheduled notification
     showTranscriptions?: boolean; // Whether to show transcription texts to the user
     aiLanguage?: string; // 'en' or 'ru' for AI interactions
     createdAt: Date;

@@ -13,6 +13,7 @@ export interface JournalBotSession {
     waitingForTimezone?: boolean;
     askingSettings?: boolean;
     lastStatusMessageId?: number;
+    isMainMenuActive?: boolean; // Flag to indicate if the main menu was just shown
 }
 
 // Define context type

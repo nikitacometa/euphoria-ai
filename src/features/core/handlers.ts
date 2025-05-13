@@ -9,7 +9,7 @@ import { Bot } from 'grammy';
 import { notificationService } from '../../services/notification.service';
 import { User } from '../../database/models/user.model';
 import { ADMIN_IDS } from '../../config';
-import { registerHowToCommand } from '../../commands';
+import { registerHowToCommand, registerNotificationSettingsCommands, registerAdminCommands } from '../../commands';
 
 /**
  * Generates a varied greeting message for the main menu.
@@ -64,6 +64,7 @@ export async function showMainMenu(ctx: JournalBotContext, user: IUser, messageT
         reply_markup: createMainMenuInlineKeyboard(),
         parse_mode: greeting.parse_mode as 'HTML' | undefined
     });
+    ctx.session.isMainMenuActive = true; // Set the flag
 }
 
 /**
@@ -347,6 +348,10 @@ export const handleMenuCommand = withCommandLogging('menu', async (ctx: JournalB
 export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
     // Register the /howto command
     registerHowToCommand(bot);
+    // Register notification settings commands
+    registerNotificationSettingsCommands(bot);
+    // Register admin commands
+    registerAdminCommands(bot);
     
     // Register core commands
     bot.command('start', handleStartCommand);

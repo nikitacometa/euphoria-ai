@@ -1,89 +1,108 @@
-# Task: Refactor Bot Interactions and Entry Handling
+# Task: Multi-Feature Update: Notifications, Main Menu & Admin Broadcast
 
 ## Complexity
 Level: 3
 Type: Feature
 
 ## Description
-This task involves several updates across different features to improve user interaction flow, AI analysis quality and formatting, and journal entry metadata storage and display.
-
-- **Keyboard Changes:** Remove transcription/AI thoughts keyboards, update post-save, AI chat, and history view keyboards.
-- **AI Interaction:** Improve AI analysis formatting (both prompt and saving), enhance AI's ability to answer questions about entries.
-- **Database:** Add fields to track message types per entry.
-- **Display:** Show message type counts in entry history summaries.
+This task involves three main feature updates:
+1.  **Enhanced Notification Service:** Refactor the notification service to store user-specific notification settings (preferred time, next notification timestamp, last notification timestamp) in the database. The service will poll users, send notifications if the `next_notification_timestamp` is past and doesn't match `last_notification_timestamp`, and then schedule the subsequent notification.
+2.  **Smart Main Menu:** Modify the main menu (keyboard interface) so that any user message (text, voice, video) received while the main menu is active triggers the "new journal entry" command flow.
+3.  **Admin Broadcast Command:** Implement a new slash command `/notifyusers` (admin-only). Upon execution, the bot will await the admin's next message, then broadcast this message content to all users.
 
 ## Technology Stack
 - Framework: Telegraf
 - Language: TypeScript
-- AI Service: OpenAI API
 - Database: MongoDB/Mongoose
 
 ## Technology Validation Checkpoints
-- [x] Project initialization command verified (Existing project)
-- [x] Required dependencies identified and installed (Existing project)
-- [x] Build configuration validated (Existing project)
-- [x] Hello world verification completed (Existing project)
-- [x] Test build passes successfully
+- [ ] Project initialization command verified (Existing project)
+- [ ] Required dependencies identified and installed (Existing project)
+- [ ] Build configuration validated (Existing project)
+- [ ] Hello world verification completed (Existing project)
+- [ ] Test build passes successfully
 
 ## Status
 - [x] Initialization complete
 - [x] Planning complete
-- [x] Technology validation complete
-- [x] Implementation Phase 1: Database Schema & Migration
-- [x] Implementation Phase 2: Update Entry Creation/Update Logic
-- [x] Implementation Phase 3: Keyboard Removals & Modifications
-- [x] Implementation Phase 4: AI Prompt & Formatting Updates
-- [x] Implementation Phase 5: Update Entry Summary Display Logic
-- [x] Implementation Phase 6: Testing & Verification
-- [x] Implementation Complete
+- [ ] Technology validation complete
+- [x] Implementation Phase 1: Notification Service & DB Schema
+- [x] Implementation Phase 2: Main Menu Smart Input
+- [x] Implementation Phase 3: Admin Broadcast Command
+- [ ] Implementation Phase 4: Testing & Refinement
+- [ ] Implementation Complete
 
-## Implementation Details
+## Implementation Plan
 
-### 1. Database Schema Update
-- [x] Updated `IJournalEntry` interface in `src/types/models.ts`
-- [x] Added fields: `textMessages`, `voiceMessages`, `videoMessages`, `fileMessages` to the Mongoose schema
-- [x] Implemented counter incrementing in `src/services/journal-entry.service.ts` for each message type
+### 1. Phase 1: Notification Service & DB Schema Update
+- **Subtask 1.1: Database Schema for Notifications**
+    - Modify the User model/schema (e.g., `IUser` in `src/types/models.ts` or similar, and the Mongoose schema in `src/database/models/user.model.ts` or equivalent).
+    - Add fields:
+        - `notificationSettings.time`: String (e.g., "HH:MM" format for user's preferred notification time).
+        - `notificationSettings.nextNotificationTimestamp`: Date.
+        - `notificationSettings.lastNotificationTimestamp`: Date.
+    - Consider default values and migration for existing users.
+- **Subtask 1.2: Notification Service Logic**
+    - Locate or create the notification service (likely in `src/services/` or `src/features/`).
+    - Implement an infinite loop or scheduled job (e.g., `node-cron`).
+    - Inside the loop/job:
+        - Fetch users with notification settings.
+        - For each user, check if `Date.now() >= user.notificationSettings.nextNotificationTimestamp` AND `user.notificationSettings.lastNotificationTimestamp !== user.notificationSettings.nextNotificationTimestamp`.
+        - If true: Send notification, update `lastNotificationTimestamp`, calculate and set new `nextNotificationTimestamp`.
+- **Subtask 1.3: User Settings for Notifications (Basic)**
+    - Implement a basic command or settings option for users to set their preferred notification time.
 
-### 2. Entry Logic Update
-- [x] Modified message handlers to increment the appropriate counters when messages are added
-- [x] Updated `addTextMessage`, `addVoiceMessage`, and `addVideoMessage` functions to track message types
+### 2. Phase 2: Main Menu Smart Input
+- **Subtask 2.1: Identify Main Menu Handler**
+    - Locate code for main menu interactions (e.g., `src/features/onboarding/handlers.ts`).
+- **Subtask 2.2: Modify Message Handler**
+    - Update handler to capture generic `on('text')`, `on('voice')`, `on('video_note')` in "main menu state".
+    - Redirect to "new journal entry" flow.
+    - Ensure no conflict with explicit menu button presses.
 
-### 3. Keyboard Modifications
-- [x] Removed transcription keyboard from replies by updating `sendTranscriptionReply`
-- [x] Removed "AI Thoughts" button from the `journalActionKeyboard`
-- [x] Removed keyboards from progress messages (sand clock emoji)
-- [x] Updated post-save entry keyboard with "📝 One More Entry", "📚 Manage Entries", "💭 Discuss With AI", "⚙️ Settings"
-- [x] Updated AI chat keyboard to "✅ Save As New Entry", "🍌 Menu"
-- [x] Updated history view keyboard to show 3 buttons per row and changed "Main Menu" to "🍌 Menu"
-- [x] Added specialized `aiAnalysisKeyboard` with "✅ Just Save", "💭 More Insights", "❌ Cancel Entry"
-- [x] Improved new entry prompt message with better instructions
+### 3. Phase 3: Admin Broadcast Command (`/notifyusers`)
+- **Subtask 3.1: Create New Command**
+    - Register `/notifyusers` (e.g., in `src/commands/index.ts`).
+    - Implement admin check middleware.
+- **Subtask 3.2: Await Next Message Logic**
+    - Set session state for admin indicating bot awaits broadcast message.
+    - Reply to admin: "Please send the message you want to broadcast."
+- **Subtask 3.3: Broadcast Logic**
+    - Handle admin's next message if in "awaiting broadcast" state.
+    - Fetch all user IDs.
+    - Loop and send message (`ctx.telegram.sendMessage(userId, adminMessageText)`).
+    - Handle errors (e.g., user blocked bot).
+    - Clear admin's "awaiting broadcast" state.
+    - Confirm to admin: "Message broadcasted to X users."
 
-### 4. AI Interaction & Formatting
-- [x] Modified AI prompts to format summaries as single-sentence points separated by double newlines
-- [x] Added `formatAsSummaryBullets` function to convert AI responses to bullet points
-- [x] Enhanced `insightsSystemPrompt` to better handle entries with minimal data
-- [x] Improved formatting for entry completion with entry name, summary, and hashtag keywords
-- [x] Modified question formatting to be more concise
+### 4. Phase 4: Testing & Refinement
+- **Subtask 4.1: Unit/Integration Tests**
+    - Test notification scheduling.
+    - Test main menu input behavior.
+    - Test admin broadcast command.
+- **Subtask 4.2: Manual End-to-End Testing**
+    - Test notification settings and reception.
+    - Test various message types in main menu.
+    - Test admin broadcast flow.
 
-### 5. Entry Summary Display
-- [x] Implemented concise message count format (e.g., `[T:5 V:1 F:2]`)
-- [x] Simplified entry status message to focus on the main prompt
+## Creative Phases Required
+- [ ] **UI/UX Design (Minor):** For notification time settings.
+- [ ] **Algorithm Design (Minor):** For notification scheduling (especially if timezones become a complex factor).
 
-## Challenges & Solutions
-- **Challenge:** Identifying all code locations for keyboard generation/handling.
-  - **Solution:** Used code search for keyboard-related functions and systematically reviewed feature directories.
-- **Challenge:** Ensuring AI prompt changes consistently produce the desired format.
-  - **Solution:** Implemented formatting functions that handle AI responses consistently regardless of output format.
-- **Challenge:** Tracking message counts efficiently.
-  - **Solution:** Added direct database update in the message handling functions to update counters atomically.
-- **Challenge:** Making entry summaries concise yet informative.
-  - **Solution:** Used abbreviated format for message counts and positioned them at the end of messages.
+## Dependencies
+- User database.
+- Telegram API.
+- Session management (for admin broadcast).
 
-## Future Considerations
-- Fine-tune AI prompts based on user feedback and response quality
-- Consider adding analytics on message type distribution
-- Explore optimizations for entries with many messages
-- Add specialized handling for other message types (stickers, photos, documents)
+## Challenges & Mitigations
+- **Challenge 1:** Efficiently querying/updating notification timestamps.
+    - **Mitigation:** Indexed queries, batch processing if necessary.
+- **Challenge 2:** Handling timezones accurately.
+    - **Mitigation (Current):** Assume consistent timezone. If full support needed, complexity increases (potential creative phase).
+- **Challenge 3:** Main menu "catch-all" conflicting with other commands/buttons.
+    - **Mitigation:** Careful handler ordering and state management.
+- **Challenge 4:** Rate limiting/errors during broadcast.
+    - **Mitigation:** Delays between sends, error handling.
 
 ---
 **Status:** Implementation Complete ✅ 
