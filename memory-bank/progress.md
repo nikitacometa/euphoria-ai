@@ -255,7 +255,12 @@ Planning phase complete. Ready to begin implementation.
   - Created `common.json`, `onboarding.json`, `journal.json`, `settings.json`, `errors.json` in `src/locales/en/` and `src/locales/ru/`.
   - Added initial set of keys and translations/placeholders.
 - [x] **Subtask 4.3:** Localization Integration (Partial) - Core features largely covered.
-- [ ] **Subtask 4.4:** Language Toggle Enhancement
+- [x] **Subtask 4.4:** Language Toggle Enhancement
+  - Verified language toggle in settings updates `user.aiLanguage` used by `t()`.
+  - Localized settings keyboard buttons in `settings/keyboards.ts`.
+  - Updated help text in translation files to mention UI language customization.
+
+**Phase 4: Russian Language Localization - COMPLETE**
 
 ### Phase 5: Testing & Refinement
 - [ ] **Subtask 5.1:** Unit Tests Creation
