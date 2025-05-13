@@ -191,3 +191,7 @@ export const ADMIN_IDS = config.support.adminIds;
 export const NOTIFICATION_ALERT_THRESHOLD = config.support.notificationAlertThreshold;
 export const MAX_NOTIFICATION_RETRIES = config.support.maxNotificationRetries;
 export const ADMIN_CHAT_ID = env.ADMIN_CHAT_ID;
+
+// Added for re-analysis commands
+export const REANALYSIS_BATCH_SIZE = parseInt(process.env.REANALYSIS_BATCH_SIZE || '5');
+export const REANALYSIS_PROGRESS_INTERVAL = parseInt(process.env.REANALYSIS_PROGRESS_INTERVAL || '10');

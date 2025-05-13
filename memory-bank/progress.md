@@ -242,7 +242,11 @@ Planning phase complete. Ready to begin implementation.
   - Extracted `performFullEntryAnalysis` and `updateEntryWithAnalysis` in `journal-ai.service.ts`.
   - Defined `FullAnalysisResult` interface.
   - Adjusted `extractContentFromEntry` for re-analysis scenarios.
-- [ ] **Subtask 3.2:** Re-Analysis Command Implementation
+- [x] **Subtask 3.2:** Re-Analysis Command Implementation
+  - Created `src/commands/reanalyze.ts` with `reanalyzeMeCommand`, `reanalyzeAllCommand`, `handleReanalyzeAllConfirmation`.
+  - Implemented `isAdmin` middleware in `src/middlewares/admin.ts`.
+  - Added necessary config values (`REANALYSIS_BATCH_SIZE`, `REANALYSIS_PROGRESS_INTERVAL`).
+- [ ] **Subtask 3.3:** Database Interaction
 
 ### Phase 4: Russian Language Localization
 - [ ] **Subtask 4.1:** Localization Setup
