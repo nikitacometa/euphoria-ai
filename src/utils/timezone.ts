@@ -2,302 +2,194 @@
  * Timezone utility functions for handling time conversions
  */
 import { JournalBotContext } from '../types/session';
+import { Keyboard } from 'grammy';
 
 /**
- * Converts a time string from a specific timezone to UTC
- * @param timeString Time string in format "HH:mm"
- * @param timezone User's timezone (IANA format, e.g., "America/New_York")
- * @returns Time string in UTC in format "HH:mm"
+ * Parses a UTC offset string (e.g., "+5:30", "-10", "0") into hours and minutes.
+ * @param utcOffsetString The UTC offset string.
+ * @returns Object with hours and minutes (minutes can be negative for negative offsets).
  */
-export function convertToUTC(timeString: string, timezone: string): string {
-    // Create a date with the current day but with the specific time in the user's timezone
-    const [hours, minutes] = timeString.split(':').map(Number);
-    
-    // Create a date in the specified timezone
-    const date = new Date();
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-    });
-    
-    // Get the date parts in the user's timezone
-    const dateParts = formatter.formatToParts(date);
-    const year = Number(dateParts.find(part => part.type === 'year')?.value || date.getFullYear());
-    const month = Number(dateParts.find(part => part.type === 'month')?.value || (date.getMonth() + 1)) - 1;
-    const day = Number(dateParts.find(part => part.type === 'day')?.value || date.getDate());
-    
-    // Create a date object with the correct timezone but at the specified time
-    const userTimezoneDate = new Date(Date.UTC(year, month, day, hours, minutes));
-    
-    // Adjust for timezone offset
-    const userTimezoneOffset = getUserTimezoneOffset(timezone);
-    const utcTime = new Date(userTimezoneDate.getTime() - userTimezoneOffset * 60000);
-    
-    // Format the UTC time
-    return `${utcTime.getUTCHours().toString().padStart(2, '0')}:${utcTime.getUTCMinutes().toString().padStart(2, '0')}`;
-}
-
-/**
- * Converts a UTC time string to a time in a specific timezone
- * @param utcTimeString Time string in UTC in format "HH:mm"
- * @param timezone Target timezone (IANA format, e.g., "America/New_York")
- * @returns Time string in the target timezone in format "HH:mm"
- */
-export function convertFromUTC(utcTimeString: string, timezone: string): string {
-    // Parse the UTC time string
-    const [hours, minutes] = utcTimeString.split(':').map(Number);
-    
-    // Create a date with the current day but with the specific time in UTC
-    const utcDate = new Date();
-    utcDate.setUTCHours(hours, minutes, 0, 0);
-    
-    // Format the time in the target timezone
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
-    
-    // Get the formatted time in the target timezone
-    const formattedTime = formatter.format(utcDate);
-    
-    // Some locales might output in a different format
-    // Extract hours and minutes and ensure they're in HH:mm format
-    const timeRegex = /(\d{1,2})[^\d]*(\d{2})/;
-    const match = timeRegex.exec(formattedTime);
-    
-    if (match) {
-        const hours = match[1].padStart(2, '0');
-        const minutes = match[2];
-        return `${hours}:${minutes}`;
+function parseUtcOffset(utcOffsetString: string): { hours: number; minutes: number } {
+    if (utcOffsetString === "0" || utcOffsetString === "+0" || utcOffsetString === "-0") {
+        return { hours: 0, minutes: 0 };
     }
-    
-    // Fallback: try to extract from the formatter's output
-    return formattedTime.replace(/[^\d:]/g, '');
+    const match = utcOffsetString.match(/^([+-])(\d{1,2})(?::(\d{2}))?$/);
+    if (!match) {
+        console.warn(`Invalid UTC offset string format: ${utcOffsetString}. Defaulting to +0.`);
+        return { hours: 0, minutes: 0 }; // Default to UTC if format is invalid
+    }
+
+    const sign = match[1] === '-' ? -1 : 1;
+    const hours = parseInt(match[2], 10);
+    const minutes = match[3] ? parseInt(match[3], 10) : 0;
+
+    return { hours: sign * hours, minutes: sign * minutes };
 }
 
 /**
- * Gets the current offset in minutes for a timezone
- * @param timezone IANA timezone string (e.g., "America/New_York")
- * @returns Offset in minutes
+ * Converts a local time string to UTC time string using a UTC offset.
+ * @param localTimeString Time string in "HH:mm" format (user's local time).
+ * @param utcOffset User's UTC offset string (e.g., "+2", "-5:30").
+ * @returns Time string in UTC in "HH:mm" format.
  */
-function getUserTimezoneOffset(timezone: string): number {
-    const date = new Date();
-    
-    // Get the time in the specified timezone
-    const timeString = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        hour: 'numeric',
-        minute: 'numeric',
-        hour12: false
-    }).format(date);
-    
-    // Get the time in the local timezone
-    const localTimeString = new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: 'numeric',
-        hour12: false
-    }).format(date);
-    
-    // Parse both times
-    const parseTime = (timeStr: string) => {
-        const match = /(\d{1,2})[^\d]*(\d{2})/.exec(timeStr);
-        if (match) {
-            return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+export function convertToUTC(localTimeString: string, utcOffset: string): string {
+    const [localHours, localMinutes] = localTimeString.split(':').map(Number);
+    const offset = parseUtcOffset(utcOffset);
+
+    let utcHours = localHours - offset.hours;
+    let utcMinutes = localMinutes - offset.minutes;
+
+    // Adjust minutes and hours if minutes are out of bounds
+    if (utcMinutes < 0) {
+        utcMinutes += 60;
+        utcHours -= 1;
+    }
+    if (utcMinutes >= 60) {
+        utcMinutes -= 60;
+        utcHours += 1;
+    }
+
+    // Adjust hours if they are out of bounds
+    if (utcHours < 0) {
+        utcHours += 24;
+    }
+    if (utcHours >= 24) {
+        utcHours -= 24;
+    }
+
+    return `${String(utcHours).padStart(2, '0')}:${String(utcMinutes).padStart(2, '0')}`;
+}
+
+/**
+ * Converts a UTC time string to a local time string using a UTC offset.
+ * @param utcTimeString Time string in UTC in "HH:mm" format.
+ * @param utcOffset User's UTC offset string (e.g., "+2", "-5:30").
+ * @returns Time string in the user's local time in "HH:mm" format.
+ */
+export function convertFromUTC(utcTimeString: string, utcOffset: string): string {
+    const [utcHours, utcMinutes] = utcTimeString.split(':').map(Number);
+    const offset = parseUtcOffset(utcOffset);
+
+    let localHours = utcHours + offset.hours;
+    let localMinutes = utcMinutes + offset.minutes;
+
+    // Adjust minutes and hours if minutes are out of bounds
+    if (localMinutes < 0) {
+        localMinutes += 60;
+        localHours -= 1;
+    }
+    if (localMinutes >= 60) {
+        localMinutes -= 60;
+        localHours += 1;
+    }
+
+    // Adjust hours if they are out of bounds
+    if (localHours < 0) {
+        localHours += 24;
+    }
+    if (localHours >= 24) {
+        localHours -= 24;
+    }
+
+    return `${String(localHours).padStart(2, '0')}:${String(localMinutes).padStart(2, '0')}`;
+}
+
+/**
+ * Validates if a string is a valid UTC offset format (e.g., "+2", "-5:30", "0").
+ * @param utcOffset The UTC offset string to validate.
+ * @returns True if valid, false otherwise.
+ */
+export function isValidUtcOffset(utcOffset: string): boolean {
+    if (utcOffset === "0") return true;
+    // Regex from user.model.ts, slightly adjusted for full match an no empty validation needed here
+    return /^([+-])((?:[0-9]|1[0-3])(?::[0-5][0-9])?|14(?::00)?)$/.test(utcOffset);
+}
+
+/**
+ * Formats a time string with UTC offset information for display.
+ * @param localTimeString Time string in "HH:mm" format (user's local time).
+ * @param utcOffset User's UTC offset string (e.g., "+2", "-5:30").
+ * @returns Formatted string like "21:00 (UTC+2)" or "09:30 (UTC-5:30)".
+ */
+export function formatTimeWithTimezone(localTimeString: string, utcOffset: string): string {
+    if (utcOffset === "0" || utcOffset === "+0" || utcOffset === "-0") {
+        return `${localTimeString} (UTC)`;
+    }
+    // Ensure the sign is always present for non-zero offsets
+    const displayOffset = (utcOffset.startsWith('+') || utcOffset.startsWith('-')) ? utcOffset : `+${utcOffset}`;
+    return `${localTimeString} (UTC${displayOffset})`;
+}
+
+/**
+ * Generates a keyboard with common UTC offset options for selection.
+ * @returns A Grammy Keyboard object.
+ */
+export function generateUTCOffsetKeyboard(): Keyboard {
+    const keyboard = new Keyboard().resized();
+    const offsets: string[] = [];
+    for (let i = -12; i <= 14; i++) {
+        if (i === 0) {
+            offsets.push("0");
+        } else {
+            offsets.push((i > 0 ? "+" : "") + i.toString());
         }
-        return 0;
-    };
-    
-    const timezoneMinutes = parseTime(timeString);
-    const localMinutes = parseTime(localTimeString);
-    
-    // Calculate offset including day difference
-    let offset = timezoneMinutes - localMinutes;
-    
-    // Adjust for day boundaries
-    if (offset > 720) offset -= 1440;
-    if (offset < -720) offset += 1440;
-    
-    return offset;
+    }
+
+    // Add half-hour offsets for common regions if desired, e.g. +5:30
+    // For simplicity, sticking to whole hours for now based on the plan for onboarding
+    // offsets.push("+5:30"); 
+    // offsets.sort((a,b) => parseFloat(a.replace(":30", ".5")) - parseFloat(b.replace(":30",".5")));
+
+    let row: string[] = [];
+    for (let i = 0; i < offsets.length; i++) {
+        row.push(offsets[i]);
+        if (row.length === 3 || i === offsets.length - 1) {
+            keyboard.row(...row.map(offset => ({ text: `UTC${offset}` })));
+            row = [];
+        }
+    }
+    keyboard.row({ text: "❌ Cancel" }); // Add a cancel button
+    return keyboard;
 }
 
 /**
- * Common timezones to use as a fallback if Intl.supportedValuesOf is not available
+ * Calculates the next notification Date object based on a UTC time string.
+ * @param utcTimeString The desired notification time in "HH:mm" format (UTC).
+ * @returns The Date object for the next occurrence of this UTC time.
  */
-const COMMON_TIMEZONES = [
-    'UTC',
-    'America/New_York',
-    'America/Chicago',
-    'America/Denver',
-    'America/Los_Angeles',
-    'Europe/London',
-    'Europe/Paris',
-    'Europe/Berlin',
-    'Europe/Moscow',
-    'Asia/Tokyo',
-    'Asia/Shanghai',
-    'Asia/Kolkata',
-    'Australia/Sydney',
-    'Pacific/Auckland'
-];
+export function calculateNextNotificationDateTime(utcTimeString: string): Date {
+    const [hours, minutes] = utcTimeString.split(':').map(Number);
+    const nextNotification = new Date();
+    nextNotification.setUTCHours(hours, minutes, 0, 0);
 
-/**
- * Common timezone to region mappings for heuristic timezone guessing
- */
-const TIMEZONE_REGIONS: Record<string, string> = {
-    '1': 'Europe/London',     // UK, Portugal
-    '2': 'Europe/Paris',      // Most of Europe
-    '3': 'Europe/Moscow',     // Eastern Europe, parts of Russia
-    '4': 'Asia/Dubai',        // Middle East
-    '5': 'Asia/Karachi',      // Pakistan, parts of Central Asia
-    '5.5': 'Asia/Kolkata',    // India
-    '6': 'Asia/Dhaka',        // Bangladesh
-    '7': 'Asia/Bangkok',      // Thailand, Vietnam
-    '8': 'Asia/Shanghai',     // China, Singapore, parts of Asia
-    '9': 'Asia/Tokyo',        // Japan, Korea
-    '10': 'Australia/Sydney', // Eastern Australia
-    '11': 'Pacific/Noumea',   // Pacific islands
-    '12': 'Pacific/Auckland', // New Zealand
-    '-11': 'Pacific/Midway',  // Samoa
-    '-10': 'Pacific/Honolulu',// Hawaii
-    '-9': 'America/Anchorage',// Alaska
-    '-8': 'America/Los_Angeles', // Pacific Time
-    '-7': 'America/Denver',   // Mountain Time
-    '-6': 'America/Chicago',  // Central Time
-    '-5': 'America/New_York', // Eastern Time
-    '-4': 'America/Halifax',  // Atlantic Time
-    '-3': 'America/Sao_Paulo',// Brazil, Argentina
-    '-2': 'Atlantic/South_Georgia', // Mid-Atlantic
-    '-1': 'Atlantic/Azores'   // Azores
-};
+    if (nextNotification.getTime() <= Date.now()) {
+        nextNotification.setUTCDate(nextNotification.getUTCDate() + 1);
+    }
+    return nextNotification;
+}
 
-/**
- * Get a list of all IANA timezones
- * @returns Array of timezone strings
- */
+// --- Functions to be removed or refactored as they are IANA specific ---
+/*
 export function getAvailableTimezones(): string[] {
     try {
-        // Use the modern API if available
         if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
             return (Intl as any).supportedValuesOf('timeZone');
         }
-    } catch (error) {
-        // Fall back to common timezones if the API fails
-    }
-    
-    // Return common timezones as a fallback
-    return COMMON_TIMEZONES;
+    } catch (error) { }
+    return []; // Simplified, was COMMON_TIMEZONES
 }
 
-/**
- * Detects the user's timezone based on browser information
- * @returns The detected IANA timezone string
- */
 export function detectUserTimezone(): string {
     try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch (error) {
-        // Default to UTC if detection fails
         return 'UTC';
     }
 }
 
-/**
- * Validates if a string is a valid IANA timezone
- * @param timezone The timezone string to validate
- * @returns True if valid, false otherwise
- */
-export function isValidTimezone(timezone: string): boolean {
-    try {
-        new Intl.DateTimeFormat('en-US', { timeZone: timezone });
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
-/**
- * Formats a time string with timezone information for display
- * @param timeString Time string in format "HH:mm"
- * @param timezone User's timezone
- * @returns Formatted string like "21:00 (UTC+1)"
- */
-export function formatTimeWithTimezone(timeString: string, timezone: string): string {
-    try {
-        // Get current date in the timezone
-        const date = new Date();
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: timezone,
-            timeZoneName: 'short'
-        });
-        
-        // Extract the timezone abbreviation from the formatted string
-        const formattedDate = formatter.format(date);
-        const timezoneAbbr = formattedDate.split(' ').pop();
-        
-        return `${timeString} (${timezoneAbbr})`;
-    } catch (error) {
-        // If there's an error, just return the time string
-        return timeString;
-    }
-}
-
-/**
- * Attempts to guess a user's timezone from a Telegram context
- * Since Telegram doesn't provide timezone info, this uses various heuristics
- * 
- * @param ctx The Telegram bot context
- * @returns Best guess at user's timezone or null if can't determine
- */
 export async function guessUserTimezone(ctx: JournalBotContext): Promise<string | null> {
-    try {
-        // 1. Try to get language from user settings
-        const userLanguage = ctx.from?.language_code || '';
-        
-        // Maps of common languages to likely timezones
-        const languageTimezones: Record<string, string> = {
-            'en-US': 'America/New_York',
-            'en-GB': 'Europe/London',
-            'ru': 'Europe/Moscow',
-            'es': 'Europe/Madrid',
-            'de': 'Europe/Berlin',
-            'fr': 'Europe/Paris',
-            'it': 'Europe/Rome',
-            'ja': 'Asia/Tokyo',
-            'zh': 'Asia/Shanghai',
-            'ko': 'Asia/Seoul',
-            'pt': 'Europe/Lisbon',
-            'pt-BR': 'America/Sao_Paulo',
-            'ar': 'Asia/Riyadh',
-            'hi': 'Asia/Kolkata',
-            'tr': 'Europe/Istanbul',
-            'id': 'Asia/Jakarta',
-            'th': 'Asia/Bangkok',
-            'vi': 'Asia/Ho_Chi_Minh'
-        };
-        
-        // Try exact language match first
-        if (userLanguage && languageTimezones[userLanguage]) {
-            return languageTimezones[userLanguage];
-        }
-        
-        // Try language prefix (e.g., "en" from "en-US")
-        const langPrefix = userLanguage.split('-')[0];
-        if (langPrefix) {
-            for (const [key, value] of Object.entries(languageTimezones)) {
-                if (key.startsWith(langPrefix + '-')) {
-                    return value;
-                }
-            }
-        }
-        
-        // 2. Fallback to UTC (safest option)
-        return 'UTC';
-    } catch (error) {
-        console.error('Error guessing timezone:', error);
-        return 'UTC'; // Default to UTC on error
-    }
-} 
+    // This logic is IANA specific and complex to map to simple UTC offset
+    // Should be re-evaluated if frontend timezone detection is available or a simpler heuristic for offset is found
+    return null; // Defaulting to null as guessing IANA is not useful for UTC offset model directly
+}
+*/ 

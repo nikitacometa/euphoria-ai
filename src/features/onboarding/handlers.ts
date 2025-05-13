@@ -3,7 +3,7 @@ import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 import { updateUserProfile } from '../../database'; // Assuming updateUserProfile is exported from database index
 import { ageKeyboard, genderKeyboard, timezoneKeyboard } from './keyboards';
-import { isValidAgeRange, isValidGender, isValidTimezone, convertToIANATimezone } from './utils';
+import { isValidAgeRange, isValidGender, isValidUtcOffsetInput } from './utils';
 import { transcribeAudio, promptText } from '../../services/ai/openai.service'; // Import AI services
 import { showMainMenu } from '../core/handlers';
 import { logger } from '../../utils/logger';
@@ -97,11 +97,11 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             break;
         }
         case 'timezone': {
-            if (!text || !isValidTimezone(text)) { // Expecting text from keyboard. isValidTimezone now needs to validate UTC offset format
+            if (!text || !isValidUtcOffsetInput(text)) { // Changed to use isValidUtcOffsetInput
                 await ctx.reply("Please select your UTC offset from the options provided 🌍 (e.g., +2, -5).");
                 return;
             }
-            // const ianaTimezone = convertToIANATimezone(text); // No longer converting to IANA
+            // const ianaTimezone = convertToIANATimezone(text); // This line was already commented, keeping it that way
             await updateUserProfile(ctx.from.id, { utcOffset: text }); // Store the offset directly
             ctx.session.onboardingStep = 'language';
             await ctx.reply("<b>Fantastic!</b>\n\n<i>Choose preferred language for AI chats (UI localization coming soon):</i>", {

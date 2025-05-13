@@ -6,7 +6,7 @@ import { logger } from '../../utils/logger';
 import { notificationService } from '../../services/notification.service'; // Service for updating settings
 import { findOrCreateUser, updateUserProfile } from '../../database'; // Added import for findOrCreateUser
 import { showMainMenu } from '../core/handlers';
-import { convertFromUTC, formatTimeWithTimezone, guessUserTimezone, isValidTimezone, detectUserTimezone } from '../../utils/timezone';
+import { convertFromUTC, formatTimeWithTimezone, isValidUtcOffset } from '../../utils/timezone';
 
 /**
  * Formats the settings text based on user settings
@@ -252,7 +252,7 @@ export async function setTimezoneHandler(ctx: JournalBotContext) {
  * Handles user input for timezone setting
  */
 export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
-    if (!ctx.message || !('text' in ctx.message) || !ctx.session?.waitingForUtcOffset) { // Changed from waitingForTimezone
+    if (!ctx.message || !('text' in ctx.message) || !ctx.session?.waitingForUtcOffset) { 
         return; 
     }
     const input = ctx.message.text || '';
@@ -264,11 +264,12 @@ export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
         return;
     }
     
-    // UTC offset validation will be handled here based on a new regex or validation function (Subtask 1.2/1.4)
-    // For now, assume a valid offset string like "+2" or "-5"
-    const offsetRegex = /^([+-])([0-9]|1[0-4])$|^0$/; // Simple example regex
-    if (offsetRegex.test(input)) {
-        await saveTimezone(ctx, user, input); // saveTimezone will now save utcOffset
+    // Use the new isValidUtcOffset (which expects format like "+2", not "UTC+2")
+    // The input here might be from a keyboard generating "UTC+5" or direct user input like "+5"
+    const offsetToValidate = input.startsWith('UTC') ? input.substring(3) : input;
+
+    if (isValidUtcOffset(offsetToValidate)) {
+        await saveTimezone(ctx, user, offsetToValidate); 
     } else {
         await ctx.reply(
             "Sorry, that doesn\'t appear to be a valid UTC offset. Please use formats like \"+2\", \"-5\", or \"0\".",
@@ -309,81 +310,5 @@ async function saveTimezone(ctx: JournalBotContext, user: IUser, utcOffsetToSave
         );
         ctx.session.waitingForUtcOffset = false;
         await showMainMenu(ctx, user);
-    }
-}
-
-/**
- * Convert UTC offset to a standard IANA timezone
- */
-function getTimezoneFromUTCOffset(offset: number): string {
-    // Map of UTC offsets to common IANA timezone IDs
-    const offsetMap: Record<string, string> = {
-        '-12': 'Etc/GMT+12', // Note: Etc/GMT+ is negative UTC offset (confusing but correct)
-        '-11': 'Etc/GMT+11',
-        '-10': 'Pacific/Honolulu', // Hawaii
-        '-9': 'America/Anchorage', // Alaska
-        '-8': 'America/Los_Angeles', // Pacific Time
-        '-7': 'America/Denver', // Mountain Time
-        '-6': 'America/Chicago', // Central Time
-        '-5': 'America/New_York', // Eastern Time
-        '-4': 'America/Halifax', // Atlantic Time
-        '-3': 'America/Sao_Paulo',
-        '-2': 'Atlantic/South_Georgia',
-        '-1': 'Atlantic/Azores',
-        '0': 'UTC',
-        '1': 'Europe/London',
-        '2': 'Europe/Paris',
-        '3': 'Europe/Moscow',
-        '4': 'Asia/Dubai',
-        '5': 'Asia/Karachi',
-        '5.5': 'Asia/Kolkata', // India
-        '6': 'Asia/Dhaka',
-        '7': 'Asia/Bangkok',
-        '8': 'Asia/Shanghai',
-        '9': 'Asia/Tokyo',
-        '10': 'Australia/Sydney',
-        '11': 'Pacific/Noumea',
-        '12': 'Pacific/Auckland',
-        '13': 'Pacific/Apia',
-        '14': 'Pacific/Kiritimati',
-    };
-    
-    // Handle fractional offsets by using closest match or fallback to Etc/GMT format
-    const offsetStr = offset.toString();
-    
-    if (offsetMap[offsetStr]) {
-        return offsetMap[offsetStr];
-    }
-    
-    // Fallback to Etc/GMT+X or Etc/GMT-X format
-    // Note the sign is inverted in Etc/GMT format
-    const sign = offset < 0 ? '+' : '-';
-    const absOffset = Math.abs(offset);
-    return `Etc/GMT${sign}${absOffset}`;
-}
-
-/**
- * Get a display representation of the UTC offset for a timezone
- */
-function getUTCOffsetDisplay(timezone: string): string {
-    try {
-        const date = new Date();
-        // Format the timezone with its UTC offset
-        const formatter = new Intl.DateTimeFormat('en-GB', {
-            timeZone: timezone,
-            timeZoneName: 'longOffset'
-        });
-        
-        const formatted = formatter.format(date);
-        
-        // Extract just the UTC offset portion
-        const match = formatted.match(/GMT([+-]\d{1,2}(?::\d{2})?)/);
-        if (match) {
-            return `UTC${match[1]}`;
-        }
-        
-        return timezone;
-    } catch (error) {
-        return timezone;
     }
 }
