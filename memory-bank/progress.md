@@ -238,29 +238,20 @@ Planning phase complete. Ready to begin implementation.
 **Phase 2: Entry Message List View - COMPLETE**
 
 ### Phase 3: Admin Re-Analysis Commands
-- [x] **Subtask 3.1:** Analysis Code Refactoring
-  - Extracted `performFullEntryAnalysis` and `updateEntryWithAnalysis` in `journal-ai.service.ts`.
-  - Defined `FullAnalysisResult` interface.
-  - Adjusted `extractContentFromEntry` for re-analysis scenarios.
-- [x] **Subtask 3.2:** Re-Analysis Command Implementation
-  - Created `src/commands/reanalyze.ts` with `reanalyzeMeCommand`, `reanalyzeAllCommand`, `handleReanalyzeAllConfirmation`.
-  - Implemented `isAdmin` middleware in `src/middlewares/admin.ts`.
-  - Added necessary config values (`REANALYSIS_BATCH_SIZE`, `REANALYSIS_PROGRESS_INTERVAL`).
-- [x] **Subtask 3.3:** Database Interaction
-  - Leveraged existing database model functions for fetching entries.
-  - Updates handled by `updateEntryWithAnalysis` using `findByIdAndUpdate`.
-  - Batching and error resilience implemented in command handlers.
-- [x] **Subtask 3.4:** Command Registration
-  - Created `registerReanalyzeCommands` in `src/commands/reanalyze.ts`.
-  - Registered new commands and confirmation handler in `src/app/feature-registry.ts`.
+- [ ] **Subtask 3.1:** Analysis Code Refactoring
+- [ ] **Subtask 3.2:** Re-Analysis Command Implementation
+- [ ] **Subtask 3.3:** Database Interaction
+- [ ] **Subtask 3.4:** Command Registration
 
 **Phase 3: Admin Re-Analysis Commands - COMPLETE**
 
 ### Phase 4: Russian Language Localization
-- [ ] **Subtask 4.1:** Localization Setup
+- [x] **Subtask 4.1:** Localization Setup
+  - Installed i18next, i18next-fs-backend.
+  - Created `src/locales/en` and `src/locales/ru` directories.
+  - Created `src/config/i18n.ts` with initialization logic.
+  - Called `setupLocalization()` in `src/app/index.ts`.
 - [ ] **Subtask 4.2:** Translation Files Creation
-- [ ] **Subtask 4.3:** Localization Integration
-- [ ] **Subtask 4.4:** Language Toggle Enhancement
 
 ### Phase 5: Testing & Refinement
 - [ ] **Subtask 5.1:** Unit Tests Creation

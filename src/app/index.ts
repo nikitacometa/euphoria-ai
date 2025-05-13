@@ -6,6 +6,7 @@ import { notificationService } from '../services/notification.service';
 import { logger, createLogger } from '../utils/logger';
 import { LOG_LEVEL } from '../config/index';
 import { JournalBotContext } from '../types/session';
+import { setupLocalization } from '../config/i18n';
 
 // Create a logger for the app
 const appLogger = createLogger('App', LOG_LEVEL);
@@ -21,6 +22,10 @@ export async function startApp(): Promise<Bot<JournalBotContext>> {
     appLogger.info('Starting Euphoria bot application...');
     
     try {
+        appLogger.info('Initializing localization...');
+        await setupLocalization();
+        appLogger.info('Localization initialized.');
+
         appLogger.info('Connecting to database...');
         await connectToDatabase();
         appLogger.info('Database connection established');
