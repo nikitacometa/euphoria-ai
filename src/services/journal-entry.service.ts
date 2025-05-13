@@ -142,6 +142,7 @@ export async function addTextMessage(
  * @param fileId Telegram file ID
  * @param filePath Local file path
  * @param transcription Transcription text
+ * @param duration Duration of the voice message
  * @returns Updated journal entry
  */
 export async function addVoiceMessage(
@@ -150,7 +151,8 @@ export async function addVoiceMessage(
     messageId: number,
     fileId: string,
     filePath: string,
-    transcription: string
+    transcription: string,
+    duration?: number
 ): Promise<IMessage> {
     const context = { userId: userId.toString(), entryId: entryId.toString(), messageId };
     return handleServiceError(
@@ -164,7 +166,8 @@ export async function addVoiceMessage(
                 fileId,
                 filePath,
                 transcription,
-                MessageRole.USER
+                MessageRole.USER,
+                duration
             );
             
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
@@ -189,6 +192,7 @@ export async function addVoiceMessage(
  * @param fileId Telegram file ID
  * @param filePath Local file path
  * @param transcription Transcription text
+ * @param duration Duration of the video message
  * @returns Updated journal entry
  */
 export async function addVideoMessage(
@@ -197,7 +201,8 @@ export async function addVideoMessage(
     messageId: number,
     fileId: string,
     filePath: string,
-    transcription: string
+    transcription: string,
+    duration?: number
 ): Promise<IMessage> {
     const context = { userId: userId.toString(), entryId: entryId.toString(), messageId };
     return handleServiceError(
@@ -211,7 +216,8 @@ export async function addVideoMessage(
                 fileId,
                 filePath,
                 transcription,
-                MessageRole.USER
+                MessageRole.USER,
+                duration
             );
             
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);

@@ -68,6 +68,10 @@ const messageSchema = new Schema<IMessage>(
         filePath: {
             type: String,
             required: false
+        },
+        duration: {
+            type: Number,
+            required: false
         }
     },
     {
@@ -106,7 +110,8 @@ export async function saveVoiceMessage(
     fileId: string,
     filePath: string,
     transcription: string,
-    role: MessageRole = MessageRole.USER
+    role: MessageRole = MessageRole.USER,
+    duration?: number
 ): Promise<IMessage> {
     return Message.create({
         user: userId,
@@ -116,7 +121,8 @@ export async function saveVoiceMessage(
         role,
         fileId,
         filePath,
-        transcription
+        transcription,
+        duration
     });
 }
 
@@ -146,7 +152,8 @@ export async function saveVideoMessage(
     fileId: string,
     filePath: string,
     transcription: string,
-    role: MessageRole = MessageRole.USER
+    role: MessageRole = MessageRole.USER,
+    duration?: number
 ): Promise<IMessage> {
     return Message.create({
         user: userId,
@@ -156,7 +163,8 @@ export async function saveVideoMessage(
         role,
         fileId,
         filePath,
-        transcription
+        transcription,
+        duration
     });
 }
 

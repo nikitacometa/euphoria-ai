@@ -7,7 +7,7 @@ import {
     findOrCreateUser, // Need this for hears handlers
 } from '../../database';
 import { transcribeAudio } from '../../services/ai/openai.service';
-import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram, createEntryStatusMessage } from './utils';
+import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram, createEntryStatusMessage, formatMessageList } from './utils';
 import { journalActionKeyboard, confirmCancelKeyboard, ButtonText, CALLBACKS } from './keyboards/index';
 import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
@@ -113,10 +113,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
     }
 
     const entryId = new Types.ObjectId(ctx.session.journalEntryId);
-    // Re-fetch entry to ensure it's still active and get populated messages if needed
-    const entry = await getEntryById(entryId);
+    let currentEntry = await getEntryById(entryId); // Fetch entry, hopefully with populated messages
 
-    if (!entry || entry.status === 'completed') { // Check if entry was somehow completed or deleted
+    if (!currentEntry || currentEntry.status === 'completed') {
         logger.warn(`Journal entry ${ctx.session.journalEntryId} not found or already completed for user ${user.telegramId}. Clearing session.`);
         ctx.session.journalEntryId = undefined;
         await replyWithHTML(
@@ -129,6 +128,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
     }
 
     let messageSaved = false;
+    let voiceDuration: number | undefined = undefined;
+    let videoDuration: number | undefined = undefined;
+
     try {
         if ('text' in ctx.message) {
             await addTextMessage(
@@ -146,10 +148,11 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             // React with eyes first to indicate processing
             await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
             
-            const fileId = ctx.message.voice.file_id;
+            const voice = ctx.message.voice;
+            voiceDuration = voice.duration; // Capture duration
             
             // Check duration - use configuration constant
-            if (ctx.message.voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
+            if (voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
                 await replyWithHTML(
                     ctx,
                     `Sorry, voice messages cannot be longer than ${MAX_VOICE_MESSAGE_LENGTH_SECONDS} seconds. Please try again with a shorter recording.`,
@@ -158,16 +161,17 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 return;
             }
             
-            const { transcription, localFilePath } = await processMediaMessage(ctx, fileId, 'voice');
+            const { transcription, localFilePath } = await processMediaMessage(ctx, voice.file_id, 'voice');
             fs.unlinkSync(localFilePath); // Clean up temp file
             
             await addVoiceMessage(
                 user._id as Types.ObjectId,
                 entryId,
                 ctx.message.message_id,
-                fileId,
-                localFilePath, // Path might be invalid now, consider saving only fileId?
-                transcription
+                voice.file_id,
+                localFilePath, 
+                transcription,
+                voiceDuration // Pass duration
             );
             messageSaved = true;
             
@@ -182,7 +186,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             await ctx.react("👀").catch(e => logger.warn("Failed to react with eyes", e));
             
             // Use optional chaining for video_note
-            const fileId = ('video_note' in ctx.message ? ctx.message.video_note?.file_id : ctx.message.video?.file_id) || ''; 
+            const video = ('video_note' in ctx.message ? ctx.message.video_note : ctx.message.video);
+            videoDuration = video?.duration; // Capture duration
+            const fileId = video?.file_id || ''; 
             if (!fileId) throw new Error('Video file ID not found');
 
             let transcription = "";
@@ -203,8 +209,9 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 entryId,
                 ctx.message.message_id,
                 fileId,
-                localFilePath, // Path might be invalid now
-                transcription
+                localFilePath, 
+                transcription,
+                videoDuration // Pass duration
             );
             messageSaved = true;
             
@@ -224,15 +231,18 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
 
         // If a message was saved, send a status message with entry summary and action buttons
         if (messageSaved) {
-            // Refetch entry to get updated message count
-            const updatedEntry = await getEntryById(entryId);
-            if (updatedEntry) {
-                const statusMessage = await createEntryStatusMessage(updatedEntry);
-                const sentMsg = await ctx.reply(statusMessage, {
+            const updatedEntry = await getEntryById(entryId); // Re-fetch to get all messages including the new one
+            if (updatedEntry && updatedEntry.messages) {
+                 // Ensure messages are populated IMessage objects, not just ObjectIds
+                const populatedMessages = updatedEntry.messages.filter(m => typeof m !== 'string') as IMessage[];
+                const messageListHtml = formatMessageList(populatedMessages, user);
+                const statusText = await createEntryStatusMessage(updatedEntry);
+                const combinedMessage = `${messageListHtml}\n${statusText}`;
+                
+                const sentMsg = await ctx.reply(combinedMessage, {
                     parse_mode: 'HTML',
                     reply_markup: journalActionKeyboard
                 });
-                // Store the message ID so we can delete it when the next message arrives
                 ctx.session.lastStatusMessageId = sentMsg.message_id;
             }
         }

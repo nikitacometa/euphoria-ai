@@ -228,7 +228,10 @@ Planning phase complete. Ready to begin implementation.
   - Added `formatMessageDuration`, `getMessagePreview`, `formatMessageList` to `src/features/journal-entry/utils.ts`.
   - Added `duration` field to `IMessage` type in `src/types/models.ts`.
   - Used placeholder localization; actual localization in Phase 4.
-- [ ] **Subtask 2.2:** Update Entry Handler Logic
+- [x] **Subtask 2.2:** Update Entry Handler Logic
+  - Modified `journal-entry/handlers.ts` to capture media duration and display formatted message list.
+  - Updated `journal-entry.service.ts` and `message.model.ts` to handle and store message duration.
+- [ ] **Subtask 2.3:** UI Integration
 
 ### Phase 3: Admin Re-Analysis Commands
 - [ ] **Subtask 3.1:** Analysis Code Refactoring
