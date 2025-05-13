@@ -64,13 +64,8 @@ const userSchema = new Schema<IUser>(
                     if (!v) return true; // Allow empty string
                     return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
                 },
-                message: props => `${props.value} is not a valid time format! Use HH:mm (24-hour) in UTC timezone`
+                message: (props: any) => `${props.value} is not a valid time format! Use HH:mm (24-hour) in UTC timezone`
             }
-        },
-        timezone: {
-            type: String,
-            default: "UTC",
-            required: false
         },
         lastNotificationSent: {
             type: Date,
@@ -99,6 +94,19 @@ const userSchema = new Schema<IUser>(
             type: String,
             enum: ['en', 'ru'],
             default: 'en'
+        },
+        utcOffset: {
+            type: String,
+            default: "+0",
+            required: false,
+            validate: {
+                validator: function(v: string) {
+                    if (!v) return true; // Allow empty or null
+                    // Validates formats like: "+0", "+2", "-5", "+5:30", "-10:00"
+                    return /^([+-])((?:[0-9]|1[0-3])(?::[0-5][0-9])?|14(?::00)?)$/.test(v) || v === "0";
+                },
+                message: (props: any) => `${props.value} is not a valid UTC offset format! Use formats like "+0", "+2", "-5:30", "-10", "+14:00".`
+            }
         }
     },
     {
@@ -142,7 +150,7 @@ export async function getAllUsers(): Promise<IUser[]> {
 // Journal application specific functions
 export async function updateUserProfile(
     telegramId: number,
-    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'timezone' | 'showTranscriptions' | 'aiLanguage'>> // Use Partial<Pick<IUser, ...>> for updates
+    updates: Partial<Pick<IUser, 'name' | 'age' | 'gender' | 'occupation' | 'bio' | 'onboardingCompleted' | 'notificationsEnabled' | 'notificationTime' | 'utcOffset' | 'showTranscriptions' | 'aiLanguage'>> // Use Partial<Pick<IUser, ...>> for updates
 ): Promise<IUser | null> {
     return User.findOneAndUpdate(
         { telegramId },

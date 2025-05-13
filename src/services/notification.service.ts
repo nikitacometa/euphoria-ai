@@ -249,8 +249,8 @@ class NotificationService {
             // Reset failure count on success
             this.resetFailureCount(user.telegramId);
             
-            const userTimezone = user.timezone || 'UTC';
-            const localTime = user.notificationTime ? convertFromUTC(user.notificationTime, userTimezone) : 'unknown';
+            const userUtcOffset = user.utcOffset || '+0';
+            const localTime = user.notificationTime ? convertFromUTC(user.notificationTime, userUtcOffset) : 'unknown';
             notificationLogger.info(
                 `✅ Notification successfully sent to user ${user.telegramId} (${user.firstName}) at ` +
                 `${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC (${localTime} local time)`
@@ -298,17 +298,13 @@ class NotificationService {
         }
 
         try {
-            const userTimezone = user.timezone || 'UTC';
+            const userUtcOffset = user.utcOffset || '+0';
             const [hours, minutes] = user.notificationTime.split(':').map(Number); // HH:MM in UTC
 
             // Get current date in user's local timezone
             let nowInUserTimezone = new Date(); 
-            if (userTimezone !== 'UTC') {
-                // If we need to be super precise about "now" in user's timezone for date component
-                // A full timezone library might be needed here for complex date math across timezones.
-                // For simplicity, using server's current date component and applying user's HH:MM locally.
-                // A robust solution uses a library to get "now" in the target timezone.
-                // For now, we assume server's date is close enough for calculating next day.
+            if (userUtcOffset !== '+0') {
+                // Example of future refinement
             }
 
             // Create a date object for today in user's local timezone at their preferred HH:MM
@@ -367,19 +363,14 @@ class NotificationService {
         notificationLogger.info(`Sending actual notification message to user ${user.telegramId}...`);
         const sendStartTime = Date.now();
 
-        // Display time in user's timezone if available
-        const userTimezone = user.timezone || 'UTC';
+        const userUtcOffset = user.utcOffset || '+0';
         let timeDisplay = user.notificationTime || '21:00';
         
-        // Convert UTC time to user's local timezone for display
-        if (user.timezone && user.notificationTime) {
-            // Convert from UTC (stored in DB) to local time based on user's timezone
-            const localTime = convertFromUTC(user.notificationTime, user.timezone);
-            // Format with timezone info for clarity
-            timeDisplay = formatTimeWithTimezone(localTime, user.timezone);
+        if (user.utcOffset && user.notificationTime) {
+            const localTime = convertFromUTC(user.notificationTime, userUtcOffset);
+            timeDisplay = formatTimeWithTimezone(localTime, userUtcOffset);
         }
 
-        // Get the appropriate message template based on user's language
         const messageText = this.getNotificationMessageTemplate(user, timeDisplay);
 
         await bot.api.sendMessage(
@@ -407,38 +398,31 @@ class NotificationService {
      * @param telegramId User's Telegram ID
      * @param enabled Whether notifications should be enabled
      * @param time Time in user's local timezone (format: "HH:mm")
-     * @param timezone User's IANA timezone (e.g., "America/New_York")
+     * @param utcOffset User's UTC offset (e.g., "+2", "-5")
      */
     public async updateUserNotificationSettings(
         telegramId: number,
         enabled: boolean,
         time?: string,
-        timezone?: string
+        utcOffset?: string
     ): Promise<void> {
         try {
-            // Get the current user to check if notifications were previously enabled
             const user = await User.findOne({ telegramId });
             const update: Partial<IUser> = { notificationsEnabled: enabled };
             
-            // If timezone is provided, update it first
-            if (timezone !== undefined) {
-                update.timezone = timezone;
-                notificationLogger.info(`User ${telegramId} changed timezone to ${timezone}`);
+            if (utcOffset !== undefined) {
+                update.utcOffset = utcOffset;
+                notificationLogger.info(`User ${telegramId} changed UTC offset to ${utcOffset}`);
             }
 
-            // If time is provided, convert it to UTC before storing
             if (time !== undefined) {
-                // Use the user we already fetched to access their timezone
-                const userTimezone = timezone || user?.timezone || 'UTC';
-                
-                // IMPORTANT: Convert the time from user's LOCAL timezone to UTC for database storage
-                const utcTime = convertToUTC(time, userTimezone);
+                const effectiveUtcOffset = utcOffset || user?.utcOffset || '+0';
+                const utcTime = convertToUTC(time, effectiveUtcOffset);
                 
                 update.notificationTime = utcTime;
-                notificationLogger.info(`User ${telegramId} changed notification time to ${utcTime} UTC (local: ${time} in ${userTimezone})`);
+                notificationLogger.info(`User ${telegramId} changed notification time to ${utcTime} UTC (local: ${time} in UTC${effectiveUtcOffset})`);
             }
 
-            // Log notification status change
             if (user?.notificationsEnabled !== enabled) {
                 if (enabled) {
                     notificationLogger.info(`User ${telegramId} enabled notifications`);
@@ -452,7 +436,6 @@ class NotificationService {
                 { $set: update }
             );
 
-            // Fetch the updated user to pass to calculateAndSetNextNotification
             const updatedUser = await User.findOne({ telegramId });
             if (updatedUser) {
                 const nextNotification = await this.calculateAndSetNextNotification(updatedUser);
@@ -474,9 +457,9 @@ class NotificationService {
      * Gets the user's current notification time in their local timezone
      * 
      * @param telegramId User's Telegram ID
-     * @returns Object containing the notification time in local timezone, UTC time, and timezone
+     * @returns Object containing the notification time in local timezone, UTC time, and utcOffset
      */
-    public async getUserNotificationTime(telegramId: number): Promise<{ localTime: string; utcTime: string; timezone: string } | null> {
+    public async getUserNotificationTime(telegramId: number): Promise<{ localTime: string; utcTime: string; utcOffset: string } | null> {
         try {
             const user = await User.findOne({ telegramId });
             
@@ -484,18 +467,17 @@ class NotificationService {
                 return null;
             }
             
-            const userTimezone = user.timezone || 'UTC';
-            const utcTime = user.notificationTime; // This is stored in UTC in the database
+            const userUtcOffset = user.utcOffset || '+0';
+            const utcTime = user.notificationTime;
             
-            // IMPORTANT: Convert the UTC time to the user's local timezone for display
-            const localTime = convertFromUTC(utcTime, userTimezone);
+            const localTime = convertFromUTC(utcTime, userUtcOffset);
             
-            notificationLogger.debug(`Retrieved notification time for user ${telegramId}: ${utcTime} UTC -> ${localTime} ${userTimezone}`);
+            notificationLogger.debug(`Retrieved notification time for user ${telegramId}: ${utcTime} UTC -> ${localTime} UTC${userUtcOffset}`);
             
             return {
                 localTime,
                 utcTime,
-                timezone: userTimezone
+                utcOffset: userUtcOffset
             };
         } catch (error) {
             notificationLogger.error(`Error getting notification time for user ${telegramId}:`, error);

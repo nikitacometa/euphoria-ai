@@ -14,7 +14,7 @@ export interface IUser extends Document {
     onboardingCompleted?: boolean;
     notificationsEnabled?: boolean;
     notificationTime?: string; // Format: "HH:mm" (24-hour) in UTC timezone
-    timezone?: string; // IANA timezone format, e.g., 'America/New_York'
+    utcOffset?: string; // Stores UTC offset like "+2" or "-5"
     lastNotificationSent?: Date;
     lastNotificationAttempt?: Date; // Tracks when notification was last attempted
     lastNotificationError?: string; // Stores error message from last failed notification

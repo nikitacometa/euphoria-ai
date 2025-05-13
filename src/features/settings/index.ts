@@ -30,7 +30,7 @@ export function registerSettingsHandlers(bot: Bot<JournalBotContext>) {
             if (!ctx.from) return; 
             const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
             await handleNotificationTimeInput(ctx, user);
-        } else if (ctx.session?.waitingForTimezone) {
+        } else if (ctx.session?.waitingForUtcOffset) {
             // User is setting timezone, handle their input
             if (!ctx.from) return;
             const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);

@@ -97,12 +97,12 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             break;
         }
         case 'timezone': {
-            if (!text || !isValidTimezone(text)) { // Expecting text from keyboard
-                await ctx.reply("Please select your timezone from the options provided 🌍");
+            if (!text || !isValidTimezone(text)) { // Expecting text from keyboard. isValidTimezone now needs to validate UTC offset format
+                await ctx.reply("Please select your UTC offset from the options provided 🌍 (e.g., +2, -5).");
                 return;
             }
-            const ianaTimezone = convertToIANATimezone(text);
-            await updateUserProfile(ctx.from.id, { timezone: ianaTimezone });
+            // const ianaTimezone = convertToIANATimezone(text); // No longer converting to IANA
+            await updateUserProfile(ctx.from.id, { utcOffset: text }); // Store the offset directly
             ctx.session.onboardingStep = 'language';
             await ctx.reply("<b>Fantastic!</b>\n\n<i>Choose preferred language for AI chats (UI localization coming soon):</i>", {
                 reply_markup: {
@@ -198,7 +198,7 @@ export async function handleOnboarding(ctx: JournalBotContext, user: IUser) {
             const story = await createStorytelling(bioText);
             
             // Generate a warm, personalized summary with the storytelling
-            const summary = `<i>I love to know you, ${updatedUser.name || updatedUser.firstName} 😘</i>\n\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>Timezone:</b> ${text || updatedUser.timezone || 'UTC'}\n<b>Language:</b> ${updatedUser.aiLanguage === 'en' ? 'English' : 'Russian'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
+            const summary = `<i>I love to know you, ${updatedUser.name || updatedUser.firstName} 😘</i>\n\n<b>Age:</b> ${updatedUser.age || 'not specified'}\n<b>Gender:</b> ${updatedUser.gender || 'not specified'}\n<b>UTC Offset:</b> ${updatedUser.utcOffset || '+0'}\n<b>Language:</b> ${updatedUser.aiLanguage === 'en' ? 'English' : 'Russian'}\n<b>Occupation:</b> ${updatedUser.occupation || 'not specified'}\n\n<b>Some facts:</b>\n${story}`;
             
             await ctx.reply(summary, { parse_mode: 'HTML' });
 
