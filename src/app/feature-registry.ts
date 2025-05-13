@@ -7,6 +7,7 @@ import { registerJournalChatHandlers } from '../features/journal-chat';
 import { registerSettingsHandlers } from '../features/settings';
 import { registerOnboardingHandlers } from '../features/onboarding';
 import { logger } from '../utils/logger';
+import { registerReanalyzeCommands } from '../commands/reanalyze';
 
 /**
  * Registers all feature handlers with the bot
@@ -24,6 +25,7 @@ export function registerFeatures(bot: Bot<JournalBotContext>): void {
     registerJournalHistoryHandlers(bot);
     registerJournalChatHandlers(bot);
     registerSettingsHandlers(bot);
+    registerReanalyzeCommands(bot);
     
     logger.info('All feature handlers registered successfully');
     // ============================

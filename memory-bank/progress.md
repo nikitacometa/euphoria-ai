@@ -250,7 +250,11 @@ Planning phase complete. Ready to begin implementation.
   - Leveraged existing database model functions for fetching entries.
   - Updates handled by `updateEntryWithAnalysis` using `findByIdAndUpdate`.
   - Batching and error resilience implemented in command handlers.
-- [ ] **Subtask 3.4:** Command Registration
+- [x] **Subtask 3.4:** Command Registration
+  - Created `registerReanalyzeCommands` in `src/commands/reanalyze.ts`.
+  - Registered new commands and confirmation handler in `src/app/feature-registry.ts`.
+
+**Phase 3: Admin Re-Analysis Commands - COMPLETE**
 
 ### Phase 4: Russian Language Localization
 - [ ] **Subtask 4.1:** Localization Setup

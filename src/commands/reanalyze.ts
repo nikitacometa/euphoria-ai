@@ -10,7 +10,9 @@ import { performFullEntryAnalysis, updateEntryWithAnalysis, FullAnalysisResult }
 import { errorService } from '../services/error.service';
 import { logger } from '../utils/logger';
 import { AIError } from '../types/errors';
-import { REANALYSIS_BATCH_SIZE, REANALYSIS_PROGRESS_INTERVAL } from '../config';
+import { REANALYSIS_BATCH_SIZE, REANALYSIS_PROGRESS_INTERVAL, ADMIN_IDS } from '../config';
+import { Bot } from 'grammy';
+import { isAdmin } from '../middlewares/admin';
 
 const BATCH_SIZE = REANALYSIS_BATCH_SIZE || 5;
 const PROGRESS_INTERVAL = REANALYSIS_PROGRESS_INTERVAL || 10;
@@ -199,4 +201,25 @@ export async function handleReanalyzeAllConfirmation(ctx: JournalBotContext): Pr
         errorService.logError(error instanceof Error ? error : new Error(String(error)), { command: 'reanalyzeall_execution' });
         await ctx.reply("A critical error occurred during the global re-analysis. Please check logs.");
     }
+}
+
+/**
+ * Registers the re-analysis admin commands with the bot.
+ */
+export function registerReanalyzeCommands(bot: Bot<JournalBotContext>): void {
+    bot.command("reanalyzeme", isAdmin, reanalyzeMeCommand);
+    bot.command("reanalyzeall", isAdmin, reanalyzeAllCommand);
+
+    bot.on("message:text", async (ctx, next) => {
+        if (ctx.session?.adminReanalyzeAllConfirmation) {
+            const userId = ctx.from?.id;
+            if (userId && ADMIN_IDS.includes(userId)) {
+                await handleReanalyzeAllConfirmation(ctx);
+                return; 
+            }
+        }
+        await next(); 
+    });
+
+    logger.info('Re-analysis admin commands registered.');
 } 
