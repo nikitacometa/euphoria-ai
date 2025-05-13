@@ -216,7 +216,12 @@ Planning phase complete. Ready to begin implementation.
 - [x] **Subtask 1.3:** Notification Service Modification
   - Updated `src/services/notification.service.ts` to use `calculateNextNotificationDateTime` from the refactored `timezone.ts`.
   - Ensured consistency with `user.utcOffset` and new timezone utility function signatures.
-- [ ] **Subtask 1.4:** Onboarding Flow Update
+- [x] **Subtask 1.4:** Onboarding Flow Update
+  - Onboarding flow (`onboarding/*`) now correctly uses `generateUTCOffsetKeyboard` and `isValidUtcOffsetInput`.
+  - Settings UI (`settings/handlers.ts`) updated to use `generateUTCOffsetKeyboard` for UTC offset selection and input handling.
+  - Obsolete IANA-based timezone logic removed/commented out from settings handlers.
+
+**Phase 1: Timezone Handling Improvement - COMPLETE**
 
 ### Phase 2: Entry Message List View
 - [ ] **Subtask 2.1:** Message Metadata Functions

@@ -6,7 +6,7 @@ import { logger } from '../../utils/logger';
 import { notificationService } from '../../services/notification.service'; // Service for updating settings
 import { findOrCreateUser, updateUserProfile } from '../../database'; // Added import for findOrCreateUser
 import { showMainMenu } from '../core/handlers';
-import { convertFromUTC, formatTimeWithTimezone, isValidUtcOffset } from '../../utils/timezone';
+import { convertFromUTC, formatTimeWithTimezone, isValidUtcOffset, generateUTCOffsetKeyboard } from '../../utils/timezone';
 
 /**
  * Formats the settings text based on user settings
@@ -230,21 +230,18 @@ export async function setTimezoneHandler(ctx: JournalBotContext) {
     await ctx.answerCallbackQuery();
     
     if (ctx.session) {
-        ctx.session.waitingForUtcOffset = true; // Changed from waitingForTimezone
+        ctx.session.waitingForUtcOffset = true; 
     }
     
-    // const detectedTimezone = await guessUserTimezone(ctx); // guessUserTimezone returns IANA, needs rework for simple offset
-    const detectedUtcOffset: string | null = null; // Placeholder, this will be part of Subtask 1.4
+    // IANA based guessing is removed. Simple offset selection is preferred.
+    const detectedUtcOffset: string | null = null; 
 
-    const timezoneKeyboard = new Keyboard(); // This keyboard will be rebuilt in Subtask 1.4
-    // ... (keyboard generation logic will be replaced)
-    timezoneKeyboard.text("❌ Cancel");
+    const utcOffsetKeyboard = generateUTCOffsetKeyboard(); // Use the new keyboard generator
 
     await ctx.reply(
         `Please select or enter your UTC offset (e.g., +2, -5, 0).\n\n` +
-        `Your UTC offset is used to correctly schedule notifications at your preferred local time.\n\n` +
-        `${detectedUtcOffset ? `We think your offset might be: UTC${detectedUtcOffset}` : 'We could not detect your UTC offset automatically.'}`,
-        { reply_markup: timezoneKeyboard.resized() }
+        `Your UTC offset is used to correctly schedule notifications at your preferred local time. Example: UTC+2, UTC-5. Select an option or type it in (e.g. \"+5:30\").`,
+        { reply_markup: utcOffsetKeyboard.resized() } // Use resized() if it's a regular Keyboard
     );
 }
 
@@ -264,16 +261,20 @@ export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
         return;
     }
     
-    // Use the new isValidUtcOffset (which expects format like "+2", not "UTC+2")
-    // The input here might be from a keyboard generating "UTC+5" or direct user input like "+5"
-    const offsetToValidate = input.startsWith('UTC') ? input.substring(3) : input;
+    // Input from keyboard will be like "UTC+5", "UTC0", "UTC-10"
+    // Direct user typed input might be "+5", "0", "-10", "+5:30"
+    let offsetToValidate = input;
+    if (input.toUpperCase().startsWith('UTC')) {
+        offsetToValidate = input.substring(3).trim();
+    }
 
     if (isValidUtcOffset(offsetToValidate)) {
         await saveTimezone(ctx, user, offsetToValidate); 
     } else {
         await ctx.reply(
-            "Sorry, that doesn\'t appear to be a valid UTC offset. Please use formats like \"+2\", \"-5\", or \"0\".",
-            { reply_markup: new Keyboard().text('❌ Cancel').resized() }
+            "Sorry, that doesn\'t appear to be a valid UTC offset. Please use formats like \"+2\", \"-5:30\", \"0\", or select from the keyboard.",
+            // Regenerate keyboard with cancel for retry
+            { reply_markup: generateUTCOffsetKeyboard().resized().text('❌ Cancel') } 
         );
     }
 }
@@ -281,23 +282,25 @@ export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
 /**
  * Helper function to save timezone and show confirmation
  */
-async function saveTimezone(ctx: JournalBotContext, user: IUser, utcOffsetToSave: string) { // Renamed timezone to utcOffsetToSave
+async function saveTimezone(ctx: JournalBotContext, user: IUser, utcOffsetToSave: string) { 
     try {
         await notificationService.updateUserNotificationSettings(
             user.telegramId,
             user.notificationsEnabled === true,
-            undefined, 
-            utcOffsetToSave // Pass utcOffsetToSave here
+            user.notificationTime, // Keep existing notification time if set
+            utcOffsetToSave 
         );
         
         const updatedUser = await findOrCreateUser(user.telegramId, user.firstName, user.lastName, user.username);
         
         ctx.session.waitingForUtcOffset = false;
         
-        // Displaying current time in local offset - this needs formatTimeWithTimezone and utcToLocalTime from Subtask 1.2
-        // For now, just display the saved offset
+        const displayOffset = (utcOffsetToSave.startsWith('+') || utcOffsetToSave.startsWith('-') || utcOffsetToSave === "0") 
+                            ? utcOffsetToSave 
+                            : `+${utcOffsetToSave}`;
+
         await ctx.reply(
-            `Your UTC offset has been set to UTC${utcOffsetToSave}.`,
+            `Your UTC offset has been set to UTC${displayOffset}.`,
             { reply_markup: { remove_keyboard: true } }
         );
         
