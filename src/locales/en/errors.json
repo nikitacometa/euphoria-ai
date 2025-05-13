@@ -1,0 +1,15 @@
+{
+  "entryNotFound": "I couldn't find that journal entry. Let's start fresh! ✨",
+  "transcriptionFailed": "I had trouble understanding that recording. Could you try again? 🎤",
+  "generalError": "Something went wrong. Please try again. ✨",
+  "analysisFailedUserMessage": "I had trouble analyzing your entry, but don't worry - it's saved! ✨",
+  "emptyEntryForAnalysis": "There's nothing to analyze yet. Share some thoughts first! ✨",
+  "sessionExpired": "Looks like that reflection session ended. Let's start fresh! 💫",
+  "adminOnlyCommand": "Sorry, this command is for authorized administrators only. Your attempt has been logged. Just kidding... or am I? 👀",
+  "userIdNotFound": "Could not identify user.",
+  "userRecordNotFound": "User not found in database.",
+  "unexpectedErrorCommand": "An unexpected error occurred. Please try again later.",
+  "longVoiceMessage": "Sorry, voice messages cannot be longer than {{duration}} seconds. Please try again with a shorter recording.",
+  "unsupportedMessageType": "Darling, I can only process text, voice, or video for journal entries right now. 💫",
+  "errorProcessingInput": "<b>Oops!</b> Something went wrong while adding that to your journal. Please try again."
+} 

@@ -1,0 +1,21 @@
+{
+  "welcome": "<i>Wow, welcome! How can I call you, stranger? ☺️</i>",
+  "namePrompt": "Please tell me what name you'd like me to use.",
+  "nameReply": "Wow, <b>{{name}}</b>! Lovely name 😘\n\n<i>How old are you?</i>",
+  "agePrompt": "Please choose from the options provided ✨",
+  "ageReply": "<b>Good, good 😏</b>\n\n<i>How do you identify yourself?</i>",
+  "genderPrompt": "Let's pick from the options I suggested 💫",
+  "genderReply": "<b>Sweet 😏</b>\n\n<i>Your current UTC offset? (e.g. +2, -5)</i>", 
+  "utcOffsetPrompt": "Please select your UTC offset from the options provided 🌍 (e.g., +2, -5).",
+  "utcOffsetReply": "<b>Fantastic!</b>\n\n<i>Choose preferred language for AI chats (UI localization coming soon):</i>",
+  "languagePrompt": "Please select either English or Russian for AI conversations 🌐",
+  "languageReply": "<b>Oh, I can feel those really deep hardcore reflection sessions coming...</b>\n\n<i>What is your job, profession? Or more broadly — who are you exactly on this planet?</i>",
+  "occupationPrompt": "Please tell me about your occupation.",
+  "occupationReply": "<b>I want to know more</b> 😏\n\nAllow yourself a long juicy voice (5 min max still, sorry)! Maximum details, any stories which describe you.\n\n<i>The more you share, the better I understand you!</i>\n\n<b>Possible topics:</b>\n• <i>Hobbies or interests?</i>\n• <i>Where you live, travel?</i>\n• <i>Important relationships in your life?</i>\n• <i>Have dreams, goals?</i>\n• <i>Philosophy or values?</i>\n• <i>What makes you unique?</i>\n\n🎤 <b>Just one text/voice/video message (max 5 min).</b>",
+  "bioMediaError": "I couldn't process your message. Could you type it instead? 🎧",
+  "bioPrompt": "Please tell me a bit about yourself using text, voice, or video.",
+  "bioSaveError": "Something went wrong saving your bio. Please try again.",
+  "onboardingSummary": "<i>I love to know you, {{name}} 😘</i>\n\n<b>Age:</b> {{age}}\n<b>Gender:</b> {{gender}}\n<b>UTC Offset:</b> {{utcOffset}}\n<b>Language:</b> {{language}}\n<b>Occupation:</b> {{occupation}}\n\n<b>Some facts:</b>\n{{story}}",
+  "storyDefault": "Once upon a time, there was a mysteriously enigmatic person who believed bios were optional. Bold strategy. Let's see if it pays off! 🧙‍♂️",
+  "storyProcessingError": "The tale of this fascinating human could fill volumes, but the AI storyteller seems to be on coffee break right now. They have passions that mere mortals can only dream of. Their career path would make LinkedIn executives weep with joy. Legend says they're so interesting, ChatGPT once asked THEM for advice."
+} 

@@ -251,7 +251,10 @@ Planning phase complete. Ready to begin implementation.
   - Created `src/locales/en` and `src/locales/ru` directories.
   - Created `src/config/i18n.ts` with initialization logic.
   - Called `setupLocalization()` in `src/app/index.ts`.
-- [ ] **Subtask 4.2:** Translation Files Creation
+- [x] **Subtask 4.2:** Translation Files Creation
+  - Created `common.json`, `onboarding.json`, `journal.json`, `settings.json`, `errors.json` in `src/locales/en/` and `src/locales/ru/`.
+  - Added initial set of keys and translations/placeholders.
+- [ ] **Subtask 4.3:** Localization Integration
 
 ### Phase 5: Testing & Refinement
 - [ ] **Subtask 5.1:** Unit Tests Creation
