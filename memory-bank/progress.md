@@ -224,9 +224,11 @@ Planning phase complete. Ready to begin implementation.
 **Phase 1: Timezone Handling Improvement - COMPLETE**
 
 ### Phase 2: Entry Message List View
-- [ ] **Subtask 2.1:** Message Metadata Functions
+- [x] **Subtask 2.1:** Message Metadata Functions
+  - Added `formatMessageDuration`, `getMessagePreview`, `formatMessageList` to `src/features/journal-entry/utils.ts`.
+  - Added `duration` field to `IMessage` type in `src/types/models.ts`.
+  - Used placeholder localization; actual localization in Phase 4.
 - [ ] **Subtask 2.2:** Update Entry Handler Logic
-- [ ] **Subtask 2.3:** UI Integration
 
 ### Phase 3: Admin Re-Analysis Commands
 - [ ] **Subtask 3.1:** Analysis Code Refactoring

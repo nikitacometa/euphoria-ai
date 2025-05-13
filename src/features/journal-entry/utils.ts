@@ -2,6 +2,10 @@ import { Context, Keyboard, InlineKeyboard } from 'grammy';
 import { IMessage, IJournalEntry, MessageType, IUser } from '../../types/models';
 import { journalActionKeyboard } from './keyboards/index';
 import { JournalEntry } from '../../database/models/journal.model';
+// import { t } from '../../utils/localization'; // TODO: Uncomment when localization is implemented
+
+// Placeholder t function for now
+const t = (key: string, _params?: any, _user?: IUser) => key.substring(key.lastIndexOf('.') + 1); 
 
 /**
  * Formats a transcription for display
@@ -217,4 +221,74 @@ export async function createEntryStatusMessage(entry: IJournalEntry): Promise<st
     // const summary = await createEntrySummary(entry);
     // return `<b>I love reading you. Give me more, please 🥹</b>\n\n<i>🎤 Texts, voices, videos.</i>${summary ? ' ' + summary : ''}`;
     return `<b>I love reading you!! Tell me more, please ☺️</b>\n\n<i>🎤 Texts, voices, videos.</i>`;
+}
+
+/**
+ * Formats the duration of a voice/video message in a human-readable format.
+ * @param durationSeconds Duration in seconds.
+ * @param user Optional user object for localization (currently placeholder).
+ * @returns Formatted duration string (e.g., "45s", "1m 23s").
+ */
+export function formatMessageDuration(durationSeconds: number, user?: IUser): string {
+    if (durationSeconds < 0) durationSeconds = 0;
+
+    if (durationSeconds < 60) {
+        return `${durationSeconds}${t('common.seconds', {}, user)}`; // e.g., "45s"
+    }
+    const minutes = Math.floor(durationSeconds / 60);
+    const seconds = durationSeconds % 60;
+    if (seconds === 0) {
+        return `${minutes}${t('common.minutes', {}, user)}`; // e.g., "2m"
+    }
+    return `${minutes}${t('common.minutes', {}, user)} ${seconds}${t('common.seconds', {}, user)}`; // e.g., "1m 23s"
+}
+
+/**
+ * Generates a preview string for a given message.
+ * @param message The message object.
+ * @param user Optional user object for localization.
+ * @returns A preview string (e.g., "📝 \"Hello world...\" (text)", "🎤 Voice message (1m 23s)").
+ */
+export function getMessagePreview(message: IMessage, user?: IUser): string {
+    const typeEmojiMap = {
+        [MessageType.TEXT]: "📝",
+        [MessageType.VOICE]: "🎤",
+        [MessageType.VIDEO]: "🎥",
+        [MessageType.IMAGE]: "🖼️", // Assuming IMAGE might be a type
+    };
+    const emoji = typeEmojiMap[message.type] || "📎"; // Default to paperclip for other types
+
+    switch (message.type) {
+        case MessageType.TEXT:
+            const previewText = message.text?.substring(0, 20) || '';
+            const ellipsis = (message.text && message.text.length > 20) ? '...' : '';
+            return `${emoji} \"${previewText}${ellipsis}\" (${t('common.text', {}, user)})`;
+        case MessageType.VOICE:
+            const voiceDuration = message.duration || 0; // Assuming duration is on IMessage for voice/video
+            return `${emoji} ${t('common.voiceMessage', {}, user)} (${formatMessageDuration(voiceDuration, user)})`;
+        case MessageType.VIDEO:
+            const videoDuration = message.duration || 0;
+            return `${emoji} ${t('common.videoMessage', {}, user)} (${formatMessageDuration(videoDuration, user)})`;
+        // Add cases for IMAGE or other types if needed
+        default:
+            return `${emoji} ${t('common.fileMessage', {}, user)}`;
+    }
+}
+
+/**
+ * Formats a list of messages into a string for display in the journal entry flow.
+ * @param messages Array of message objects.
+ * @param user Optional user object for localization.
+ * @returns A formatted string listing the messages, or an empty string if no messages.
+ */
+export function formatMessageList(messages: IMessage[], user?: IUser): string {
+    if (!messages || messages.length === 0) {
+        return '';
+    }
+    const header = `<b>${t('journal.currentEntryHeader', {}, user)}</b>`; // e.g. "Current Entry:"
+    const messageItems = messages
+        .map((msg, index) => `${index + 1}. ${getMessagePreview(msg, user)}`)
+        .join('\n');
+    
+    return `\n${header}\n${messageItems}\n`; // Add newlines for spacing
 }

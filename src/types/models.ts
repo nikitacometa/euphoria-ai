@@ -62,6 +62,7 @@ export interface IMessage extends Document {
     imagePrompt?: string;
     fileId?: string;
     filePath?: string;
+    duration?: number; // Duration in seconds, for voice/video messages
     createdAt: Date;
     updatedAt: Date;
 }
