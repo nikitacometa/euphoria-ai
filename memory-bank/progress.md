@@ -213,7 +213,10 @@ Planning phase complete. Ready to begin implementation.
   - Commented out/removed IANA-specific utilities.
   - Updated imports and usage in `onboarding/utils.ts`, `onboarding/keyboards.ts`, `onboarding/constants.ts`, `onboarding/handlers.ts`, `settings/handlers.ts`.
   - Addressed `timezone.test.ts` by commenting out failing IANA tests and adapting others (tests still need full review/fix later).
-- [ ] **Subtask 1.3:** Notification Service Modification
+- [x] **Subtask 1.3:** Notification Service Modification
+  - Updated `src/services/notification.service.ts` to use `calculateNextNotificationDateTime` from the refactored `timezone.ts`.
+  - Ensured consistency with `user.utcOffset` and new timezone utility function signatures.
+- [ ] **Subtask 1.4:** Onboarding Flow Update
 
 ### Phase 2: Entry Message List View
 - [ ] **Subtask 2.1:** Message Metadata Functions

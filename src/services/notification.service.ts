@@ -3,7 +3,7 @@ import { bot } from '../app';
 import { createLogger } from '../utils/logger';
 import { LOG_LEVEL, SUPPORT_CHAT_ID, NOTIFICATION_ALERT_THRESHOLD, MAX_NOTIFICATION_RETRIES } from '../config/index';
 import { Keyboard } from 'grammy';
-import { convertFromUTC, convertToUTC, formatTimeWithTimezone } from '../utils/timezone';
+import { convertFromUTC, convertToUTC, formatTimeWithTimezone, calculateNextNotificationDateTime } from '../utils/timezone';
 import { IUser } from '../types/models';
 
 const notificationLogger = createLogger('NotificationService', LOG_LEVEL);
@@ -298,30 +298,9 @@ class NotificationService {
         }
 
         try {
-            const userUtcOffset = user.utcOffset || '+0';
-            const [hours, minutes] = user.notificationTime.split(':').map(Number); // HH:MM in UTC
-
-            // Get current date in user's local timezone
-            let nowInUserTimezone = new Date(); 
-            if (userUtcOffset !== '+0') {
-                // Example of future refinement
-            }
-
-            // Create a date object for today in user's local timezone at their preferred HH:MM
-            let nextNotificationLocal = new Date(nowInUserTimezone);
-            nextNotificationLocal.setHours(hours, minutes, 0, 0); // This sets HH:MM in server's local time initially
-
-            // Convert this local HH:MM intention to a UTC Date object for storage
-            // This requires knowing what 'hours' and 'minutes' mean in the user's timezone
-            // The current `user.notificationTime` is already UTC. So we work from that.
-            
-            let nextNotificationUtc = new Date(); // Start with now in UTC
-            nextNotificationUtc.setUTCHours(hours, minutes, 0, 0);
-
-            // If this UTC time has already passed *today* (or is very close to now), schedule for the next day (UTC)
-            if (nextNotificationUtc.getTime() <= Date.now() + 60000) { // Add a small buffer (1 min)
-                nextNotificationUtc.setUTCDate(nextNotificationUtc.getUTCDate() + 1);
-            }
+            // user.notificationTime is already stored in UTC "HH:mm" format.
+            // We use the new calculateNextNotificationDateTime from timezone.ts which expects this.
+            const nextNotificationUtc = calculateNextNotificationDateTime(user.notificationTime);
 
             await User.findByIdAndUpdate(user._id, {
                 nextNotificationScheduledAt: nextNotificationUtc
@@ -330,8 +309,6 @@ class NotificationService {
             return nextNotificationUtc;
         } catch (error) {
             notificationLogger.error(`Failed to calculate and set next notification for user ${user.telegramId}:`, error);
-            // Potentially set nextNotificationScheduledAt to null or a future retry time if this fails?
-            // For now, we let it be, it will be caught in the main loop if invalid.
             return null;
         }
     }
