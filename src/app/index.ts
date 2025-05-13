@@ -21,41 +21,39 @@ export async function startApp(): Promise<Bot<JournalBotContext>> {
     appLogger.info('Starting Euphoria bot application...');
     
     try {
-        // Connect to database
         appLogger.info('Connecting to database...');
         await connectToDatabase();
         appLogger.info('Database connection established');
         
-        // Register all feature handlers
+        appLogger.info('Registering bot feature handlers...');
         registerFeatures(bot);
+        appLogger.info('All feature handlers registered successfully.');
         
-        // Start the bot
-        appLogger.info('Starting bot...');
-        await bot.start();
-        appLogger.info('Bot started successfully');
+        appLogger.info('Starting notification service core functionality...');
+        notificationService.start(); // This logs its own startup internally
+        appLogger.info('Notification service core functionality has been initialized.');
         
-        // Start the notification service
-        appLogger.info('Starting notification service...');
-        notificationService.start();
-        
-        // Run initial health check
-        appLogger.info('Running initial notification system health check...');
+        appLogger.info('Initiating notification system health check (will run asynchronously)...');
         notificationService.checkHealth()
             .then(isHealthy => {
                 if (isHealthy) {
-                    appLogger.info('Notification system health check passed');
+                    appLogger.info('Notification system health check reported: PASSED');
                 } else {
-                    appLogger.warn('Notification system health check failed - check logs for details');
+                    appLogger.warn('Notification system health check reported: FAILED - check logs for details');
                 }
             })
             .catch(error => {
-                appLogger.error('Error during notification system health check:', error);
+                appLogger.error('Error during initial notification system health check:', error);
             });
         
-        appLogger.info('Notification service started');
+        appLogger.info('Bot is now starting (e.g., initiating polling or webhook listener)...');
+        // The following line is expected to be long-running/blocking if using polling.
+        await bot.start(); 
         
-        // Return the bot instance for testing or external access
-        return bot;
+        // If bot.start() is blocking, this log and the return statement might not be hit until shutdown.
+        appLogger.info('Bot.start() has been invoked. If polling, it is now active.');
+        
+        return bot; 
     } catch (error) {
         appLogger.error('Failed to start application:', error);
         throw error;

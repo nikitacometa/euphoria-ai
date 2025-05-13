@@ -6,16 +6,16 @@ import { createComponentLogger } from './logger/index';
 const botLogger = createComponentLogger('BotMessages');
 
 /**
- * Middleware to log all incoming bot messages and context objects at debug level
+ * Middleware to log all incoming bot messages and context objects at trace level
  */
 export function botLoggerMiddleware() {
   return async (ctx: JournalBotContext, next: NextFunction) => {
     // Log the update object (contains all data from Telegram)
-    botLogger.debug('Received update', { update: ctx.update });
+    botLogger.trace('Received update', { update: ctx.update });
 
     // Log specific message details if present
     if (ctx.message) {
-      botLogger.debug('Message content', {
+      botLogger.trace('Message content', {
         messageId: ctx.message.message_id,
         from: ctx.message.from,
         chat: ctx.message.chat,
@@ -27,7 +27,7 @@ export function botLoggerMiddleware() {
     
     // Log callback query data if present
     if (ctx.callbackQuery) {
-      botLogger.debug('Callback query', {
+      botLogger.trace('Callback query', {
         id: ctx.callbackQuery.id,
         from: ctx.callbackQuery.from,
         data: ctx.callbackQuery.data,
@@ -39,12 +39,12 @@ export function botLoggerMiddleware() {
     }
 
     // Log session state
-    botLogger.debug('Session state', { session: ctx.session });
+    botLogger.trace('Session state', { session: ctx.session });
 
     // Continue to the next middleware/handler
     await next();
     
     // Optional: log after handling (to see what changed)
-    botLogger.debug('Session state after handling', { session: ctx.session });
+    botLogger.trace('Session state after handling', { session: ctx.session });
   };
 } 

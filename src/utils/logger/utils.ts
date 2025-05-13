@@ -9,7 +9,7 @@ import { LogContext, LogLevel, LOG_LEVEL_MAP } from './types';
 export function parseLogLevel(levelStr: string | number | undefined, defaultLevel: LogLevel = LogLevel.INFO): LogLevel {
   // Handle numeric values
   if (typeof levelStr === 'number') {
-    if (levelStr >= 0 && levelStr <= LogLevel.DEBUG) {
+    if (levelStr >= 0 && levelStr <= LogLevel.TRACE) {
       return levelStr as LogLevel;
     }
     return defaultLevel;
@@ -19,7 +19,7 @@ export function parseLogLevel(levelStr: string | number | undefined, defaultLeve
   if (typeof levelStr === 'string') {
     // Try to parse as integer first
     const parsedLevel = parseInt(levelStr, 10);
-    if (!isNaN(parsedLevel) && parsedLevel >= 0 && parsedLevel <= LogLevel.DEBUG) {
+    if (!isNaN(parsedLevel) && parsedLevel >= 0 && parsedLevel <= LogLevel.TRACE) {
       return parsedLevel as LogLevel;
     }
     

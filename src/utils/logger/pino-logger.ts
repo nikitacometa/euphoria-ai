@@ -79,6 +79,13 @@ export class PinoLogger implements ILogger {
   }
   
   /**
+   * Log a trace message (most verbose level)
+   */
+  trace(message: string, context: LogContext = {}): void {
+    this.logger.trace(context, message);
+  }
+  
+  /**
    * Create a child logger with additional context
    */
   child(context: LogContext): ILogger {

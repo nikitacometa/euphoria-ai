@@ -134,13 +134,15 @@ class NotificationService {
             const users = await User.find({
                 notificationsEnabled: true
             });
-            
-            notificationLogger.info(`Found ${users.length} users with notifications enabled`);
-            
+                        
             // Filter users who should receive notifications based on time conditions
             const usersToNotify: IUser[] = []; // Ensure IUser type for clarity
+            let usersChecked = 0;
             
             for (const user of users) {
+                usersChecked++;
+                notificationLogger.debug(`Checking user ${usersChecked}/${users.length}: ${user.telegramId} (${user.firstName || 'Unknown'})`);
+                
                 // Skip users without a next notification time set or if it's not a Date
                 if (!user.nextNotificationScheduledAt || !(user.nextNotificationScheduledAt instanceof Date)) {
                     notificationLogger.debug(`User ${user.telegramId} has no valid nextNotificationScheduledAt set, skipping`);
@@ -189,8 +191,6 @@ class NotificationService {
             }
             
             if (usersToNotify.length > 0) {
-                notificationLogger.info(`Found ${usersToNotify.length} users to notify out of ${users.length} with notifications enabled`);
-                
                 // Process notifications in parallel with error handling
                 await Promise.all(
                     usersToNotify.map(user => 
@@ -201,10 +201,8 @@ class NotificationService {
                         })
                     )
                 );
-            } else {
-                notificationLogger.info(`No users need notifications at this time (${currentUTCTime} UTC)`);
             }
-            notificationLogger.info(`Finished checking notifications. Duration: ${Date.now() - checkStartTime}ms`);
+            notificationLogger.debug(`Finished checking notifications. Checked ${usersChecked} users, sending ${usersToNotify.length} notifications. Duration: ${Date.now() - checkStartTime}ms`);
         } catch (error) {
             notificationLogger.error('Error checking notifications:', error);
             // Send alert for critical errors that affect the whole notification process
@@ -368,10 +366,6 @@ class NotificationService {
     private async sendNotification(user: IUser): Promise<void> {
         notificationLogger.info(`Sending actual notification message to user ${user.telegramId}...`);
         const sendStartTime = Date.now();
-        const keyboard = new Keyboard()
-            .text("✅ Share")
-            .text("❌ Ignore")
-            .resized();
 
         // Display time in user's timezone if available
         const userTimezone = user.timezone || 'UTC';
@@ -392,7 +386,6 @@ class NotificationService {
             user.telegramId,
             messageText,
             {
-                reply_markup: keyboard,
                 parse_mode: 'HTML'
             }
         );
@@ -423,25 +416,35 @@ class NotificationService {
         timezone?: string
     ): Promise<void> {
         try {
+            // Get the current user to check if notifications were previously enabled
+            const user = await User.findOne({ telegramId });
             const update: Partial<IUser> = { notificationsEnabled: enabled };
             
             // If timezone is provided, update it first
             if (timezone !== undefined) {
                 update.timezone = timezone;
-                notificationLogger.info(`Setting timezone for user ${telegramId} to ${timezone}`);
+                notificationLogger.info(`User ${telegramId} changed timezone to ${timezone}`);
             }
 
             // If time is provided, convert it to UTC before storing
             if (time !== undefined) {
-                // Get the current user record to access their timezone
-                const user = await User.findOne({ telegramId });
+                // Use the user we already fetched to access their timezone
                 const userTimezone = timezone || user?.timezone || 'UTC';
                 
                 // IMPORTANT: Convert the time from user's LOCAL timezone to UTC for database storage
                 const utcTime = convertToUTC(time, userTimezone);
                 
                 update.notificationTime = utcTime;
-                notificationLogger.info(`Setting notification time for user ${telegramId} to ${utcTime} UTC (original local time: ${time} in ${userTimezone})`);
+                notificationLogger.info(`User ${telegramId} changed notification time to ${utcTime} UTC (local: ${time} in ${userTimezone})`);
+            }
+
+            // Log notification status change
+            if (user?.notificationsEnabled !== enabled) {
+                if (enabled) {
+                    notificationLogger.info(`User ${telegramId} enabled notifications`);
+                } else {
+                    notificationLogger.info(`User ${telegramId} disabled notifications`);
+                }
             }
 
             await User.findOneAndUpdate(
@@ -452,8 +455,12 @@ class NotificationService {
             // Fetch the updated user to pass to calculateAndSetNextNotification
             const updatedUser = await User.findOne({ telegramId });
             if (updatedUser) {
-                await this.calculateAndSetNextNotification(updatedUser);
-                // Logging is now handled inside calculateAndSetNextNotification or if it returns null
+                const nextNotification = await this.calculateAndSetNextNotification(updatedUser);
+                if (nextNotification) {
+                    notificationLogger.info(`Created new notification for user ${telegramId} scheduled at ${nextNotification.toISOString()}`);
+                } else if (enabled === false) {
+                    notificationLogger.info(`Removed scheduled notifications for user ${telegramId}`);
+                }
             } else {
                 notificationLogger.warn(`User ${telegramId} not found after update for scheduling next notification.`);
             }

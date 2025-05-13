@@ -85,6 +85,15 @@ export class ConsoleLogger implements ILogger {
   }
   
   /**
+   * Log a trace message (most verbose level)
+   */
+  trace(message: string, context: LogContext = {}): void {
+    if (this.level >= LogLevel.TRACE) {
+      console.debug(this.formatMessage('TRACE', message, context));
+    }
+  }
+  
+  /**
    * Create a child logger with additional context
    */
   child(context: LogContext): ILogger {

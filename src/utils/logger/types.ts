@@ -5,7 +5,8 @@ export enum LogLevel {
   ERROR = 0,
   WARN = 1,
   INFO = 2,
-  DEBUG = 3
+  DEBUG = 3,
+  TRACE = 4
 }
 
 /**
@@ -15,7 +16,8 @@ export const LOG_LEVEL_NAMES: Record<LogLevel, string> = {
   [LogLevel.ERROR]: 'error',
   [LogLevel.WARN]: 'warn',
   [LogLevel.INFO]: 'info',
-  [LogLevel.DEBUG]: 'debug'
+  [LogLevel.DEBUG]: 'debug',
+  [LogLevel.TRACE]: 'trace'
 };
 
 /**
@@ -25,7 +27,8 @@ export const LOG_LEVEL_MAP: Record<string, LogLevel> = {
   'error': LogLevel.ERROR,
   'warn': LogLevel.WARN,
   'info': LogLevel.INFO,
-  'debug': LogLevel.DEBUG
+  'debug': LogLevel.DEBUG,
+  'trace': LogLevel.TRACE
 };
 
 /**
@@ -70,5 +73,6 @@ export interface ILogger {
   warn(message: string, context?: LogContext): void;
   info(message: string, context?: LogContext): void;
   debug(message: string, context?: LogContext): void;
+  trace(message: string, context?: LogContext): void;
   child(context: LogContext): ILogger;
 } 

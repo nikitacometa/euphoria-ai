@@ -43,7 +43,7 @@ export function parseLogLevel(level: string | undefined): LogLevel {
     return LOG_LEVEL_MAP[normalizedLevel] ?? DEFAULT_LOG_LEVEL;
 }
 
-// Default log level (will be overridden by config)
+// Default log level (INFO is still appropriate as default)
 const DEFAULT_LOG_LEVEL = LogLevel.INFO;
 
 // Default date format

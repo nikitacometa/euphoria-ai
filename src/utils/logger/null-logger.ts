@@ -34,6 +34,13 @@ export class NullLogger implements ILogger {
   }
   
   /**
+   * No-op trace logger
+   */
+  trace(_message: string, _context?: LogContext): void {
+    // Do nothing
+  }
+  
+  /**
    * Return self as child logger
    */
   child(_context: LogContext): ILogger {

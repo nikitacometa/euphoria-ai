@@ -8,6 +8,7 @@ describe('Logger Utils', () => {
       expect(parseLogLevel(1)).toBe(LogLevel.WARN);
       expect(parseLogLevel(2)).toBe(LogLevel.INFO);
       expect(parseLogLevel(3)).toBe(LogLevel.DEBUG);
+      expect(parseLogLevel(4)).toBe(LogLevel.TRACE);
     });
     
     it('should parse string numeric log levels', () => {
@@ -15,6 +16,7 @@ describe('Logger Utils', () => {
       expect(parseLogLevel('1')).toBe(LogLevel.WARN);
       expect(parseLogLevel('2')).toBe(LogLevel.INFO);
       expect(parseLogLevel('3')).toBe(LogLevel.DEBUG);
+      expect(parseLogLevel('4')).toBe(LogLevel.TRACE);
     });
     
     it('should parse string name log levels', () => {
@@ -22,6 +24,7 @@ describe('Logger Utils', () => {
       expect(parseLogLevel('warn')).toBe(LogLevel.WARN);
       expect(parseLogLevel('info')).toBe(LogLevel.INFO);
       expect(parseLogLevel('debug')).toBe(LogLevel.DEBUG);
+      expect(parseLogLevel('trace')).toBe(LogLevel.TRACE);
     });
     
     it('should be case-insensitive for string names', () => {
@@ -29,18 +32,20 @@ describe('Logger Utils', () => {
       expect(parseLogLevel('Warn')).toBe(LogLevel.WARN);
       expect(parseLogLevel('InFo')).toBe(LogLevel.INFO);
       expect(parseLogLevel('Debug')).toBe(LogLevel.DEBUG);
+      expect(parseLogLevel('Trace')).toBe(LogLevel.TRACE);
     });
     
     it('should handle invalid inputs', () => {
       expect(parseLogLevel(undefined)).toBe(LogLevel.INFO); // Default
       expect(parseLogLevel(null as unknown as string)).toBe(LogLevel.INFO);
-      expect(parseLogLevel(5)).toBe(LogLevel.INFO); // Out of range
+      expect(parseLogLevel(6)).toBe(LogLevel.INFO); // Out of range
       expect(parseLogLevel('invalid')).toBe(LogLevel.INFO);
     });
     
     it('should respect custom defaults', () => {
       expect(parseLogLevel(undefined, LogLevel.ERROR)).toBe(LogLevel.ERROR);
       expect(parseLogLevel('invalid', LogLevel.DEBUG)).toBe(LogLevel.DEBUG);
+      expect(parseLogLevel('invalid', LogLevel.TRACE)).toBe(LogLevel.TRACE);
     });
   });
   
