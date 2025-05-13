@@ -2,16 +2,14 @@ import { Context, Keyboard, InlineKeyboard } from 'grammy';
 import { IMessage, IJournalEntry, MessageType, IUser } from '../../types/models';
 import { journalActionKeyboard } from './keyboards/index';
 import { JournalEntry } from '../../database/models/journal.model';
+import { t } from '../../utils/localization'; // Import the new t function
 // import { t } from '../../utils/localization'; // TODO: Uncomment when localization is implemented
-
-// Placeholder t function for now
-const t = (key: string, _params?: any, _user?: IUser) => key.substring(key.lastIndexOf('.') + 1); 
 
 /**
  * Formats a transcription for display
  */
-export function formatTranscription(transcription: string): string {
-    return `<b>Here's what I heard:</b>\n\n<code>${sanitizeHtmlForTelegram(transcription)}</code>`;
+export function formatTranscription(transcription: string, user?: IUser): string {
+    return `<b>${t('journal:transcriptionHeader', { user })}</b>\n\n<code>${sanitizeHtmlForTelegram(transcription)}</code>`;
 }
 
 /**
@@ -29,7 +27,7 @@ export async function sendTranscriptionReply(
         return;
     }
     
-    await ctx.reply(formatTranscription(transcription), {
+    await ctx.reply(formatTranscription(transcription, user), {
         reply_to_message_id: messageId,
         parse_mode: 'HTML'
         // Removed reply_markup to eliminate inline keyboard
@@ -115,40 +113,27 @@ export function sanitizeHtmlForTelegram(text: string): string {
 /**
  * Formats error messages for user display
  */
-export function formatErrorMessage(message: string): string {
-    return `<b>Oops!</b> ${sanitizeHtmlForTelegram(message)}`;
+export function formatErrorMessage(messageKey: string, user?: IUser, params?: Record<string, any>): string {
+    return `<b>${t('common:oops', { user })}</b> ${sanitizeHtmlForTelegram(t(messageKey, {user, ...params}))}`;
 }
 
 /**
  * Formats system messages (info, success, etc)
  */
-export function formatSystemMessage(message: string): string {
-    return sanitizeHtmlForTelegram(message);
+export function formatSystemMessage(messageKey: string, user?: IUser, params?: Record<string, any>): string {
+    return sanitizeHtmlForTelegram(t(messageKey, {user, ...params}));
 }
-
-/**
- * Common error messages
- */
-export const ErrorMessages = {
-    ENTRY_NOT_FOUND: "I couldn't find that journal entry. Let's start fresh! ✨",
-    TRANSCRIPTION_FAILED: "I had trouble understanding that recording. Could you try again? 🎤",
-    GENERAL_ERROR: "Something went wrong. Please try again. ✨",
-    ANALYSIS_FAILED: "I had trouble analyzing your entry, but don't worry - it's saved! ✨",
-    EMPTY_ENTRY: "There's nothing to analyze yet. Share some thoughts first! ✨",
-    SESSION_EXPIRED: "Looks like that reflection session ended. Let's start fresh! 💫"
-} as const;
 
 /**
  * Creates a message summary of the journal entry
  * @param entry Journal entry to summarize
  * @returns Summary text showing message counts
  */
-export async function createEntrySummary(entry: IJournalEntry): Promise<string> {
+export async function createEntrySummary(entry: IJournalEntry, user?: IUser): Promise<string> {
     if (!entry) {
-        return 'No messages yet.';
+        return t('journal:noMessagesYet', { user });
     }
 
-    // Use the new counter fields if available
     if (typeof entry.textMessages === 'number' || 
         typeof entry.voiceMessages === 'number' || 
         typeof entry.videoMessages === 'number' || 
@@ -159,68 +144,59 @@ export async function createEntrySummary(entry: IJournalEntry): Promise<string> 
         const videoCount = entry.videoMessages || 0;
         const fileCount = entry.fileMessages || 0;
         
-        // Create a concise summary in the required format
         const formatCounts = [];
-        if (textCount > 0) formatCounts.push(`T:${textCount}`);
-        if (voiceCount > 0) formatCounts.push(`V:${voiceCount}`);
-        if (videoCount > 0) formatCounts.push(`Vi:${videoCount}`);
-        if (fileCount > 0) formatCounts.push(`F:${fileCount}`);
+        if (textCount > 0) formatCounts.push(`${t('common:summary.text', { user })}:${textCount}`);
+        if (voiceCount > 0) formatCounts.push(`${t('common:summary.voice', { user })}:${voiceCount}`);
+        if (videoCount > 0) formatCounts.push(`${t('common:summary.video', { user })}:${videoCount}`);
+        if (fileCount > 0) formatCounts.push(`${t('common:summary.file', { user })}:${fileCount}`);
         
         if (formatCounts.length > 0) {
             return `[${formatCounts.join(' ')}]`;
         }
     }
 
-    // Fall back to the original method for older entries
     if (!entry.messages || !Array.isArray(entry.messages) || entry.messages.length === 0) {
-        return 'No messages yet.';
+        return t('journal:noMessagesYet', { user });
     }
 
-    // Ensure messages are populated
     if (typeof entry.messages[0] === 'string') {
         try {
             const populatedEntry = await JournalEntry.findById(entry._id).populate('messages');
             if (populatedEntry && Array.isArray(populatedEntry.messages) && typeof populatedEntry.messages[0] !== 'string') {
-                return createEntrySummary(populatedEntry); // Recursively call with populated entry
+                return createEntrySummary(populatedEntry, user); // Pass user
             }
-            return 'Entry details unavailable.';
+            return t('journal:entryDetailsUnavailable', { user });
         } catch (error) {
             console.warn(`Failed to re-fetch entry with populated messages: ${entry._id}`, error);
-            return 'Entry details unavailable.';
+            return t('journal:entryDetailsUnavailable', { user });
         }
     }
 
     const messages = entry.messages as IMessage[];
-    
-    // Count message types
     const textCount = messages.filter(m => m.type === MessageType.TEXT).length;
     const voiceCount = messages.filter(m => m.type === MessageType.VOICE).length;
     const videoCount = messages.filter(m => m.type === MessageType.VIDEO).length;
     const imageCount = messages.filter(m => m.type === MessageType.IMAGE).length;
     
-    // Create summary
     const parts = [];
-    if (textCount > 0) parts.push(`T:${textCount}`);
-    if (voiceCount > 0) parts.push(`V:${voiceCount}`);
-    if (videoCount > 0) parts.push(`Vi:${videoCount}`);
-    if (imageCount > 0) parts.push(`I:${imageCount}`);
+    if (textCount > 0) parts.push(`${t('common:summary.text', { user })}:${textCount}`);
+    if (voiceCount > 0) parts.push(`${t('common:summary.voice', { user })}:${voiceCount}`);
+    if (videoCount > 0) parts.push(`${t('common:summary.video', { user })}:${videoCount}`);
+    if (imageCount > 0) parts.push(`${t('common:summary.image', { user })}:${imageCount}`); // Added image for completeness
     
     if (parts.length > 0) {
         return `[${parts.join(' ')}]`;
     }
     
-    return 'No messages yet.';
+    return t('journal:noMessagesYet', { user });
 }
 
 /**
  * Creates a status message for the current journal entry
  * Shows message counts and prompts for next action
  */
-export async function createEntryStatusMessage(entry: IJournalEntry): Promise<string> {
-    // TODO: think is there a good format to show the summary?
-    // const summary = await createEntrySummary(entry);
-    // return `<b>I love reading you. Give me more, please 🥹</b>\n\n<i>🎤 Texts, voices, videos.</i>${summary ? ' ' + summary : ''}`;
-    return `<b>I love reading you!! Tell me more, please ☺️</b>\n\n<i>🎤 Texts, voices, videos.</i>`;
+export async function createEntryStatusMessage(entry: IJournalEntry, user?: IUser): Promise<string> {
+    return `<b>${t('journal:statusMessage.encourage', { user })}</b>\n\n<i>${t('journal:statusMessage.shareHint', { user })}</i>`;
 }
 
 /**
@@ -231,16 +207,15 @@ export async function createEntryStatusMessage(entry: IJournalEntry): Promise<st
  */
 export function formatMessageDuration(durationSeconds: number, user?: IUser): string {
     if (durationSeconds < 0) durationSeconds = 0;
-
     if (durationSeconds < 60) {
-        return `${durationSeconds}${t('common.seconds', {}, user)}`; // e.g., "45s"
+        return `${durationSeconds}${t('common:secondsSuffix', { user })}`; 
     }
     const minutes = Math.floor(durationSeconds / 60);
     const seconds = durationSeconds % 60;
     if (seconds === 0) {
-        return `${minutes}${t('common.minutes', {}, user)}`; // e.g., "2m"
+        return `${minutes}${t('common:minutesSuffix', { user })}`; 
     }
-    return `${minutes}${t('common.minutes', {}, user)} ${seconds}${t('common.seconds', {}, user)}`; // e.g., "1m 23s"
+    return `${minutes}${t('common:minutesSuffix', { user })} ${seconds}${t('common:secondsSuffix', { user })}`;
 }
 
 /**
@@ -254,24 +229,23 @@ export function getMessagePreview(message: IMessage, user?: IUser): string {
         [MessageType.TEXT]: "📝",
         [MessageType.VOICE]: "🎤",
         [MessageType.VIDEO]: "🎥",
-        [MessageType.IMAGE]: "🖼️", // Assuming IMAGE might be a type
+        [MessageType.IMAGE]: "🖼️", 
     };
-    const emoji = typeEmojiMap[message.type] || "📎"; // Default to paperclip for other types
+    const emoji = typeEmojiMap[message.type] || "📎";
 
     switch (message.type) {
         case MessageType.TEXT:
             const previewText = message.text?.substring(0, 20) || '';
             const ellipsis = (message.text && message.text.length > 20) ? '...' : '';
-            return `${emoji} \"${previewText}${ellipsis}\" (${t('common.text', {}, user)})`;
+            return `${emoji} \"${previewText}${ellipsis}\" (${t('common:messageType.text', { user })})`;
         case MessageType.VOICE:
-            const voiceDuration = message.duration || 0; // Assuming duration is on IMessage for voice/video
-            return `${emoji} ${t('common.voiceMessage', {}, user)} (${formatMessageDuration(voiceDuration, user)})`;
+            const voiceDuration = message.duration || 0; 
+            return `${emoji} ${t('common:messageType.voice', { user })} (${formatMessageDuration(voiceDuration, user)})`;
         case MessageType.VIDEO:
             const videoDuration = message.duration || 0;
-            return `${emoji} ${t('common.videoMessage', {}, user)} (${formatMessageDuration(videoDuration, user)})`;
-        // Add cases for IMAGE or other types if needed
+            return `${emoji} ${t('common:messageType.video', { user })} (${formatMessageDuration(videoDuration, user)})`;
         default:
-            return `${emoji} ${t('common.fileMessage', {}, user)}`;
+            return `${emoji} ${t('common:messageType.file', { user })}`; // Assuming key exists
     }
 }
 
@@ -285,10 +259,10 @@ export function formatMessageList(messages: IMessage[], user?: IUser): string {
     if (!messages || messages.length === 0) {
         return '';
     }
-    const header = `<b>${t('journal.currentEntryHeader', {}, user)}</b>`; // e.g. "Current Entry:"
+    const header = `<b>${t('journal:currentEntryHeader', { user })}</b>`;
     const messageItems = messages
         .map((msg, index) => `${index + 1}. ${getMessagePreview(msg, user)}`)
         .join('\n');
     
-    return `\n${header}\n${messageItems}\n`; // Add newlines for spacing
+    return `\n${header}\n${messageItems}\n`; 
 }
