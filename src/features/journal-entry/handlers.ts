@@ -493,6 +493,10 @@ export async function cancelJournalEntryHandler(ctx: JournalBotContext, user: IU
             ctx.session.waitingForNotificationTime = false;
             await replyWithHTML(ctx, t('settings:timeSettingCancelled', { user }));
         }
+        if (ctx.session?.waitingForUtcOffset) {
+            ctx.session.waitingForUtcOffset = false;
+            await replyWithHTML(ctx, t('settings:timezoneSettingCancelled', { user }));
+        }
     }
     await showMainMenu(ctx, user);
 }
@@ -565,25 +569,49 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
             return;
         }
         const waitMsg = await replyWithHTML(ctx, t('common:loadingEmoji', {user, defaultValue: "⏳"}));
-        // ... (AI logic, which uses journalPrompts - assumed to be handled or language agnostic for now)
-        // ... (Example: const messages: IChatMessage[] = [ ... ])
-        // ... (response parsing and data extraction)
-        // Sanitize AI content before displaying
-        // const sanitizedSummary = sanitizeHtmlForTelegram(summaryFromAI);
-        // const sanitizedQuestions = questionsFromAI.map(q => sanitizeHtmlForTelegram(q));
+        
+        const messagesFromEntry = entry.messages as IMessage[];
+        const userResponses = messagesFromEntry
+            .filter(msg => msg.role === MessageRole.USER)
+            .map(msg => msg.type === MessageType.TEXT ? (msg.text || '') : (msg.transcription || ''))
+            .filter(text => text.length > 0)
+            .join('\n\n');
+        const previousQuestions = entry.aiQuestions?.join('\n') || t('journal:goDeeper.noPreviousQuestions', {user});
+        const previousSummary = entry.analysis || t('journal:goDeeper.noPreviousAnalysis', {user});
+        const userInfo = `User: ${user.name || user.firstName}`;
+        const languageInstruction = user.aiLanguage === 'ru' ? 
+            t('aiPrompts:deeperAnalysis.languageInstructionRu', {user, defaultValue: "\nPlease respond in Russian. Focus on deeper psychological insights and open-ended questions." }) : 
+            t('aiPrompts:deeperAnalysis.languageInstructionEn', {user, defaultValue: "\nPlease respond in English. Focus on deeper psychological insights and open-ended questions." });
 
-        // Example of localized reply after AI processing:
-        // let questionsText = sanitizedQuestions.map((q, i) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-        // const formattedMessage = `<b>${t('journal:goDeeper.summaryHeader', {user, summary: sanitizedSummary})}</b>\n\n${t('journal:goDeeper.questionsHeader', {user})}\n\n${questionsText}`;
-        // For now, I'll keep the existing structure as AI part is complex and not the focus of pure string localization
-        // ... but ensure any direct user-facing text IS localized.
-        // The existing `handleGoDeeper` has hardcoded response parts for summary/questions.
-        // These need to be localized. I will simplify this for now and focus on the error message.
+        const chatMessages: IChatMessage[] = [
+            { role: 'system', content: journalPrompts.deeperAnalysisPrompt + languageInstruction },
+            { 
+                role: 'user', 
+                content: `${userInfo}\n\n${t('journal:goDeeper.entryAndResponsesPrefix', {user})}:\n${userResponses}\n\n${t('journal:goDeeper.previousQuestionsPrefix', {user})}:\n${previousQuestions}\n\n${t('journal:goDeeper.previousAnalysisPrefix', {user})}:\n${previousSummary}\n\n${t('journal:goDeeper.promptInstruction', {user})}` 
+            }
+        ];
+        const response = await openAIService.createChatCompletion(chatMessages, {
+            temperature: 0.7, max_tokens: 800, response_format: { type: "json_object" }
+        });
+        const responseContent = response.choices[0].message.content || '{}';
+        const defaultAISummary = t('journal:goDeeper.defaultSummary', {user});
+        const defaultAIQuestions = [t('journal:goDeeper.defaultQuestion', {user})];
+        const parsedResponse = openAIService.parseJsonResponse(responseContent, { summary: defaultAISummary, questions: defaultAIQuestions });
+        const summary = parsedResponse.summary || defaultAISummary;
+        const deeperQuestions = parsedResponse.questions || defaultAIQuestions;
+        const sanitizedSummary = sanitizeHtmlForTelegram(summary);
+        const sanitizedQuestions = deeperQuestions.map((q: string) => sanitizeHtmlForTelegram(q));
+        await updateEntryAnalysisAndQuestions( entryId, `${previousSummary}\n\n${t('journal:goDeeper.newSummaryHeader', {user})}: ${sanitizedSummary || ''}`,
+            [...(entry.aiQuestions || []), ...sanitizedQuestions] );
 
-        // Placeholder for actual AI call and response display logic using t()
-        // For now, let's assume an error occurs to test the error path localization
         if (ctx.chat) await ctx.api.deleteMessage(ctx.chat.id, waitMsg.message_id).catch(e => logger.warn("Failed to delete wait msg for GoDeeper", e));
-        throw new Error("Simulated AI error for GoDeeper localization test."); // Simulate an error
+        
+        let questionsText = '';
+        if (sanitizedQuestions.length > 0) {
+            questionsText = sanitizedQuestions.map((q, i) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
+        }
+        const formattedMessage = `<b>${sanitizedSummary}</b>\n\n${t('journal:goDeeper.questionsHeader', {user})}\n\n${questionsText}`;
+        await replyWithHTML(ctx, formattedMessage);
 
     } catch (error) {
         errorService.logError(

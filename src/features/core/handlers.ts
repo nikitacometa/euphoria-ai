@@ -1,15 +1,27 @@
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 import { createMainMenuInlineKeyboard } from './keyboards';
-import { findOrCreateUser } from '../../database';
+import { findOrCreateUser, User as UserModel } from '../../database';
 import { withCommandLogging } from '../../utils/command-logger';
 import { startOnboarding } from '../onboarding/handlers';
 import { logger } from '../../utils/logger';
-import { Bot } from 'grammy';
+import { Bot, Context } from 'grammy';
 import { notificationService } from '../../services/notification.service';
-import { User } from '../../database/models/user.model';
 import { ADMIN_IDS } from '../../config';
 import { registerHowToCommand, registerNotificationSettingsCommands, registerAdminCommands } from '../../commands';
+import { t } from '../../utils/localization';
+
+const HTML_PARSE_MODE = 'HTML' as const;
+
+/**
+ * Helper function to reply with HTML formatting (copied from journal-entry/handlers)
+ */
+async function replyWithHTML(ctx: JournalBotContext, message: string, options: Partial<Parameters<Context['reply']>[1]> = {}) {
+    return ctx.reply(message, {
+        parse_mode: HTML_PARSE_MODE,
+        ...options
+    });
+}
 
 /**
  * Generates a varied greeting message for the main menu.
@@ -21,37 +33,12 @@ import { registerHowToCommand, registerNotificationSettingsCommands, registerAdm
  */
 export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: 'HTML' } {
   const userName = user.name || user.firstName;
-  const useName = Math.random() < 0.6; // Use name ~60% of the time
-
-  // Define the type for the greeting functions and their return values
-  type GreetingFunction = (name?: string) => { text: string; parse_mode?: 'HTML' };
-
-  const greetings: GreetingFunction[] = [
-    // Simple & Journaling focused
-    () => ({ text: `Back for more self-reflection? Let's dive in.`, parse_mode: 'HTML' }),
-    () => ({ text: `Ready to chronicle your day? The journal awaits.`, parse_mode: 'HTML' }),
-    () => ({ text: `What thoughts are swirling today? Let's capture them.`, parse_mode: 'HTML' }),
-    () => ({ text: `Time to unload your mind? I'm ready.`, parse_mode: 'HTML' }),
-    (name?: string) => ({ text: `Hey${name ? ` ${name}` : ''}! What's on the agenda? Journaling, insights, or settings?`, parse_mode: 'HTML' }),
-
-    // Playful / Slightly Sarcastic - converted from MarkdownV2 to HTML
-    (name?: string) => ({ text: `Oh, it's <b>you</b> again${name ? `, ${name}` : ''}. Ready to spill the tea... to yourself?`, parse_mode: 'HTML' }),
-    () => ({ text: `<b>Taps microphone</b> Is this thing on? Good. Main menu time.`, parse_mode: 'HTML' }),
-    () => ({ text: `<i>Another day, another existential thought dump? Let's go.</i>`, parse_mode: 'HTML' }),
-    (name?: string) => ({ text: `Look who decided to grace us with their presence${name ? `, ${name}` : ''}. What journaling adventures await?`, parse_mode: 'HTML' }),
-    () => ({ text: `Beep boop. Main menu initialized. Don't break anything.`, parse_mode: 'HTML' }),
-
-    // Already using HTML formatting
-    (name?: string) => ({ text: `<i>Well hello there${name ? `, ${name}` : ''}.</i> Ready for some introspection?`, parse_mode: 'HTML' }),
-    () => ({ text: `<code>Loading main menu...</code> Complete. What's next?`, parse_mode: 'HTML' }),
-    (name?: string) => ({ text: `<b>${name || 'Hey'}!</b> Your journal is calling.`, parse_mode: 'HTML' }),
-    () => ({ text: `✨ Main Menu Magic! ✨ What shall we conjure?`, parse_mode: 'HTML' }),
-  ];
-
-  const randomIndex = Math.floor(Math.random() * greetings.length);
-  const selectedGreetingFn = greetings[randomIndex];
-  
-  return (selectedGreetingFn.length > 0 && useName ? selectedGreetingFn(userName) : selectedGreetingFn());
+  const greetingText = t('common:mainMenu.greeting', { 
+    user, 
+    name: userName, 
+    defaultValue: `Hey ${userName}! What's on the agenda? Journaling, insights, or settings?` 
+  });
+  return { text: greetingText, parse_mode: 'HTML' };
 }
 
 /**
@@ -59,11 +46,8 @@ export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: '
  * Uses inline keyboard for better UI and more consistent experience.
  */
 export async function showMainMenu(ctx: JournalBotContext, user: IUser, messageText?: string) {
-    const greeting = messageText ? { text: messageText, parse_mode: 'HTML' } : getMainMenuGreeting(user);
-    await ctx.reply(greeting.text, {
-        reply_markup: createMainMenuInlineKeyboard(),
-        parse_mode: greeting.parse_mode as 'HTML' | undefined
-    });
+    const greeting = messageText ? { text: messageText, parse_mode: HTML_PARSE_MODE } : getMainMenuGreeting(user);
+    await replyWithHTML(ctx, greeting.text, { reply_markup: createMainMenuInlineKeyboard(user) });
     ctx.session.isMainMenuActive = true; // Set the flag
 }
 
@@ -86,7 +70,10 @@ export const handleStartCommand = withCommandLogging('start', async (ctx: Journa
  * Handles the /cancel, /reset, and /stop commands to reset user state.
  */
 export const handleCancelCommand = withCommandLogging('cancel', async (ctx: JournalBotContext) => {
-    if (!ctx.from) return;
+    if (!ctx.from) {
+        await replyWithHTML(ctx, t('core:cancelCommand.sessionsReset', { defaultValue: "✨ All active sessions have been reset."}));
+        return;
+    }
     
     const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
     
@@ -112,7 +99,7 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
         ctx.session.onboardingStep = undefined;
     }
     
-    await ctx.reply("✨ All active sessions have been reset. Returning to main menu.");
+    await replyWithHTML(ctx, t('core:cancelCommand.sessionsReset', { user, defaultValue: "✨ All active sessions have been reset. Returning to main menu."}));
     await showMainMenu(ctx, user);
 });
 
@@ -122,8 +109,11 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
 export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
 
-    // Revert to the original single help text constant
-    const helpText = `
+    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+
+    const helpText = t('core:helpCommand.fullText', { 
+        user,
+        defaultValue: `
 <b>Enter the Infinity ♾️</b>
 
 <code>/howto</code> - <i>I will show you nice usecases of me</i>
@@ -148,11 +138,10 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 • max 5 minutes voice messages
 
 <i>Remember: I'm here to be your digital confidant — all entries are private and secure!</i>
-`;
-    
-    await ctx.reply(helpText, {
-        parse_mode: 'HTML'
+`
     });
+    
+    await replyWithHTML(ctx, helpText);
 });
 
 /**
@@ -199,47 +188,31 @@ export const handleSettingsCommand = withCommandLogging('settings', async (ctx: 
  * This is an admin-only command to help diagnose notification issues
  */
 export const checkNotificationsHandler = withCommandLogging('check_notifications', async (ctx: JournalBotContext) => {
-    // Only run for admins
+    const callingUser = ctx.from ? await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username) : undefined;
     if (!ADMIN_IDS.includes(ctx.from?.id || 0)) {
-        return await ctx.reply("Sorry, this command is only available to administrators.");
+        return await replyWithHTML(ctx, t('errors:adminOnlyCommand', {user: callingUser}));
     }
-
     try {
-        await ctx.reply("⏳ Checking notification system health...");
-        
-        // Check overall system health
+        await replyWithHTML(ctx, t('core:checkNotifications.checking', {user: callingUser, defaultValue: "⏳ Checking notification system health..."}));
         const isHealthy = await notificationService.checkHealth();
-        
-        // Get notification stats
-        const userCount = await User.countDocuments({ notificationsEnabled: true });
-        
-        // Get users with errors
-        const usersWithErrors = await User.find({ 
-            lastNotificationError: { $exists: true, $ne: null }
-        }).limit(5);
-        
-        // Create report message
-        let report = `📊 *Notification System Status*\n\n`;
-        report += `System Health: ${isHealthy ? '✅ OK' : '❌ ISSUES DETECTED'}\n`;
-        report += `Active Notification Users: ${userCount}\n\n`;
-        
+        const userCount = await UserModel.countDocuments({ notificationsEnabled: true });
+        const usersWithErrors = await UserModel.find({ lastNotificationError: { $exists: true, $ne: null }}).limit(5);
+        let report = `📊 <b>${t('core:checkNotifications.reportTitle', {user: callingUser, defaultValue: "Notification System Status"})}</b>\n\n`;
+        report += `${t('core:checkNotifications.systemHealth', {user: callingUser, healthStatus: isHealthy ? '✅ OK' : '❌ ISSUES DETECTED'})}\n`;
+        report += `${t('core:checkNotifications.activeUsers', {user: callingUser, count: userCount.toString()})}\n\n`;
         if (usersWithErrors.length > 0) {
-            report += `*Recent Errors (${usersWithErrors.length})* :\n`;
-            for (const user of usersWithErrors) {
-                const lastAttempt = user.lastNotificationAttempt 
-                    ? new Date(user.lastNotificationAttempt).toISOString().substring(0, 16).replace('T', ' ')
-                    : 'unknown';
-                report += `- User ${user.telegramId}: ${user.lastNotificationError} (${lastAttempt})\n`;
+            report += `<b>${t('core:checkNotifications.recentErrorsHeader', {user: callingUser, count: usersWithErrors.length.toString()})}</b> :\n`;
+            for (const errorUser of usersWithErrors) {
+                const lastAttempt = errorUser.lastNotificationAttempt ? new Date(errorUser.lastNotificationAttempt).toISOString().substring(0, 16).replace('T', ' ') : t('common:unknown', {user: callingUser});
+                report += `- User ${errorUser.telegramId}: ${errorUser.lastNotificationError} (${lastAttempt})\n`;
             }
         } else {
-            report += `No recent notification errors! 🎉\n`;
+            report += `${t('core:checkNotifications.noRecentErrors', {user: callingUser})}\n`;
         }
-        
-        await ctx.reply(report, { parse_mode: 'Markdown' });
-        
+        await replyWithHTML(ctx, report);
     } catch (error) {
         logger.error('Error in check_notifications command:', error);
-        await ctx.reply("❌ Error checking notification system. Please check logs for details.");
+        await replyWithHTML(ctx, t('errors:checkNotificationsError', {user: callingUser, defaultValue: "❌ Error checking notification system. Please check logs for details."} ));
     }
 });
 
@@ -248,86 +221,50 @@ export const checkNotificationsHandler = withCommandLogging('check_notifications
  * This is an admin-only command to broadcast notifications to all users
  */
 export const notifyAllHandler = withCommandLogging('notify_all', async (ctx: JournalBotContext) => {
-    // Only run for admins
+    const callingUser = ctx.from ? await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username) : undefined;
     if (!ADMIN_IDS.includes(ctx.from?.id || 0)) {
-        return await ctx.reply("Sorry, this command is only available to administrators.");
+        return await replyWithHTML(ctx, t('errors:adminOnlyCommand', {user: callingUser}));
     }
-
     try {
-        await ctx.reply("🚀 Starting notification broadcast to all users...");
-        
-        // Get all users from the database
-        const users = await User.find();
-        const userCount = users.length;
-        
+        await replyWithHTML(ctx, t('core:notifyAll.starting', {user: callingUser}));
+        const allDbUsers = await UserModel.find();
+        const userCount = allDbUsers.length;
         if (userCount === 0) {
-            return await ctx.reply("❌ No users found in the database.");
+            return await replyWithHTML(ctx, t('core:notifyAll.noUsers', {user: callingUser}));
         }
-        
-        // Notify admin with count
-        await ctx.reply(`📤 Preparing to send notifications to ${userCount} users. This may take some time...`);
-        
-        // Process and track notification sending
+        await replyWithHTML(ctx, t('core:notifyAll.preparing', {user: callingUser, userCount: userCount.toString()}));
         let successCount = 0;
         let errorCount = 0;
         let errorUsers: Array<{id: number, error: string}> = [];
-        
-        // Process users in batches to prevent overloading
-        for (const user of users) {
+        for (const dbUser of allDbUsers) {
             try {
-                // Use the notification service's sendBroadcastNotification method
-                await notificationService.sendBroadcastNotification(user);
+                await notificationService.sendBroadcastNotification(dbUser);
                 successCount++;
-                
-                // Update last notification sent timestamp
-                await User.findByIdAndUpdate(user._id, {
-                    lastNotificationSent: new Date(),
-                    lastNotificationError: null
-                });
-                
-                // Log progress for every 10 users
-                if (successCount % 10 === 0) {
-                    logger.info(`Notification broadcast progress: ${successCount}/${userCount} users processed`);
-                }
-                
-            } catch (error) {
+                await UserModel.findByIdAndUpdate(dbUser._id, { lastNotificationSent: new Date(), lastNotificationError: null });
+                if (successCount % 10 === 0) logger.info(`Notification broadcast progress: ${successCount}/${userCount} users processed`);
+            } catch (e) {
                 errorCount++;
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                errorUsers.push({ id: user.telegramId, error: errorMessage });
-                
-                // Update error information in user record
-                await User.findByIdAndUpdate(user._id, {
-                    lastNotificationError: errorMessage,
-                    lastNotificationAttempt: new Date()
-                }).catch(err => {
-                    logger.error(`Failed to update error status for user ${user.telegramId}:`, err);
-                });
-                
-                logger.error(`Error sending notification to user ${user.telegramId}:`, error);
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                errorUsers.push({ id: dbUser.telegramId, error: errorMessage });
+                await UserModel.findByIdAndUpdate(dbUser._id, { lastNotificationError: errorMessage, lastNotificationAttempt: new Date() }).catch(err => logger.error(`Failed to update error status for user ${dbUser.telegramId}:`, err));
+                logger.error(`Error sending notification to user ${dbUser.telegramId}:`, e);
             }
-            
-            // Small delay between notifications to prevent rate limiting
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-        
-        // Send summary to admin
-        let summary = `✅ *Notification Broadcast Complete*\n\n`;
-        summary += `Total Users: ${userCount}\n`;
-        summary += `Successful Notifications: ${successCount}\n`;
-        summary += `Failed Notifications: ${errorCount}\n\n`;
-        
+        let summary = `✅ <b>${t('core:notifyAll.completeTitle', {user: callingUser})}</b>\n\n`;
+        summary += `${t('core:notifyAll.totalUsers', {user: callingUser})}: ${userCount}\n`;
+        summary += `${t('core:notifyAll.successful', {user: callingUser})}: ${successCount}\n`;
+        summary += `${t('core:notifyAll.failed', {user: callingUser})}: ${errorCount}\n\n`;
         if (errorCount > 0) {
-            summary += `*Error Details* (showing first ${Math.min(5, errorCount)}):\n`;
-            errorUsers.slice(0, 5).forEach(user => {
-                summary += `- User ${user.id}: ${user.error.substring(0, 50)}${user.error.length > 50 ? '...' : ''}\n`;
+            summary += `<b>${t('core:notifyAll.errorDetailsTitle', {user: callingUser, count: Math.min(5, errorCount).toString()})}</b>:\n`;
+            errorUsers.slice(0, 5).forEach(errorDetail => {
+                summary += `- User ${errorDetail.id}: ${errorDetail.error.substring(0, 50)}${errorDetail.error.length > 50 ? '...' : ''}\n`;
             });
         }
-        
-        await ctx.reply(summary, { parse_mode: 'Markdown' });
-        
+        await replyWithHTML(ctx, summary);
     } catch (error) {
         logger.error('Error in notify_all command:', error);
-        await ctx.reply("❌ Error during notification broadcast. Please check logs for details.");
+        await replyWithHTML(ctx, t('errors:notifyAllError', {user: callingUser}));
     }
 });
 

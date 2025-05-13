@@ -1,4 +1,4 @@
-import { InlineKeyboard, Keyboard } from 'grammy';
+import { InlineKeyboard, Keyboard, Context } from 'grammy';
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 import { createSettingsKeyboard } from './keyboards';
@@ -7,30 +7,26 @@ import { notificationService } from '../../services/notification.service'; // Se
 import { findOrCreateUser, updateUserProfile } from '../../database'; // Added import for findOrCreateUser
 import { showMainMenu } from '../core/handlers';
 import { convertFromUTC, formatTimeWithTimezone, isValidUtcOffset, generateUTCOffsetKeyboard } from '../../utils/timezone';
+import { t } from '../../utils/localization'; // Ensure t is imported
 
 /**
  * Formats the settings text based on user settings
  */
 function formatSettingsText(user: IUser): string {
-    const notificationStatus = user.notificationsEnabled ? "✅" : "❌";
-    
-    let notificationTimeDisplay = "⏱️ Not set";
-    if (user.notificationTime) {
-        const utcOffset = user.utcOffset || '+0';
-        const localTime = convertFromUTC(user.notificationTime, utcOffset); 
-        notificationTimeDisplay = formatTimeWithTimezone(localTime, utcOffset);
+    const notificationStatus = user.notificationsEnabled ? t('settings:notificationsEnabledIcon', {user, defaultValue: "✅"}) : t('settings:notificationsDisabledIcon', {user, defaultValue: "❌"});
+    let notificationTimeDisplay = t('settings:timeNotSet', {user});
+    if (user.notificationTime && user.utcOffset) {
+        const localTime = convertFromUTC(user.notificationTime, user.utcOffset);
+        notificationTimeDisplay = formatTimeWithTimezone(localTime, user.utcOffset); // This util already formats like "HH:mm (UTC+X)"
     }
+    const transcriptionStatus = user.showTranscriptions === true ? t('settings:transcriptionsShowIcon', {user, defaultValue: "✅"}) : t('settings:transcriptionsHideIcon', {user, defaultValue: "❌"});
+    const languageStatus = user.aiLanguage === 'en' ? t('settings:languageEnglish', {user}) : t('settings:languageRussian', {user});
     
-    let utcOffsetDisplay = user.utcOffset ? `UTC${user.utcOffset}` : "UTC+0 (default)";
-    
-    const transcriptionStatus = user.showTranscriptions === true ? "✅" : "❌";
-    const languageStatus = user.aiLanguage === 'en' ? "🇬🇧 English" : "🇷🇺 Russian";
-    
-    return `<b>Remind me to journal?</b> ${notificationStatus}\n\n` +
-           `<b>Every day at:</b> ${notificationTimeDisplay}\n\n` +
-           `<b>Show transcribed texts?</b> ${transcriptionStatus}\n\n` +
-           `<b>For AI Chat prefer:</b> ${languageStatus}\n\n` +
-           `<i>Try to play with settings to get x100 out of your journal — just facts.</i>`;
+    return `<b>${t('settings:remindMeHeader', {user})}</b> ${notificationStatus}\n\n` +
+           `<b>${t('settings:everyDayAtHeader', {user})}</b> ${notificationTimeDisplay}\n\n` +
+           `<b>${t('settings:showTranscribedHeader', {user})}</b> ${transcriptionStatus}\n\n` +
+           `<b>${t('settings:aiChatPreferHeader', {user})}</b> ${languageStatus}\n\n` +
+           `${t('settings:playWithSettingsTip', {user})}`;
 }
 
 /**
@@ -62,7 +58,7 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
         // Or update directly via DB function (more direct)
         const updatedUser = await updateUserProfile(user.telegramId, { notificationsEnabled: newStatus });
         
-        if (!updatedUser) throw new Error("Failed to update user profile");
+        if (!updatedUser) throw new Error(t('errors:userProfileUpdateFailed', {user}));
 
         const keyboard = createSettingsKeyboard(updatedUser);
         await ctx.editMessageText(formatSettingsText(updatedUser), {
@@ -71,7 +67,7 @@ export async function toggleNotificationsHandler(ctx: JournalBotContext, user: I
         });
      } catch (error) {
          logger.error(`Error toggling notifications for user ${user.telegramId}:`, error);
-         await ctx.reply("Sorry, something went wrong updating your notification settings.");
+         await ctx.reply(t('errors:settingsUpdateError', {user}));
      }
 }
 
@@ -150,14 +146,11 @@ export async function setNotificationTimeHandler(ctx: JournalBotContext) {
     
     // Custom keyboard for time input or cancel
     const cancelKeyboard = new Keyboard()
-        .text('❌ Cancel')
+        .text(t('common:cancel', {user}))
         .resized();
     
     await ctx.reply(
-        `Please enter a time for your daily journaling reminder using 24-hour format.\n\n` +
-        `Example: '21:00' for 9 PM.\n\n` +
-        `This time will be interpreted in YOUR LOCAL TIMEZONE: ${offsetDisplay}\n\n` +
-        `(We'll convert it to UTC before saving)`,
+        t('settings:setNotificationTimePrompt', { user, currentOffsetDisplay: offsetDisplay }),
         { reply_markup: cancelKeyboard }
     );
 }
@@ -188,7 +181,7 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
             
             // Fetch updated user for display
             const updatedUser = await findOrCreateUser(user.telegramId, user.firstName, user.lastName, user.username);
-            if (!updatedUser) throw new Error("Failed to update user profile with time");
+            if (!updatedUser) throw new Error(t('errors:userProfileUpdateFailed', {user}));
 
             ctx.session.waitingForNotificationTime = false;
             
@@ -196,11 +189,11 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
             const timeInfo = await notificationService.getUserNotificationTime(user.telegramId);
             
             // Format confirmation message showing the time in their local timezone
-            let confirmationMessage = `Great! I'll send you notifications at ${time} in your timezone (UTC${userUtcOffset}) 🌟`;
+            let confirmationMessage = t('settings:notificationTimeSetConfirmationSimple', {user, time, currentUtcOffset: userUtcOffset});
             
             if (timeInfo) {
                 // timeInfo will come from notificationService.getUserNotificationTime, which will also need to return utcOffset
-                confirmationMessage = `Great! I'll send you notifications at ${formatTimeWithTimezone(timeInfo.localTime, timeInfo.utcOffset || userUtcOffset)} 🌟`;
+                confirmationMessage = t('settings:notificationTimeSetConfirmationDetailed', {user, localTime: timeInfo.localTime, currentOffsetDisplay: `UTC${timeInfo.utcOffset}`, utcTime: timeInfo.utcTime });
                 
                 const currentOffsetDisplay = `UTC${timeInfo.utcOffset || userUtcOffset}`;
                 confirmationMessage += `\n\nYour time will be saved as ${timeInfo.utcTime} UTC but displayed to you in your local timezone ${currentOffsetDisplay}.`;
@@ -210,16 +203,16 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
             await showMainMenu(ctx, updatedUser); // Show main menu again
         } catch(error) {
              logger.error(`Error setting notification time for user ${user.telegramId}:`, error);
-             await ctx.reply("Sorry, something went wrong saving your notification time.");
+             await ctx.reply(t('errors:notificationTimeSaveError', {user}));
              ctx.session.waitingForNotificationTime = false; // Clear flag on error too
              await showMainMenu(ctx, user); 
         }
-    } else if (time === '❌ Cancel') {
+    } else if (time === t('common:cancel', {user})) {
         ctx.session.waitingForNotificationTime = false;
-        await ctx.reply("Time setting cancelled.", {reply_markup: {remove_keyboard: true}});
+        await ctx.reply(t('settings:timeSettingCancelled', {user}), {reply_markup: {remove_keyboard: true}});
         await showMainMenu(ctx, user);
     } else {
-        await ctx.reply("Please enter a valid time in 24-hour format (e.g., '21:00'). Or click '❌ Cancel' to exit.");
+        await ctx.reply(t('settings:invalidTimeFormat', {user}));
     }
 }
 
@@ -239,8 +232,7 @@ export async function setTimezoneHandler(ctx: JournalBotContext) {
     const utcOffsetKeyboard = generateUTCOffsetKeyboard(); // Use the new keyboard generator
 
     await ctx.reply(
-        `Please select or enter your UTC offset (e.g., +2, -5, 0).\n\n` +
-        `Your UTC offset is used to correctly schedule notifications at your preferred local time. Example: UTC+2, UTC-5. Select an option or type it in (e.g. \"+5:30\").`,
+        t('settings:setUtcOffsetPrompt', {user: ctx.from as any as IUser}),
         { reply_markup: utcOffsetKeyboard.resized() } // Use resized() if it's a regular Keyboard
     );
 }
@@ -254,9 +246,9 @@ export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
     }
     const input = ctx.message.text || '';
     
-    if (input === '❌ Cancel') {
+    if (input === t('common:cancel', {user})) {
         ctx.session.waitingForUtcOffset = false;
-        await ctx.reply("Timezone setting cancelled.", {reply_markup: {remove_keyboard: true}});
+        await ctx.reply(t('settings:timezoneSettingCancelled', {user}), {reply_markup: {remove_keyboard: true}});
         await showMainMenu(ctx, user);
         return;
     }
@@ -272,9 +264,9 @@ export async function handleTimezoneInput(ctx: JournalBotContext, user: IUser) {
         await saveTimezone(ctx, user, offsetToValidate); 
     } else {
         await ctx.reply(
-            "Sorry, that doesn\'t appear to be a valid UTC offset. Please use formats like \"+2\", \"-5:30\", \"0\", or select from the keyboard.",
+            t('settings:invalidUtcOffsetFormat', {user}),
             // Regenerate keyboard with cancel for retry
-            { reply_markup: generateUTCOffsetKeyboard().resized().text('❌ Cancel') } 
+            { reply_markup: generateUTCOffsetKeyboard().text(t('common:cancel', {user})) } 
         );
     }
 }
@@ -300,18 +292,23 @@ async function saveTimezone(ctx: JournalBotContext, user: IUser, utcOffsetToSave
                             : `+${utcOffsetToSave}`;
 
         await ctx.reply(
-            `Your UTC offset has been set to UTC${displayOffset}.`,
+            t('settings:utcOffsetSetConfirmation', {user, newOffset: displayOffset}),
             { reply_markup: { remove_keyboard: true } }
         );
         
         await showMainMenu(ctx, updatedUser);
     } catch (error) {
         logger.error(`Error setting timezone for user ${user.telegramId}:`, error);
-        await ctx.reply(
-            "Sorry, something went wrong saving your timezone. Please try again.",
-            { reply_markup: { remove_keyboard: true } }
-        );
+        await ctx.reply(t('errors:utcOffsetSaveError', {user}));
         ctx.session.waitingForUtcOffset = false;
         await showMainMenu(ctx, user);
     }
+}
+
+// Helper replyWithHTML needs to be defined in this file or imported
+async function replyWithHTML(ctx: JournalBotContext, message: string, options: Partial<Parameters<Context['reply']>[1]> = {}) {
+    return ctx.reply(message, {
+        parse_mode: 'HTML',
+        ...options
+    });
 }
