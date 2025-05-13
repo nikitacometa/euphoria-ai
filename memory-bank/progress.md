@@ -231,7 +231,11 @@ Planning phase complete. Ready to begin implementation.
 - [x] **Subtask 2.2:** Update Entry Handler Logic
   - Modified `journal-entry/handlers.ts` to capture media duration and display formatted message list.
   - Updated `journal-entry.service.ts` and `message.model.ts` to handle and store message duration.
-- [ ] **Subtask 2.3:** UI Integration
+- [x] **Subtask 2.3:** UI Integration
+  - Message list display integrated into `journal-entry/handlers.ts` replies.
+  - Formatting and separation handled by `formatMessageList` utility.
+
+**Phase 2: Entry Message List View - COMPLETE**
 
 ### Phase 3: Admin Re-Analysis Commands
 - [ ] **Subtask 3.1:** Analysis Code Refactoring
