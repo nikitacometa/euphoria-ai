@@ -238,10 +238,11 @@ Planning phase complete. Ready to begin implementation.
 **Phase 2: Entry Message List View - COMPLETE**
 
 ### Phase 3: Admin Re-Analysis Commands
-- [ ] **Subtask 3.1:** Analysis Code Refactoring
+- [x] **Subtask 3.1:** Analysis Code Refactoring
+  - Extracted `performFullEntryAnalysis` and `updateEntryWithAnalysis` in `journal-ai.service.ts`.
+  - Defined `FullAnalysisResult` interface.
+  - Adjusted `extractContentFromEntry` for re-analysis scenarios.
 - [ ] **Subtask 3.2:** Re-Analysis Command Implementation
-- [ ] **Subtask 3.3:** Database Interaction
-- [ ] **Subtask 3.4:** Command Registration
 
 ### Phase 4: Russian Language Localization
 - [ ] **Subtask 4.1:** Localization Setup
