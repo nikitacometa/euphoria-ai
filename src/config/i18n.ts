@@ -8,11 +8,11 @@ async function initializeI18n() {
     .use(Backend)
     .init({
       backend: {
-        loadPath: path.join(__dirname, '../../locales/{{lng}}/{{ns}}.json'), // Adjusted path for src/config
+        loadPath: path.join(__dirname, '../locales/{{lng}}/{{ns}}.json'), // Corrected path
       },
       fallbackLng: 'en',
       preload: ['en', 'ru'], // Preload both languages
-      ns: ['common', 'onboarding', 'journal', 'settings', 'errors'], // Define namespaces
+      ns: ['common', 'onboarding', 'journal', 'settings', 'errors', 'aiPrompts'], // Define namespaces
       defaultNS: 'common',
       debug: process.env.NODE_ENV !== 'production',
       // Explicitly set interpolation options to avoid issues with curly braces in Telegram messages

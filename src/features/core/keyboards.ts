@@ -16,23 +16,23 @@ export const MAIN_MENU_CALLBACKS = {
  */
 export function createMainMenuInlineKeyboard(user?: IUser): InlineKeyboard {
   return new InlineKeyboard()
-    .text(t('mainMenu:buttons.newEntry', { user, defaultValue: "📝 New Entry" }), MAIN_MENU_CALLBACKS.NEW_ENTRY)
-    .text(t('mainMenu:buttons.journalHistory', { user, defaultValue: "📚 Journal History" }), MAIN_MENU_CALLBACKS.JOURNAL_HISTORY)
+    .text(t('mainMenu.buttons.newEntry', { user, defaultValue: "📝 New Entry" }), MAIN_MENU_CALLBACKS.NEW_ENTRY)
+    .text(t('mainMenu.buttons.journalHistory', { user, defaultValue: "📚 Journal History" }), MAIN_MENU_CALLBACKS.JOURNAL_HISTORY)
     .row()
-    .text(t('mainMenu:buttons.askJournal', { user, defaultValue: "🤔 Ask My Journal" }), MAIN_MENU_CALLBACKS.JOURNAL_CHAT)
-    .text(t('mainMenu:buttons.settings', { user, defaultValue: "⚙️ Settings" }), MAIN_MENU_CALLBACKS.SETTINGS);
+    .text(t('mainMenu.buttons.askJournal', { user, defaultValue: "🤔 Ask My Journal" }), MAIN_MENU_CALLBACKS.JOURNAL_CHAT)
+    .text(t('mainMenu.buttons.settings', { user, defaultValue: "⚙️ Settings" }), MAIN_MENU_CALLBACKS.SETTINGS);
 }
 
 /**
  * Helper to add a "Back to Main Menu" button to any inline keyboard
  */
 export function addMainMenuButton(keyboard: InlineKeyboard, user?: IUser): InlineKeyboard {
-  return keyboard.row().text(t('common:backToMainMenu', {user, defaultValue: 'Back to Main Menu'}), MAIN_MENU_CALLBACKS.MAIN_MENU);
+  return keyboard.row().text(t('common.backToMainMenu', {user, defaultValue: 'Back to Main Menu'}), MAIN_MENU_CALLBACKS.MAIN_MENU);
 }
 
 /**
  * Creates a simple "Back to Main Menu" inline keyboard
  */
 export function createBackToMenuKeyboard(user?: IUser): InlineKeyboard {
-  return new InlineKeyboard().text(t('common:backToMainMenu', {user, defaultValue: 'Back to Main Menu'}), MAIN_MENU_CALLBACKS.MAIN_MENU);
+  return new InlineKeyboard().text(t('common.backToMainMenu', {user, defaultValue: 'Back to Main Menu'}), MAIN_MENU_CALLBACKS.MAIN_MENU);
 }

@@ -1,0 +1,4 @@
+{
+  "completion.languageInstructionEn": "Please respond in English language. Ensure the output is a valid JSON object with keys: summary, question, name, keywords.",
+  "completion.languageInstructionRu": "Please respond in Russian language. Ensure the output is a valid JSON object with keys: summary, question, name, keywords."
+} 

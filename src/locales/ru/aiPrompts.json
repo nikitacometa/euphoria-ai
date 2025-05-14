@@ -1,0 +1,4 @@
+{
+  "completion.languageInstructionEn": "Пожалуйста, отвечай на английском языке. Убедись, что ответ представлен в виде корректного JSON объекта с ключами: summary, question, name, keywords.",
+  "completion.languageInstructionRu": "Пожалуйста, отвечай на русском языке. Убедись, что ответ представлен в виде корректного JSON объекта с ключами: summary, question, name, keywords."
+} 

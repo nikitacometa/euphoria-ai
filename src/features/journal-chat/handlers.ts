@@ -16,6 +16,7 @@ import { JournalBotContext } from "../../types/session";
 import { findOrCreateUser } from '../../database';
 import { MAIN_MENU_CALLBACKS } from '../core/keyboards';
 import { removeInlineKeyboard } from '../../utils/inline-keyboard';
+import { t } from '../../utils/localization'; // Import t function
 
 /**
  * Initiates the journal chat mode.
@@ -26,7 +27,8 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     const entries = await getUserJournalEntries(user._id as Types.ObjectId);
     
     if (entries.length === 0) {
-        await ctx.reply(`<b>${user.name || user.firstName}</b>, let's create some entries first before we analyze them ✨`, {
+        // TODO: Localize this message
+        await ctx.reply(`<b>${user.name || user.firstName}</b>, ${t('journalChat.noEntriesPlaceholder', {user, defaultValue: "let's create some entries first before we analyze them ✨"})}`, {
             parse_mode: 'HTML'
         });
         await showMainMenu(ctx, user);
@@ -37,7 +39,16 @@ export async function startJournalChatHandler(ctx: JournalBotContext, user: IUse
     ctx.session.journalChatMode = true;
     ctx.session.waitingForJournalQuestion = true;
     
-    await ctx.reply(`<b>Hey, let's have a deep talk! Ask me anything 🤌</b>\n\n• Recognize any patterns in your thoughts/actions\n• Analyze mood changes, correlations\n• Find any information just by meaning\n\n<i>🎤 Haha, ${user.name || user.firstName}! Of course use voices/videos.</i>`, {
+    const name = user.name || user.firstName;
+    const introMessage = [
+        `<b>${t('journalChat.introHeader', { user, defaultValue: "Hey, let's have a deep talk! Ask me anything 🤌" })}</b>`,
+        t('journalChat.introPattern', { user, defaultValue: "• Recognize any patterns in your thoughts/actions" }),
+        t('journalChat.introMood', { user, defaultValue: "• Analyze mood changes, correlations" }),
+        t('journalChat.introFindInfo', { user, defaultValue: "• Find any information just by meaning" }),
+        `<i>${t('journalChat.introVoiceHint', { user, name, defaultValue: "🎤 Haha, {{name}}! Of course use voices/videos." })}</i>`
+    ].join('\n\n');
+    
+    await ctx.reply(introMessage, {
         reply_markup: notNowInlineKeyboard(),
         parse_mode: 'HTML'
     });

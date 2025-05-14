@@ -28,5 +28,5 @@ export function createSettingsKeyboard(user: IUser): InlineKeyboard {
         .text(transcriptionButtonText, "toggle_transcriptions")
 		.row()
 		.text(languageButtonText, "toggle_language")
-        .text(t('common:backToMenuButton', {user, defaultValue: "↩️ Menu"}), MAIN_MENU_CALLBACKS.MAIN_MENU);
+        .text(t('common.backToMainMenu', {user, defaultValue: "↩️ Menu"}), MAIN_MENU_CALLBACKS.MAIN_MENU);
 }

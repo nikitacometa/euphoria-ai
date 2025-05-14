@@ -123,7 +123,7 @@ class NotificationService {
     }
 
     private async checkAndSendNotifications(): Promise<void> {
-        notificationLogger.info('Checking for notifications to send...');
+        notificationLogger.debug('Checking for notifications to send...');
         const checkStartTime = Date.now();
         try {
             const now = new Date();
