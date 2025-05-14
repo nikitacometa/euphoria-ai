@@ -137,7 +137,7 @@ export function generateUTCOffsetKeyboard(): Keyboard {
 
     // Add half-hour offsets for common regions if desired, e.g. +5:30
     // For simplicity, sticking to whole hours for now based on the plan for onboarding
-    // offsets.push("+5:30"); 
+    // offsets.push("+5:30");
     // offsets.sort((a,b) => parseFloat(a.replace(":30", ".5")) - parseFloat(b.replace(":30",".5")));
 
     let row: string[] = [];
@@ -168,28 +168,4 @@ export function calculateNextNotificationDateTime(utcTimeString: string): Date {
     return nextNotification;
 }
 
-// --- Functions to be removed or refactored as they are IANA specific ---
-/*
-export function getAvailableTimezones(): string[] {
-    try {
-        if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
-            return (Intl as any).supportedValuesOf('timeZone');
-        }
-    } catch (error) { }
-    return []; // Simplified, was COMMON_TIMEZONES
-}
-
-export function detectUserTimezone(): string {
-    try {
-        return Intl.DateTimeFormat().resolvedOptions().timeZone;
-    } catch (error) {
-        return 'UTC';
-    }
-}
-
-export async function guessUserTimezone(ctx: JournalBotContext): Promise<string | null> {
-    // This logic is IANA specific and complex to map to simple UTC offset
-    // Should be re-evaluated if frontend timezone detection is available or a simpler heuristic for offset is found
-    return null; // Defaulting to null as guessing IANA is not useful for UTC offset model directly
-}
-*/ 
+// IANA-specific functions have been removed as part of the UTC offset migration
