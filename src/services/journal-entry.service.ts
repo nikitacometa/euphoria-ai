@@ -17,6 +17,7 @@ import {
 } from '../database';
 import { JournalEntry } from '../database/models/journal.model';
 import { generateJournalQuestions, analyzeJournalEntry } from './ai/journal-ai.service';
+import { withServiceErrorHandling } from '../utils/error-handler';
 
 /**
  * Wraps service operations with standardized error logging.
@@ -70,11 +71,11 @@ export async function getOrCreateActiveEntry(userId: Types.ObjectId): Promise<IJ
         { userId: userId.toString() },
         async () => {
             const activeEntry = await getActiveJournalEntry(userId);
-            
+
             if (activeEntry) {
                 return activeEntry;
             }
-            
+
             return createEntry(userId);
         }
     );
@@ -102,9 +103,9 @@ export async function getEntryById(entryId: Types.ObjectId): Promise<IJournalEnt
  * @returns Updated journal entry
  */
 export async function addTextMessage(
-    userId: Types.ObjectId, 
-    entryId: Types.ObjectId, 
-    messageId: number, 
+    userId: Types.ObjectId,
+    entryId: Types.ObjectId,
+    messageId: number,
     text: string
 ): Promise<IMessage> {
     const context = { userId: userId.toString(), entryId: entryId.toString(), messageId };
@@ -119,15 +120,15 @@ export async function addTextMessage(
                 text,
                 MessageRole.USER
             );
-            
+
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
-            
+
             // Increment text message counter
             await JournalEntry.findByIdAndUpdate(
                 entryId,
                 { $inc: { textMessages: 1 } }
             );
-            
+
             await updateEntryFullText(entryId);
             return message;
         }
@@ -146,8 +147,8 @@ export async function addTextMessage(
  * @returns Updated journal entry
  */
 export async function addVoiceMessage(
-    userId: Types.ObjectId, 
-    entryId: Types.ObjectId, 
+    userId: Types.ObjectId,
+    entryId: Types.ObjectId,
     messageId: number,
     fileId: string,
     filePath: string,
@@ -169,15 +170,15 @@ export async function addVoiceMessage(
                 MessageRole.USER,
                 duration
             );
-            
+
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
-            
+
             // Increment voice message counter
             await JournalEntry.findByIdAndUpdate(
                 entryId,
                 { $inc: { voiceMessages: 1 } }
             );
-            
+
             await updateEntryFullText(entryId);
             return message;
         }
@@ -196,8 +197,8 @@ export async function addVoiceMessage(
  * @returns Updated journal entry
  */
 export async function addVideoMessage(
-    userId: Types.ObjectId, 
-    entryId: Types.ObjectId, 
+    userId: Types.ObjectId,
+    entryId: Types.ObjectId,
     messageId: number,
     fileId: string,
     filePath: string,
@@ -219,15 +220,15 @@ export async function addVideoMessage(
                 MessageRole.USER,
                 duration
             );
-            
+
             await addMessageToJournalEntry(entryId, message._id as Types.ObjectId);
-            
+
             // Increment video message counter
             await JournalEntry.findByIdAndUpdate(
                 entryId,
                 { $inc: { videoMessages: 1 } }
             );
-            
+
             await updateEntryFullText(entryId);
             return message;
         }
@@ -249,10 +250,10 @@ export async function updateEntryFullText(entryId: Types.ObjectId): Promise<bool
             if (!entry) {
                 return false;
             }
-            
+
             // Ensure messages is treated as an array of IMessage objects
             const messages = (Array.isArray(entry.messages) ? entry.messages : []) as IMessage[];
-            
+
             const fullText = messages
                 .map((msg: IMessage) => {
                     if (msg.type === MessageType.TEXT) {
@@ -264,7 +265,7 @@ export async function updateEntryFullText(entryId: Types.ObjectId): Promise<bool
                 })
                 .filter(text => text.length > 0)
                 .join('\n\n');
-            
+
             await dbUpdateJournalEntryFullText(entryId, fullText);
             return true;
         }
@@ -310,7 +311,7 @@ export async function completeEntry(
 
 /**
  * Generates follow-up questions for a journal entry
- * @param entryId Entry ID 
+ * @param entryId Entry ID
  * @param user User object
  * @returns Generated questions
  */
@@ -323,23 +324,26 @@ export async function generateQuestionsForEntry(
         if (!entry) {
             return ["What would you like to write about?"];
         }
-        
+
         const questions = await generateJournalQuestions(entry, user);
         await dbUpdateJournalEntryQuestions(entryId, questions);
-        
+
         return questions;
     } catch (error) {
-        errorService.logError(
-            error instanceof Error ? error : new DatabaseError(
-                'Failed to generate questions for journal entry',
-                { 
-                    entryId: entryId.toString(),
-                    userId: user._id?.toString()
-                }
-            ),
-            {},
-            'error'
+        // Create a typed error with context
+        const typedError = error instanceof Error ? error : new DatabaseError(
+            'Failed to generate questions for journal entry',
+            {
+                entryId: entryId.toString(),
+                userId: user._id?.toString()
+            },
+            error instanceof Error ? error : undefined
         );
+
+        // Log the error
+        errorService.logError(typedError, {}, 'error');
+
+        // Return a fallback question
         return ["What else would you like to explore?"];
     }
 }
@@ -464,4 +468,4 @@ export async function generateAndStoreQuestions(entryId: Types.ObjectId, user: I
 // This promotes better tree-shaking and explicit dependency management.
 
 // Removed original class and its exported instance.
-// Removed old internal methods that are now either exported or refactored. 
+// Removed old internal methods that are now either exported or refactored.
