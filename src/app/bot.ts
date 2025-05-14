@@ -4,6 +4,7 @@ import { JournalBotContext, JournalBotSession } from '../types/session';
 import { errorService } from '../services/error.service';
 import { AppError } from '../types/errors';
 import { botLoggerMiddleware } from '../utils/bot-logger-middleware';
+import { userContextMiddleware } from '../middlewares/user-context';
 
 // Create and configure the bot
 export function createBot(): Bot<JournalBotContext> {
@@ -21,6 +22,9 @@ export function createBot(): Bot<JournalBotContext> {
     // Add debug logging middleware
     bot.use(botLoggerMiddleware());
 
+    // Add user context middleware
+    bot.use(userContextMiddleware());
+
     // Handle error cases with Infinity's personality
     bot.catch((err) => {
         // Use the error service instead of direct logging
@@ -28,12 +32,12 @@ export function createBot(): Bot<JournalBotContext> {
             errorService.handleBotError(err.ctx, err.error);
         } else {
             // For non-AppErrors, provide context that this is unhandled
-            errorService.handleBotError(err.ctx, err.error as Error, { 
+            errorService.handleBotError(err.ctx, err.error as Error, {
                 source: 'global_error_handler',
-                unhandled: true 
+                unhandled: true
             });
         }
     });
 
     return bot;
-} 
+}

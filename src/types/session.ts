@@ -1,4 +1,5 @@
 import { Context, SessionFlavor } from 'grammy';
+import { IUser } from './models';
 
 // Define onboarding step type for clarity
 type OnboardingStep = 'name' | 'age' | 'gender' | 'timezone' | 'language' | 'occupation' | 'bio' | 'complete';
@@ -18,8 +19,13 @@ export interface JournalBotSession {
     adminReanalyzeAllConfirmation?: boolean; // For admin command
 }
 
+// Define context type with user property
+export interface JournalBotContextWithUser extends Context {
+    user?: IUser;
+}
+
 // Define context type
-export type JournalBotContext = Context & SessionFlavor<JournalBotSession>;
+export type JournalBotContext = JournalBotContextWithUser & SessionFlavor<JournalBotSession>;
 
 export interface SessionData {
     // Core
@@ -27,7 +33,7 @@ export interface SessionData {
     journalEntryId?: string;
     journalChatMode?: boolean;
     waitingForJournalQuestion?: boolean;
-    
+
     // Settings
     waitingForNotificationTime?: boolean;
     // waitingForTimezone?: boolean; // Old field, replaced by waitingForUtcOffset in JournalBotSession
@@ -35,4 +41,4 @@ export interface SessionData {
 
     // Status message tracking
     lastStatusMessageId?: number;
-} 
+}

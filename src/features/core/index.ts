@@ -1,11 +1,14 @@
 import { Bot } from 'grammy';
 import { JournalBotContext } from '../../types/session';
+import { IUser } from '../../types/models';
 import { registerCommandHandlers } from './handlers';
 import { findOrCreateUser } from '../../database';
 import { logger } from '../../utils/logger';
 import { showMainMenu } from './handlers';
 import { MAIN_MENU_CALLBACKS } from './keyboards';
 import { removeInlineKeyboard } from '../../utils/inline-keyboard';
+import { createCallbackHandler } from '../../utils/callback-handler';
+import { requireUser } from '../../middlewares/user-context';
 
 /**
  * Registers all core handlers with the bot
@@ -15,9 +18,9 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
 
     // Handler for messages when main menu is active (should be registered before other generic message handlers if any)
     bot.on([
-        'message:text', 
-        'message:voice', 
-        'message:video_note', 
+        'message:text',
+        'message:voice',
+        'message:video_note',
         'message:photo', // Added photo as per user request implication
         'message:document' // Added document as per user request implication
     ], async (ctx: JournalBotContext, next) => {
@@ -27,25 +30,21 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
             // If the message is a slash command, let other handlers (bot.command) deal with it.
             if (ctx.message.text && ctx.message.text.startsWith('/')) {
                 logger.info(`Main menu active: Detected slash command "${ctx.message.text}" from user ${ctx.from.id}. Passing to command handlers.`);
-                return next(); 
+                return next();
             }
 
             logger.info(`Main menu active: Intercepted message (type: ${ctx.message?.hasOwnProperty('text') ? 'text' : Object.keys(ctx.message || {}).find(key => key !== 'message_id' && key !== 'date' && key !== 'chat')}) from user ${ctx.from.id}. Treating as new entry.`);
-            
+
             ctx.session.isMainMenuActive = false; // Consume the flag
 
             try {
-                const user = await findOrCreateUser(
-                    ctx.from.id,
-                    ctx.from.first_name,
-                    ctx.from.last_name,
-                    ctx.from.username
-                );
-    
+                // Get user from context (added by userContextMiddleware)
+                const user = requireUser(ctx);
+
                 // Import and call the newEntryHandler from journal-entry feature
                 // Make sure this import path is correct and newEntryHandler accepts the message context directly
                 // or can derive necessary info from ctx.message
-                const { newEntryHandler } = await import('../journal-entry/handlers.js'); 
+                const { newEntryHandler } = await import('../journal-entry/handlers.js');
                 await newEntryHandler(ctx, user); // newEntryHandler needs to be adapted if it expects specific command/callback flow
                 return; // Stop further processing if handled
             } catch (error) {
@@ -61,124 +60,66 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
     });
 
     // Register callback query handler for the main menu button
-    bot.callbackQuery(MAIN_MENU_CALLBACKS.MAIN_MENU, async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
-        if (!ctx.from) return;
-        ctx.session.isMainMenuActive = false;
+    bot.callbackQuery(MAIN_MENU_CALLBACKS.MAIN_MENU, createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            ctx.session.isMainMenuActive = false;
 
-        const user = await findOrCreateUser(
-            ctx.from.id,
-            ctx.from.first_name,
-            ctx.from.last_name,
-            ctx.from.username
-        );
-
-        // This handler specifically deletes the message, so no need to remove the keyboard
-        try {
-            await ctx.deleteMessage();
-        } catch (e) {
-            logger.warn("Could not delete message before showing main menu, maybe already deleted?", e);
-        }
-        await showMainMenu(ctx, user);
-    });
+            // This handler specifically deletes the message, so no need to remove the keyboard
+            try {
+                await ctx.deleteMessage();
+            } catch (e) {
+                logger.warn("Could not delete message before showing main menu, maybe already deleted?", e);
+            }
+            await showMainMenu(ctx, user);
+        },
+        { removeKeyboard: false, loggerName: 'MainMenuCallback' }
+    ));
 
     // New entry callback
-    bot.callbackQuery(MAIN_MENU_CALLBACKS.NEW_ENTRY, async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
-        if (!ctx.from) return;
-        ctx.session.isMainMenuActive = false;
-
-        try {
-            // Remove the keyboard first to prevent multiple clicks
-            await removeInlineKeyboard(ctx);
-            
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
+    bot.callbackQuery(MAIN_MENU_CALLBACKS.NEW_ENTRY, createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            ctx.session.isMainMenuActive = false;
 
             // Import and call the newEntryHandler from journal-entry feature
             const { newEntryHandler } = await import('../journal-entry/handlers.js');
             await newEntryHandler(ctx, user);
-        } catch (error) {
-            logger.error('Error in NEW_ENTRY callback handler', error);
-        }
-    });
+        },
+        { loggerName: 'NewEntryCallback' }
+    ));
 
     // Journal history callback
-    bot.callbackQuery(MAIN_MENU_CALLBACKS.JOURNAL_HISTORY, async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
-        if (!ctx.from) return;
-        ctx.session.isMainMenuActive = false;
-
-        try {
-            // Remove the keyboard first to prevent multiple clicks
-            await removeInlineKeyboard(ctx);
-            
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
+    bot.callbackQuery(MAIN_MENU_CALLBACKS.JOURNAL_HISTORY, createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            ctx.session.isMainMenuActive = false;
 
             // Import and call the showJournalHistoryHandler from journal-history feature
             const { showJournalHistoryHandler } = await import('../journal-history/handlers.js');
             await showJournalHistoryHandler(ctx, user);
-        } catch (error) {
-            logger.error('Error in JOURNAL_HISTORY callback handler', error);
-        }
-    });
+        },
+        { loggerName: 'JournalHistoryCallback' }
+    ));
 
     // Journal chat callback
-    bot.callbackQuery(MAIN_MENU_CALLBACKS.JOURNAL_CHAT, async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
-        if (!ctx.from) return;
-        ctx.session.isMainMenuActive = false;
-
-        try {
-            // Remove the keyboard first to prevent multiple clicks
-            await removeInlineKeyboard(ctx);
-            
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
+    bot.callbackQuery(MAIN_MENU_CALLBACKS.JOURNAL_CHAT, createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            ctx.session.isMainMenuActive = false;
 
             // Import and call the startJournalChatHandler from journal-chat feature
             const { startJournalChatHandler } = await import('../journal-chat/handlers.js');
             await startJournalChatHandler(ctx, user);
-        } catch (error) {
-            logger.error('Error in JOURNAL_CHAT callback handler', error);
-        }
-    });
+        },
+        { loggerName: 'JournalChatCallback' }
+    ));
 
     // Settings callback
-    bot.callbackQuery(MAIN_MENU_CALLBACKS.SETTINGS, async (ctx: JournalBotContext) => {
-        await ctx.answerCallbackQuery();
-        if (!ctx.from) return;
-        ctx.session.isMainMenuActive = false;
-
-        try {
-            // Remove the keyboard first to prevent multiple clicks
-            await removeInlineKeyboard(ctx);
-            
-            const user = await findOrCreateUser(
-                ctx.from.id,
-                ctx.from.first_name,
-                ctx.from.last_name,
-                ctx.from.username
-            );
+    bot.callbackQuery(MAIN_MENU_CALLBACKS.SETTINGS, createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            ctx.session.isMainMenuActive = false;
 
             // Import and call the showSettingsHandler from settings feature
             const { showSettingsHandler } = await import('../settings/handlers.js');
             await showSettingsHandler(ctx, user);
-        } catch (error) {
-            logger.error('Error in SETTINGS callback handler', error);
-        }
-    });
+        },
+        { loggerName: 'SettingsCallback' }
+    ));
 }

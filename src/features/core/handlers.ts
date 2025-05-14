@@ -10,6 +10,7 @@ import { notificationService } from '../../services/notification.service';
 import { ADMIN_IDS } from '../../config';
 import { registerHowToCommand, registerNotificationSettingsCommands, registerAdminCommands } from '../../commands';
 import { t } from '../../utils/localization';
+import { getUserFromContext, requireUser } from '../../middlewares/user-context';
 
 const HTML_PARSE_MODE = 'HTML' as const;
 
@@ -26,17 +27,17 @@ async function replyWithHTML(ctx: JournalBotContext, message: string, options: P
 /**
  * Generates a varied greeting message for the main menu.
  * Incorporates journaling theme, user name (sometimes), and random formatting.
- * 
+ *
  * Note: We standardize on HTML parse mode throughout the application for consistency
  * and to avoid issues with special character escaping that occurs with MarkdownV2.
  * This ensures all UI messages follow the same formatting pattern.
  */
 export function getMainMenuGreeting(user: IUser): { text: string; parse_mode?: 'HTML' } {
   const userName = user.name || user.firstName;
-  const greetingText = t('common:mainMenu.greeting', { 
-    user, 
-    name: userName, 
-    defaultValue: `Hey ${userName}! What's on the agenda? Journaling, insights, or settings?` 
+  const greetingText = t('common:mainMenu.greeting', {
+    user,
+    name: userName,
+    defaultValue: `Hey ${userName}! What's on the agenda? Journaling, insights, or settings?`
   });
   return { text: greetingText, parse_mode: 'HTML' };
 }
@@ -57,8 +58,9 @@ export async function showMainMenu(ctx: JournalBotContext, user: IUser, messageT
 export const handleStartCommand = withCommandLogging('start', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
 
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
+
     if (user.onboardingCompleted) {
         await showMainMenu(ctx, user);
     } else {
@@ -74,31 +76,32 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
         await replyWithHTML(ctx, t('core:cancelCommand.sessionsReset', { defaultValue: "✨ All active sessions have been reset."}));
         return;
     }
-    
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    
+
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
+
     // Reset all session flags
     if (ctx.session.journalEntryId) {
         logger.info(`Cancelling journal entry ${ctx.session.journalEntryId} via /cancel command`);
         ctx.session.journalEntryId = undefined;
     }
-    
+
     if (ctx.session.journalChatMode) {
         logger.info(`Exiting journal chat mode via /cancel command`);
         ctx.session.journalChatMode = false;
         ctx.session.waitingForJournalQuestion = false;
     }
-    
+
     if (ctx.session.waitingForNotificationTime) {
         logger.info(`Cancelling notification time setting via /cancel command`);
         ctx.session.waitingForNotificationTime = false;
     }
-    
+
     if (ctx.session.onboardingStep) {
         logger.info(`Cancelling onboarding step ${ctx.session.onboardingStep} via /cancel command`);
         ctx.session.onboardingStep = undefined;
     }
-    
+
     await replyWithHTML(ctx, t('core:cancelCommand.sessionsReset', { user, defaultValue: "✨ All active sessions have been reset. Returning to main menu."}));
     await showMainMenu(ctx, user);
 });
@@ -109,9 +112,10 @@ export const handleCancelCommand = withCommandLogging('cancel', async (ctx: Jour
 export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
 
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
 
-    const helpText = t('core:helpCommand.fullText', { 
+    const helpText = t('core:helpCommand.fullText', {
         user,
         defaultValue: `
 <b>Enter the Infinity ♾️</b>
@@ -140,7 +144,7 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 <i>Remember: I'm here to be your digital confidant — all entries are private and secure!</i>
 `
     });
-    
+
     await replyWithHTML(ctx, helpText);
 });
 
@@ -149,9 +153,10 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
  */
 export const handleNewEntryCommand = withCommandLogging('new_entry', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    
+
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
+
     // Import and call the newEntryHandler from journal-entry feature
     const { newEntryHandler } = await import('../journal-entry/handlers.js');
     await newEntryHandler(ctx, user);
@@ -162,9 +167,10 @@ export const handleNewEntryCommand = withCommandLogging('new_entry', async (ctx:
  */
 export const handleHistoryCommand = withCommandLogging('history', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    
+
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
+
     // Import and call the showJournalHistoryHandler from journal-history feature
     const { showJournalHistoryHandler } = await import('../journal-history/handlers.js');
     await showJournalHistoryHandler(ctx, user);
@@ -175,9 +181,10 @@ export const handleHistoryCommand = withCommandLogging('history', async (ctx: Jo
  */
 export const handleSettingsCommand = withCommandLogging('settings', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
-    
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    
+
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
+
     // Import and call the showSettingsHandler from settings feature
     const { showSettingsHandler } = await import('../settings/handlers.js');
     await showSettingsHandler(ctx, user);
@@ -188,7 +195,8 @@ export const handleSettingsCommand = withCommandLogging('settings', async (ctx: 
  * This is an admin-only command to help diagnose notification issues
  */
 export const checkNotificationsHandler = withCommandLogging('check_notifications', async (ctx: JournalBotContext) => {
-    const callingUser = ctx.from ? await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username) : undefined;
+    // Get user from context (added by userContextMiddleware)
+    const callingUser = getUserFromContext(ctx);
     if (!ADMIN_IDS.includes(ctx.from?.id || 0)) {
         return await replyWithHTML(ctx, t('errors:adminOnlyCommand', {user: callingUser}));
     }
@@ -221,7 +229,8 @@ export const checkNotificationsHandler = withCommandLogging('check_notifications
  * This is an admin-only command to broadcast notifications to all users
  */
 export const notifyAllHandler = withCommandLogging('notify_all', async (ctx: JournalBotContext) => {
-    const callingUser = ctx.from ? await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username) : undefined;
+    // Get user from context (added by userContextMiddleware)
+    const callingUser = getUserFromContext(ctx);
     if (!ADMIN_IDS.includes(ctx.from?.id || 0)) {
         return await replyWithHTML(ctx, t('errors:adminOnlyCommand', {user: callingUser}));
     }
@@ -274,8 +283,9 @@ export const notifyAllHandler = withCommandLogging('notify_all', async (ctx: Jou
 export const handleMenuCommand = withCommandLogging('menu', async (ctx: JournalBotContext) => {
     if (!ctx.from) return;
 
-    const user = await findOrCreateUser(ctx.from.id, ctx.from.first_name, ctx.from.last_name, ctx.from.username);
-    
+    // Get user from context (added by userContextMiddleware)
+    const user = requireUser(ctx);
+
     await showMainMenu(ctx, user);
 });
 
@@ -289,19 +299,19 @@ export function registerCommandHandlers(bot: Bot<JournalBotContext>): void {
     registerNotificationSettingsCommands(bot);
     // Register admin commands
     registerAdminCommands(bot);
-    
+
     // Register core commands
     bot.command('start', handleStartCommand);
     bot.command(['cancel', 'reset', 'stop'], handleCancelCommand);
     bot.command('help', handleHelpCommand);
     bot.command('menu', handleMenuCommand);
-    
+
     // Register menu item commands
     bot.command('new_entry', handleNewEntryCommand);
     bot.command('history', handleHistoryCommand);
     bot.command('settings', handleSettingsCommand);
     // 'journal_chat' is already registered in journal-chat/handlers.ts
-    
+
     // Admin commands
     bot.command('check_notifications', checkNotificationsHandler);
     bot.command('notify_all', notifyAllHandler);
