@@ -13,7 +13,7 @@ export interface TelegramConfig {
    * Telegram Bot API token
    */
   apiToken: string;
-  
+
   /**
    * Maximum voice message length in seconds
    */
@@ -28,7 +28,7 @@ export interface OpenAIConfig {
    * OpenAI API key
    */
   apiKey: string;
-  
+
   /**
    * GPT model version to use
    */
@@ -43,32 +43,32 @@ export interface DatabaseConfig {
    * MongoDB host
    */
   host: string;
-  
+
   /**
    * MongoDB port
    */
   port: string;
-  
+
   /**
    * MongoDB user
    */
   user: string;
-  
+
   /**
    * MongoDB password
    */
   password: string;
-  
+
   /**
    * MongoDB database name
    */
   name: string;
-  
+
   /**
    * MongoDB connection URI
    */
   uri: string;
-  
+
   /**
    * Mongo Express port (for development)
    */
@@ -93,22 +93,22 @@ export interface SupportConfig {
    * Telegram chat ID for general admin notifications (e.g., reminders failed)
    */
   supportChatId: string;
-  
+
   /**
    * Telegram chat ID exclusively for critical error alerts (optional)
    */
   adminChatId?: string;
-  
+
   /**
    * List of admin user IDs
    */
   adminIds: number[];
-  
+
   /**
    * Number of failures before alerting
    */
   notificationAlertThreshold: number;
-  
+
   /**
    * Max retries for failed notifications
    */
@@ -116,36 +116,56 @@ export interface SupportConfig {
 }
 
 /**
+ * Reanalysis configuration
+ */
+export interface ReanalysisConfig {
+  /**
+   * Batch size for reanalysis
+   */
+  batchSize: number;
+
+  /**
+   * Progress interval for reanalysis
+   */
+  progressInterval: number;
+}
+
+/**
  * Application configuration
  */
 export interface AppConfig {
   /**
-   * Application environment 
+   * Application environment
    */
   env: Environment;
-  
+
   /**
    * Telegram configuration
    */
   telegram: TelegramConfig;
-  
+
   /**
    * OpenAI configuration
    */
   openai: OpenAIConfig;
-  
+
   /**
    * Database configuration
    */
   database: DatabaseConfig;
-  
+
   /**
    * Logging configuration
    */
   logging: LoggingConfig;
-  
+
   /**
    * Support and monitoring configuration
    */
   support: SupportConfig;
-} 
+
+  /**
+   * Reanalysis configuration
+   */
+  reanalysis: ReanalysisConfig;
+}

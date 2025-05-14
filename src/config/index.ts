@@ -1,173 +1,42 @@
-import * as dotenv from 'dotenv';
-import path from 'path';
-import { LogLevel } from '../utils/logger';
-import { validateEnv } from './validation';
-import { 
-  Environment, 
+/**
+ * Configuration system for the application
+ *
+ * This file exports the configuration for the application.
+ * It uses a centralized, type-safe configuration system.
+ *
+ * @module config
+ */
+
+import { config, env } from './config';
+import {
+  Environment,
   TelegramConfig,
   OpenAIConfig,
   DatabaseConfig,
   LoggingConfig,
   SupportConfig,
-  AppConfig
+  AppConfig,
+  ReanalysisConfig
 } from './types';
 
-// Load environment variables from .env file
-// Determine the environment and load the appropriate .env file
-const envPath = process.env.NODE_ENV === 'production' ? '.env.prod' : '.env';
-dotenv.config({ path: path.resolve(process.cwd(), envPath) });
+// Export the config object as the default export
+export default config;
 
-// Check required environment variables
-const requiredEnvVars = [
-    'TELEGRAM_API_TOKEN',
-    'OPENAI_API_KEY'
-];
+// Export the environment variables
+export { env };
 
-requiredEnvVars.forEach(varName => {
-    if (!process.env[varName]) {
-        throw new Error(`Missing required environment variable: ${varName}`);
-    }
-});
-
-/**
- * Get environment
- */
-export const NODE_ENV: Environment = (process.env.NODE_ENV as Environment) || 'development';
-
-/**
- * Application configuration with validated environment variables
- */
-const env = validateEnv();
-
-/**
- * Telegram Bot configuration
- */
-export const telegramConfig: TelegramConfig = {
-  /**
-   * Telegram Bot API token
-   */
-  apiToken: env.TELEGRAM_API_TOKEN,
-  
-  /**
-   * Maximum length of voice messages in seconds
-   */
-  maxVoiceMessageLengthSeconds: env.MAX_VOICE_MESSAGE_LENGTH_SECONDS
-};
-
-/**
- * OpenAI configuration
- */
-export const openAIConfig: OpenAIConfig = {
-  /**
-   * OpenAI API key
-   */
-  apiKey: env.OPENAI_API_KEY,
-  
-  /**
-   * OpenAI GPT model version
-   */
-  gptVersion: env.GPT_VERSION,
-};
-
-/**
- * MongoDB configuration
- */
-export const databaseConfig: DatabaseConfig = {
-  /**
-   * MongoDB host
-   */
-  host: env.MONGODB_HOST,
-  
-  /**
-   * MongoDB port
-   */
-  port: env.MONGODB_PORT.toString(),
-  
-  /**
-   * MongoDB user
-   */
-  user: env.MONGODB_USER,
-  
-  /**
-   * MongoDB password
-   */
-  password: env.MONGODB_PASSWORD,
-  
-  /**
-   * MongoDB database name
-   */
-  name: env.MONGODB_DATABASE,
-  
-  /**
-   * MongoDB Express admin interface port
-   */
-  expressPort: env.MONGO_EXPRESS_PORT.toString(),
-  
-  /**
-   * MongoDB connection URI
-   */
-  uri: env.MONGODB_PASSWORD ? 
-    `mongodb://${env.MONGODB_USER}:${env.MONGODB_PASSWORD}@${env.MONGODB_HOST}:${env.MONGODB_PORT}/${env.MONGODB_DATABASE}?authSource=admin` 
-    : `mongodb://${env.MONGODB_HOST}:${env.MONGODB_PORT}/${env.MONGODB_DATABASE}`,
-};
-
-/**
- * Logging configuration
- */
-export const loggingConfig: LoggingConfig = {
-  /**
-   * Application log level
-   */
-  level: env.LOG_LEVEL,
-};
-
-/**
- * Support and monitoring configuration
- */
-export const supportConfig: SupportConfig = {
-  /**
-   * Telegram chat ID for admin notifications
-   */
-  supportChatId: env.SUPPORT_CHAT_ID,
-  
-  /**
-   * List of admin user IDs
-   */
-  adminIds: env.ADMIN_IDS.length > 0 ? 
-    env.ADMIN_IDS.split(',').map(id => parseInt(id.trim())) : [],
-  
-  /**
-   * Number of failures before alerting
-   */
-  notificationAlertThreshold: env.NOTIFICATION_ALERT_THRESHOLD,
-  
-  /**
-   * Max retries for failed notifications
-   */
-  maxNotificationRetries: env.MAX_NOTIFICATION_RETRIES,
-};
-
-/**
- * Consolidated application configuration
- */
-const config: AppConfig = {
-  env: NODE_ENV,
+// Export the config object and its components
+export const {
   telegram: telegramConfig,
   openai: openAIConfig,
   database: databaseConfig,
   logging: loggingConfig,
-  support: supportConfig
-};
+  support: supportConfig,
+  reanalysis: reanalysisConfig
+} = config;
 
-export default config;
-
-/**
- * Re-export all environment variables individually for convenience
- * @deprecated Use the typed config objects above instead
- */
-export {
-  env
-};
+// Export the environment
+export const NODE_ENV: Environment = config.env;
 
 /**
  * Backward compatibility exports for legacy usage
@@ -190,8 +59,8 @@ export const SUPPORT_CHAT_ID = config.support.supportChatId;
 export const ADMIN_IDS = config.support.adminIds;
 export const NOTIFICATION_ALERT_THRESHOLD = config.support.notificationAlertThreshold;
 export const MAX_NOTIFICATION_RETRIES = config.support.maxNotificationRetries;
-export const ADMIN_CHAT_ID = env.ADMIN_CHAT_ID;
+export const ADMIN_CHAT_ID = config.support.adminChatId;
 
 // Added for re-analysis commands
-export const REANALYSIS_BATCH_SIZE = parseInt(process.env.REANALYSIS_BATCH_SIZE || '5');
-export const REANALYSIS_PROGRESS_INTERVAL = parseInt(process.env.REANALYSIS_PROGRESS_INTERVAL || '10');
+export const REANALYSIS_BATCH_SIZE = config.reanalysis.batchSize;
+export const REANALYSIS_PROGRESS_INTERVAL = config.reanalysis.progressInterval;

@@ -19,7 +19,7 @@ export const envSchema = {
     desc: 'Telegram Bot API token from BotFather',
     example: '1234567890:ABCDefGhIJKlmNoPQRsTUVwxyZ'
   }),
-  
+
   // OpenAI
   OPENAI_API_KEY: str({
     desc: 'OpenAI API key for AI services',
@@ -30,7 +30,7 @@ export const envSchema = {
     example: 'gpt-4-turbo',
     default: 'gpt-4-turbo'
   }),
-  
+
   // MongoDB
   MONGODB_HOST: str({
     desc: 'MongoDB host',
@@ -56,26 +56,26 @@ export const envSchema = {
     desc: 'Mongo Express admin interface port',
     default: 8081
   }),
-  
+
   // Logging
   LOG_LEVEL: logLevel({
     desc: 'Log level (0=ERROR, 1=WARN, 2=INFO, 3=DEBUG)',
     default: LogLevel.INFO
   }),
-  
+
   // Message settings
   MAX_VOICE_MESSAGE_LENGTH_SECONDS: num({
     desc: 'Maximum length of voice messages in seconds',
     default: 300
   }),
-  
+
   // Support and monitoring
   SUPPORT_CHAT_ID: str({
     desc: 'Telegram chat ID for admin notifications',
     default: ''
   }),
   ADMIN_CHAT_ID: str({
-    desc: 'Telegram chat ID exclusively for critical error alerts', 
+    desc: 'Telegram chat ID exclusively for critical error alerts',
     default: '' // Optional, but recommended for production
   }),
   ADMIN_IDS: str({
@@ -89,6 +89,16 @@ export const envSchema = {
   MAX_NOTIFICATION_RETRIES: num({
     desc: 'Max retries for failed notifications',
     default: 3
+  }),
+
+  // Reanalysis settings
+  REANALYSIS_BATCH_SIZE: num({
+    desc: 'Batch size for reanalysis operations',
+    default: 5
+  }),
+  REANALYSIS_PROGRESS_INTERVAL: num({
+    desc: 'Progress reporting interval for reanalysis operations',
+    default: 10
   })
 };
 
@@ -112,6 +122,8 @@ export type CleanEnv = CleanedEnvAccessors & {
   ADMIN_IDS: string;
   NOTIFICATION_ALERT_THRESHOLD: number;
   MAX_NOTIFICATION_RETRIES: number;
+  REANALYSIS_BATCH_SIZE: number;
+  REANALYSIS_PROGRESS_INTERVAL: number;
 };
 
 /**
@@ -122,13 +134,13 @@ export type CleanEnv = CleanedEnvAccessors & {
 export function validateEnv(): CleanEnv {
   // Check for test environment to handle special cases
   const isTest = process.env.NODE_ENV === 'test';
-  
+
   // In test environment, allow a reporter that doesn't exit process
   const options = isTest ? { reporter: ({ errors }: { errors: Record<string, Error> }) => {
     if (Object.keys(errors).length > 0) {
       throw new Error(`Invalid environment variables: ${Object.keys(errors).join(', ')}`);
     }
   }} : {};
-  
+
   return cleanEnv(process.env, envSchema, options);
-} 
+}

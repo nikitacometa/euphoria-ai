@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import { MONGODB_URI } from '../config/index';
+import config from '../config';
 
 // Function to connect to MongoDB
 export async function connectToDatabase(): Promise<void> {
     try {
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(config.database.uri);
         console.log('Connected to MongoDB successfully');
     } catch (error) {
         console.error('Failed to connect to MongoDB:', error);
@@ -31,4 +31,4 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
     await disconnectFromDatabase();
     process.exit(0);
-}); 
+});
