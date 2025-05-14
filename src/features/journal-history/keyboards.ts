@@ -42,8 +42,7 @@ export function createJournalHistoryKeyboard(entries: IJournalEntry[]): InlineKe
  */
 export function createViewEntryKeyboard(entryId: string): InlineKeyboard {
      return new InlineKeyboard()
-        .text("🗑️ Remove", `delete_entry:${entryId}`)
-        .row()
-        .text("📚 Back", "journal_history")
+        .text("↩️ Back", "journal_history")
+        .text("🗑️ Delete", `delete_entry:${entryId}`)
         .text("🍌 Menu", MAIN_MENU_CALLBACKS.MAIN_MENU);
 }
