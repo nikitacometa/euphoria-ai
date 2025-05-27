@@ -2,13 +2,14 @@ import { Bot } from 'grammy';
 import { JournalBotContext } from '../../types/session';
 import { IUser } from '../../types/models';
 import { registerCommandHandlers } from './handlers';
-import { findOrCreateUser } from '../../database';
+import { findOrCreateUser, createJournalEntry, JournalEntry } from '../../database';
 import { logger } from '../../utils/logger';
 import { showMainMenu } from './handlers';
 import { MAIN_MENU_CALLBACKS } from './keyboards';
 import { removeInlineKeyboard } from '../../utils/inline-keyboard';
 import { createCallbackHandler } from '../../utils/callback-handler';
 import { requireUser } from '../../middlewares/user-context';
+import { Types } from 'mongoose';
 
 /**
  * Registers all core handlers with the bot
@@ -24,6 +25,12 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
         'message:photo', // Added photo as per user request implication
         'message:document' // Added document as per user request implication
     ], async (ctx: JournalBotContext, next) => {
+        // Check if we're in mood report mode first
+        if (ctx.session.moodReportActive && ctx.session.moodReportStep === 'details') {
+            // Let the mood report handler deal with it
+            return next();
+        }
+        
         if (ctx.session.isMainMenuActive) {
             if (!ctx.from || !ctx.message) return next(); // Should not happen if message filter is specific but good check
 
@@ -140,5 +147,53 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
             await newEntryHandler(ctx, user);
         },
         { removeKeyboard: true, loggerName: 'StartJournalEntryCallback' }
+    ));
+    
+    bot.callbackQuery('notification_cancel', createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            // Just remove the keyboard and acknowledge
+            await ctx.answerCallbackQuery('Notification dismissed');
+            await removeInlineKeyboard(ctx);
+        },
+        { removeKeyboard: true, loggerName: 'NotificationCancelCallback' }
+    ));
+    
+    // Quick mood emoji handlers
+    bot.callbackQuery(/^quick_mood_(\d)$/, createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            if (!ctx.callbackQuery?.data) return;
+            
+            const match = ctx.callbackQuery.data.match(/^quick_mood_(\d)$/);
+            if (!match) return;
+            
+            const moodRating = parseInt(match[1]);
+            const moodEmoji = ['😔', '😕', '😐', '🙂', '😄'][moodRating - 1];
+            
+            // Create a quick mood entry
+            const entry = await createJournalEntry(user._id as Types.ObjectId);
+            
+            // Save the mood report with just the rating
+            await JournalEntry.findByIdAndUpdate(entry._id, {
+                $set: {
+                    isMoodReport: true,
+                    moodRating: moodRating,
+                    status: 'completed',
+                    name: `Quick Mood - ${new Date().toLocaleDateString()}`,
+                    keywords: ['quick-mood', `mood-${moodRating}`]
+                }
+            });
+            
+            await ctx.answerCallbackQuery(`Mood recorded: ${moodEmoji}`);
+            await removeInlineKeyboard(ctx);
+            
+            // Send confirmation
+            await ctx.reply(
+                `✅ <b>Quick mood check saved!</b>\n\n` +
+                `Your mood: ${moodEmoji} (${moodRating}/5)\n\n` +
+                `Want to add more details? Start a full mood report or journal entry from the menu! 📝`,
+                { parse_mode: 'HTML' }
+            );
+        },
+        { removeKeyboard: true, loggerName: 'QuickMoodCallback' }
     ));
 }

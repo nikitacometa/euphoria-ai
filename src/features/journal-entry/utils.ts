@@ -195,8 +195,26 @@ export async function createEntrySummary(entry: IJournalEntry, user?: IUser): Pr
  * Creates a status message for the current journal entry
  * Shows message counts and prompts for next action
  */
-export async function createEntryStatusMessage(entry: IJournalEntry, user?: IUser): Promise<string> {
-    return `<b>${t('journal:statusMessage.encourage', { user })}</b>\n\n<i>${t('journal:statusMessage.shareHint', { user })}</i>`;
+export async function createEntryStatusMessage(entry: IJournalEntry, user: IUser): Promise<string> {
+    const populatedMessages = entry.messages.filter(m => typeof m !== 'string') as IMessage[];
+    
+    // Count messages by type
+    const textCount = populatedMessages.filter(m => m.type === MessageType.TEXT).length;
+    const voiceCount = populatedMessages.filter(m => m.type === MessageType.VOICE).length;
+    const videoCount = populatedMessages.filter(m => m.type === MessageType.VIDEO).length;
+    const imageCount = populatedMessages.filter(m => m.type === MessageType.IMAGE).length;
+    
+    let statusParts = [];
+    if (textCount > 0) statusParts.push(`${textCount} 📝`);
+    if (voiceCount > 0) statusParts.push(`${voiceCount} 🎤`);
+    if (videoCount > 0) statusParts.push(`${videoCount} 🎬`);
+    if (imageCount > 0) statusParts.push(`${imageCount} 🖼️`);
+    
+    const statusLine = statusParts.join(' • ');
+    
+    return `<b>Current Entry:</b>\n${formatMessageList(populatedMessages, user)}\n\n` +
+           `${t('journal:statusMessage.encourage', { user, defaultValue: "Keep going! What else is on your mind?" })}\n\n` +
+           `<i>${t('journal:statusMessage.shareHint', { user, defaultValue: "Remember to share texts, voice, or video messages." })}</i>`;
 }
 
 /**

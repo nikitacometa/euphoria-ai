@@ -12,15 +12,16 @@ export const MAIN_MENU_CALLBACKS = {
 };
 
 /**
- * Creates an inline keyboard for the main menu, now with localizable button texts.
+ * Creates the main menu inline keyboard with command buttons
  */
 export function createMainMenuInlineKeyboard(user?: IUser): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(t('mainMenu.buttons.newEntry', { user, defaultValue: "📝 New Entry" }), MAIN_MENU_CALLBACKS.NEW_ENTRY)
-    .text(t('mainMenu.buttons.journalHistory', { user, defaultValue: "📚 Journal History" }), MAIN_MENU_CALLBACKS.JOURNAL_HISTORY)
-    .row()
-    .text(t('mainMenu.buttons.askJournal', { user, defaultValue: "🤔 Ask My Journal" }), MAIN_MENU_CALLBACKS.JOURNAL_CHAT)
-    .text(t('mainMenu.buttons.settings', { user, defaultValue: "⚙️ Settings" }), MAIN_MENU_CALLBACKS.SETTINGS);
+    return new InlineKeyboard()
+        .text(t('common:mainMenu.newEntry', {user, defaultValue: "📝 New Entry"}), MAIN_MENU_CALLBACKS.NEW_ENTRY)
+        .text(t('common:mainMenu.reportMood', {user, defaultValue: "📊 Report Mood"}), 'start_mood_report')
+        .text(t('common:mainMenu.journalChat', {user, defaultValue: "💬 Ask Journal AI"}), MAIN_MENU_CALLBACKS.JOURNAL_CHAT)
+        .row()
+        .text(t('common:mainMenu.journalHistory', {user, defaultValue: "📚 Manage Entries"}), MAIN_MENU_CALLBACKS.JOURNAL_HISTORY)
+        .text(t('common:mainMenu.settings', {user, defaultValue: "⚙️ Settings"}), MAIN_MENU_CALLBACKS.SETTINGS);
 }
 
 /**

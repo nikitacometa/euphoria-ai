@@ -8,7 +8,12 @@ import {
 } from '../../database';
 import { transcribeAudio } from '../../services/ai/openai.service';
 import { sendTranscriptionReply, extractFullText, sanitizeHtmlForTelegram, createEntryStatusMessage, formatMessageList, formatErrorMessage as formatUtilErrorMessage } from './utils';
-import { journalActionKeyboard, createConfirmCancelKeyboard, ButtonText, CALLBACKS } from './keyboards/index';
+import { 
+    createJournalActionKeyboard,
+    createConfirmCancelKeyboard, 
+    ButtonText, 
+    CALLBACKS 
+} from './keyboards/index';
 import { showMainMenu } from '../core/handlers';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -137,7 +142,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             const voice = ctx.message.voice;
             voiceDuration = voice.duration;
             if (voice.duration > MAX_VOICE_MESSAGE_LENGTH_SECONDS) {
-                await replyWithHTML(ctx, t('errors:longVoiceMessage', { user, duration: MAX_VOICE_MESSAGE_LENGTH_SECONDS }), { reply_markup: journalActionKeyboard });
+                await replyWithHTML(ctx, t('errors:longVoiceMessage', { user, duration: MAX_VOICE_MESSAGE_LENGTH_SECONDS }), { reply_markup: createJournalActionKeyboard(user) });
                 return;
             }
             const { transcription, localFilePath } = await processMediaMessage(ctx, voice.file_id, 'voice');
@@ -168,7 +173,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             await sendTranscriptionReply(ctx, ctx.message.message_id, transcription, user);
             await ctx.react("👍").catch(e => logger.warn("Failed to add thumbs up reaction", e));
         } else {
-            await replyWithHTML(ctx, t('errors:unsupportedMessageTypeJournal', { user }), { reply_markup: journalActionKeyboard });
+            await replyWithHTML(ctx, t('errors:unsupportedMessageTypeJournal', { user }), { reply_markup: createJournalActionKeyboard(user) });
         }
 
         if (messageSaved) {
@@ -178,7 +183,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
                 const messageListHtml = formatMessageList(populatedMessages, user);
                 const statusText = await createEntryStatusMessage(updatedEntry, user); // Pass user
                 const combinedMessage = `${messageListHtml}\n${statusText}`;
-                const sentMsg = await replyWithHTML(ctx, combinedMessage, { reply_markup: journalActionKeyboard });
+                const sentMsg = await replyWithHTML(ctx, combinedMessage, { reply_markup: createJournalActionKeyboard(user) });
                 ctx.session.lastStatusMessageId = sentMsg.message_id;
             }
         }
@@ -194,7 +199,7 @@ export async function handleJournalEntryInput(ctx: JournalBotContext, user: IUse
             {},
             'error'
         );
-        await replyWithHTML(ctx, formatUtilErrorMessage('errors:errorProcessingInput', user), { reply_markup: journalActionKeyboard });
+        await replyWithHTML(ctx, formatUtilErrorMessage('errors:errorProcessingInput', user), { reply_markup: createJournalActionKeyboard(user) });
     }
 }
 
@@ -351,7 +356,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
         }
         const entryContent = await extractFullText(entry);
         if (!entryContent) {
-            await replyWithHTML(ctx, t('journal:emptyEntryForAnalysis', { user, lng: user.aiLanguage }), { reply_markup: journalActionKeyboard });
+            await replyWithHTML(ctx, t('journal:emptyEntryForAnalysis', { user, lng: user.aiLanguage }), { reply_markup: createJournalActionKeyboard(user) });
             return; 
         }
         const waitMsg = await replyWithHTML(ctx, t('common:loadingEmoji', {user, lng: user.aiLanguage, defaultValue: "⏳"}));
@@ -433,7 +438,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             'error'
         );
         
-        await replyWithHTML(ctx, formatUtilErrorMessage('errors:analysisEngineShy', user), { reply_markup: journalActionKeyboard });
+        await replyWithHTML(ctx, formatUtilErrorMessage('errors:analysisEngineShy', user), { reply_markup: createJournalActionKeyboard(user) });
     }
 }
 
@@ -450,7 +455,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
             const messageListHtml = formatMessageList(populatedMessages, user);
             const statusText = await createEntryStatusMessage(entry, user);
             const combinedMessage = `${messageListHtml}\n${statusText}`;
-            const sentMsg = await replyWithHTML(ctx, combinedMessage, { reply_markup: journalActionKeyboard });
+            const sentMsg = await replyWithHTML(ctx, combinedMessage, { reply_markup: createJournalActionKeyboard(user) });
             ctx.session.lastStatusMessageId = sentMsg.message_id;
         } else {
             const onlyCancelKeyboard = new InlineKeyboard().text(t('common:cancel', {user}), CALLBACKS.CANCEL);
@@ -541,11 +546,11 @@ export async function handleCancelConfirmation(ctx: JournalBotContext, user: IUs
             const messageListHtml = formatMessageList(populatedMessages, user);
             const statusText = await createEntryStatusMessage(entry, user);
             const combinedMessage = `${messageListHtml}\n${statusText}`;
-            const sentMsg = await replyWithHTML(ctx, combinedMessage, { reply_markup: journalActionKeyboard });
+            const sentMsg = await replyWithHTML(ctx, combinedMessage, { reply_markup: createJournalActionKeyboard(user) });
             ctx.session.lastStatusMessageId = sentMsg.message_id;
         } else {
             await replyWithHTML(ctx, t('journal:continueAnywayPrompt', {user, defaultValue: "Great! Let's continue where we left off..."}), 
-                { reply_markup: journalActionKeyboard });
+                { reply_markup: createJournalActionKeyboard(user) });
         }
     }
 }

@@ -13,20 +13,30 @@ import { t } from '../../utils/localization'; // Ensure t is imported
  * Formats the settings text based on user settings
  */
 function formatSettingsText(user: IUser): string {
-    const notificationStatus = user.notificationsEnabled ? t('settings:notificationsEnabledIcon', {user, defaultValue: "✅"}) : t('settings:notificationsDisabledIcon', {user, defaultValue: "❌"});
-    let notificationTimeDisplay = t('settings:timeNotSet', {user});
+    const notificationStatus = user.notificationsEnabled ? 
+        t('settings:notificationsEnabledIcon', {user, defaultValue: "✅"}) : 
+        t('settings:notificationsDisabledIcon', {user, defaultValue: "❌"});
+    
+    let notificationTimeDisplay = t('settings:timeNotSet', {user, defaultValue: "⏱️ Not set"});
     if (user.notificationTime && user.utcOffset) {
         const localTime = convertFromUTC(user.notificationTime, user.utcOffset);
         notificationTimeDisplay = formatTimeWithTimezone(localTime, user.utcOffset); // This util already formats like "HH:mm (UTC+X)"
     }
-    const transcriptionStatus = user.showTranscriptions === true ? t('settings:transcriptionsShowIcon', {user, defaultValue: "✅"}) : t('settings:transcriptionsHideIcon', {user, defaultValue: "❌"});
-    const languageStatus = user.aiLanguage === 'en' ? t('settings:languageEnglish', {user}) : t('settings:languageRussian', {user});
     
-    return `<b>${t('settings:remindMeHeader', {user})}</b> ${notificationStatus}\n\n` +
-           `<b>${t('settings:everyDayAtHeader', {user})}</b> ${notificationTimeDisplay}\n\n` +
-           `<b>${t('settings:showTranscribedHeader', {user})}</b> ${transcriptionStatus}\n\n` +
-           `<b>${t('settings:aiChatPreferHeader', {user})}</b> ${languageStatus}\n\n` +
-           `${t('settings:playWithSettingsTip', {user})}`;
+    const transcriptionStatus = user.showTranscriptions === true ? 
+        t('settings:transcriptionsShowIcon', {user, defaultValue: "✅"}) : 
+        t('settings:transcriptionsHideIcon', {user, defaultValue: "❌"});
+    
+    const languageStatus = user.aiLanguage === 'en' ? 
+        t('settings:languageEnglish', {user, defaultValue: "🇬🇧 English"}) : 
+        t('settings:languageRussian', {user, defaultValue: "🇷🇺 Russian"});
+    
+    // Using i18next's interpolation syntax
+    return t('settings:remindMeHeader', {user, defaultValue: "🔔 Remind me to journal?"}) + " " + notificationStatus + "\n\n" +
+           t('settings:everyDayAtHeader', {user, defaultValue: "⏰ Every day at:"}) + " " + notificationTimeDisplay + "\n\n" +
+           t('settings:showTranscribedHeader', {user, defaultValue: "📜 Show transcribed texts?"}) + " " + transcriptionStatus + "\n\n" +
+           t('settings:aiChatPreferHeader', {user, defaultValue: "💬 For AI Chat prefer:"}) + " " + languageStatus + "\n\n" +
+           t('settings:playWithSettingsTip', {user, defaultValue: "<i>💡 Try to play with settings to get x100 out of your journal — just facts.</i>"});
 }
 
 /**
@@ -189,11 +199,20 @@ export async function handleNotificationTimeInput(ctx: JournalBotContext, user: 
             const timeInfo = await notificationService.getUserNotificationTime(user.telegramId);
             
             // Format confirmation message showing the time in their local timezone
-            let confirmationMessage = t('settings:notificationTimeSetConfirmationSimple', {user, time, currentUtcOffset: userUtcOffset});
+            let confirmationMessage = t('settings:notificationTimeSetConfirmationSimple', {
+                user, 
+                time,
+                defaultValue: "✅ Notification time set to {{time}}"
+            }).replace("{{time}}", time);
             
             if (timeInfo) {
                 // timeInfo will come from notificationService.getUserNotificationTime, which will also need to return utcOffset
-                confirmationMessage = t('settings:notificationTimeSetConfirmationDetailed', {user, localTime: timeInfo.localTime, currentOffsetDisplay: `UTC${timeInfo.utcOffset}`, utcTime: timeInfo.utcTime });
+                confirmationMessage = t('settings:notificationTimeSetConfirmationDetailed', {
+                    user, 
+                    time: timeInfo.localTime,
+                    utcTime: timeInfo.utcTime,
+                    defaultValue: "✅ Notification time set to {{time}} ({{utcTime}} UTC)"
+                }).replace("{{time}}", timeInfo.localTime).replace("{{utcTime}}", timeInfo.utcTime);
                 
                 const currentOffsetDisplay = `UTC${timeInfo.utcOffset || userUtcOffset}`;
                 confirmationMessage += `\n\nYour time will be saved as ${timeInfo.utcTime} UTC but displayed to you in your local timezone ${currentOffsetDisplay}.`;

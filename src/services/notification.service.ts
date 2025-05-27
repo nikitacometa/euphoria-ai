@@ -350,11 +350,18 @@ class NotificationService {
 
         const messageText = this.getNotificationMessageTemplate(user, timeDisplay);
 
-        // Create inline keyboard with mood report button
+        // Create inline keyboard with mood emoji buttons on first row
         const keyboard = new InlineKeyboard()
-            .text('📊 Quick Mood Report', 'start_mood_report')
+            .text('😔', 'quick_mood_1')
+            .text('😕', 'quick_mood_2')
+            .text('😐', 'quick_mood_3')
+            .text('🙂', 'quick_mood_4')
+            .text('😄', 'quick_mood_5')
             .row()
-            .text('📝 Full Journal Entry', 'start_journal_entry');
+            .text('📊 Full Mood Report', 'start_mood_report')
+            .text('📝 Journal Entry', 'start_journal_entry')
+            .row()
+            .text('❌ Dismiss', 'notification_cancel');
 
         await bot.api.sendMessage(
             user.telegramId,

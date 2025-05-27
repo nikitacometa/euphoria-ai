@@ -270,10 +270,15 @@ export async function showMoodSummary(ctx: JournalBotContext, user: IUser) {
     
     const moodEmoji = ['😔', '😕', '😐', '🙂', '😄'][(data.moodRating || 3) - 1];
     
+    // Escape HTML in sleep hours
+    const sleepHoursDisplay = (data.sleepHours || 'Not specified')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    
     const summary = `<b>📊 Today's Mood Report</b>\n\n` +
         `<b>Mood:</b> ${moodEmoji} ${data.moodRating}/5\n` +
         `<b>Success:</b> ${data.daySuccess || 'Not specified'}\n` +
-        `<b>Sleep:</b> ${data.sleepHours || 'Not specified'}\n` +
+        `<b>Sleep:</b> ${sleepHoursDisplay}\n` +
         `${data.details ? `\n<b>Details:</b>\n${data.details.substring(0, 200)}${data.details.length > 200 ? '...' : ''}` : ''}`;
     
     ctx.session.moodReportStep = 'summary';

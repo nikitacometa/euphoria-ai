@@ -25,11 +25,16 @@ export const CALLBACKS = {
     KEEP_WRITING: "keep_writing"
 };
 
-// Keyboard layouts - using inline keyboards for consistency
-export const journalActionKeyboard = new InlineKeyboard()
-    .text(t('journal:saveButton', { defaultValue: ButtonText.SAVE }), CALLBACKS.SAVE)
-    .text(t('journal:analyzeButton', { defaultValue: ButtonText.ANALYZE }), CALLBACKS.ANALYZE)
-    .text(t('common:cancel', { defaultValue: ButtonText.CANCEL }), CALLBACKS.CANCEL);
+// Create keyboard function to support user context
+export function createJournalActionKeyboard(user?: IUser): InlineKeyboard {
+    return new InlineKeyboard()
+        .text(t('journal:saveButton', { user, defaultValue: "✅ Save" }), CALLBACKS.SAVE)
+        .text(t('journal:analyzeButton', { user, defaultValue: "✨ Analyze" }), CALLBACKS.ANALYZE)
+        .text(t('common:cancel', { user, defaultValue: "❌ Cancel" }), CALLBACKS.CANCEL);
+}
+
+// For backward compatibility
+export const journalActionKeyboard = createJournalActionKeyboard();
 
 // Changed to a function to allow localization
 export function createConfirmCancelKeyboard(user?: IUser): InlineKeyboard {
