@@ -78,6 +78,26 @@ const journalEntrySchema = new Schema<IJournalEntry>(
             type: Number,
             default: 0,
             required: false
+        },
+        // Mood report fields
+        isMoodReport: {
+            type: Boolean,
+            default: false,
+            required: false
+        },
+        moodRating: {
+            type: Number,
+            min: 1,
+            max: 5,
+            required: false
+        },
+        daySuccess: {
+            type: String,
+            required: false
+        },
+        sleepHours: {
+            type: String,
+            required: false
         }
     },
     {

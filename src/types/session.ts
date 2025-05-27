@@ -17,6 +17,17 @@ export interface JournalBotSession {
     lastStatusMessageId?: number;
     isMainMenuActive?: boolean; // Flag to indicate if the main menu was just shown
     adminReanalyzeAllConfirmation?: boolean; // For admin command
+    
+    // Mood report flow
+    moodReportActive?: boolean;
+    moodReportStep?: 'mood' | 'success' | 'sleep' | 'details' | 'summary';
+    moodReportData?: {
+        moodRating?: number;
+        daySuccess?: string;
+        sleepHours?: string;
+        details?: string;
+        entryId?: string;
+    };
 }
 
 // Define context type with user property

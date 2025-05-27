@@ -2,7 +2,7 @@ import { User } from '../database/models/user.model';
 import { bot } from '../app';
 import { createLogger } from '../utils/logger';
 import { LOG_LEVEL, SUPPORT_CHAT_ID, NOTIFICATION_ALERT_THRESHOLD, MAX_NOTIFICATION_RETRIES } from '../config/index';
-import { Keyboard } from 'grammy';
+import { Keyboard, InlineKeyboard } from 'grammy';
 import { convertFromUTC, convertToUTC, formatTimeWithTimezone, calculateNextNotificationDateTime } from '../utils/timezone';
 import { IUser } from '../types/models';
 
@@ -350,11 +350,18 @@ class NotificationService {
 
         const messageText = this.getNotificationMessageTemplate(user, timeDisplay);
 
+        // Create inline keyboard with mood report button
+        const keyboard = new InlineKeyboard()
+            .text('📊 Quick Mood Report', 'start_mood_report')
+            .row()
+            .text('📝 Full Journal Entry', 'start_journal_entry');
+
         await bot.api.sendMessage(
             user.telegramId,
             messageText,
             {
-                parse_mode: 'HTML'
+                parse_mode: 'HTML',
+                reply_markup: keyboard
             }
         );
         notificationLogger.info(`Successfully sent notification message to user ${user.telegramId}. Duration: ${Date.now() - sendStartTime}ms`);

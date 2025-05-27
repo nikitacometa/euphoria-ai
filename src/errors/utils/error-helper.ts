@@ -7,7 +7,7 @@ import { InfrastructureError } from '../classes/infrastructure-error';
 import { AuthError } from '../classes/auth-error';
 import { AIError, AIModel, AIOperation } from '../ai-error';
 
-import { ILogger } from '../../utils/logger';
+import { Logger } from '../../utils/logger';
 
 /**
  * A collection of helper functions for working with errors
@@ -59,7 +59,7 @@ export class ErrorHelper {
         if (errorObj.type && 
             (errorObj.type.includes('openai') || errorObj.message?.includes('OpenAI'))) {
           return AIError.fromOpenAIError(
-            AIOperation.UNKNOWN,
+            AIOperation.TEXT_GENERATION,
             AIModel.UNKNOWN, 
             errorObj
           );
@@ -103,7 +103,7 @@ export class ErrorHelper {
    * @param context Additional context
    */
   public static logError(
-    logger: ILogger,
+    logger: Logger,
     error: unknown,
     context?: Record<string, any>
   ): void {

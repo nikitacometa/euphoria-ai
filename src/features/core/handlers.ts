@@ -126,6 +126,7 @@ export const handleHelpCommand = withCommandLogging('help', async (ctx: JournalB
 <code>/menu</code> - <i>Show the main menu with clickable buttons</i>
 <code>/journal_chat</code> - <i>Have a conversation with your journal AI</i>
 <code>/new_entry</code> - <i>Create a new journal entry immediately</i>
+<code>/report_mood</code> - <i>Quick mood check-in with guided questions</i>
 <code>/history</code> - <i>Browse your past journal entries</i>
 <code>/settings</code> - <i>Customize notifications, language & more</i>
 <code>/cancel</code> - <i>Exit current operation (for the commitment-phobic)</i>

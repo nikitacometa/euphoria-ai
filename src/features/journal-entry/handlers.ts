@@ -415,7 +415,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
                 });
             }
             
-            await replyWithHTML(ctx, formatUtilErrorMessage('errors:analysisErrorTryAgain', {user}));
+            await replyWithHTML(ctx, formatUtilErrorMessage('errors:analysisErrorTryAgain', user));
         }
     } catch (error) {
         errorService.logError(
@@ -433,7 +433,7 @@ export async function analyzeAndSuggestQuestionsHandler(ctx: JournalBotContext, 
             'error'
         );
         
-        await replyWithHTML(ctx, formatUtilErrorMessage('errors:analysisEngineShy', {user}), { reply_markup: journalActionKeyboard });
+        await replyWithHTML(ctx, formatUtilErrorMessage('errors:analysisEngineShy', user), { reply_markup: journalActionKeyboard });
     }
 }
 
@@ -471,7 +471,7 @@ export async function newEntryHandler(ctx: JournalBotContext, user: IUser) {
             {},
             'error'
         );
-        await replyWithHTML(ctx, formatUtilErrorMessage('errors:newEntryError', {user}));
+        await replyWithHTML(ctx, formatUtilErrorMessage('errors:newEntryError', user));
         await showMainMenu(ctx, user);
     }
 }
@@ -629,7 +629,7 @@ export async function handleGoDeeper(ctx: JournalBotContext, user: IUser) {
             'error'
         );
         
-        await replyWithHTML(ctx, formatUtilErrorMessage('errors:goDeeperError', {user}));
+        await replyWithHTML(ctx, formatUtilErrorMessage('errors:goDeeperError', user));
         await showMainMenu(ctx, user);
     }
 }

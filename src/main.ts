@@ -3,7 +3,7 @@
  * Please import from src/index.ts instead.
  */
 
-import { startApp, journalBot } from './app';
+import { startApp, bot } from './app';
 import { createLogger, LogLevel } from './utils/logger';
 
 // Create a logger
@@ -24,4 +24,4 @@ startApp()
   });
 
 // Export the bot instance for backward compatibility
-export { journalBot };
+export { bot as journalBot };

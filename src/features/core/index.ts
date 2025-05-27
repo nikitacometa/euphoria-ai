@@ -122,4 +122,23 @@ export function registerCoreHandlers(bot: Bot<JournalBotContext>): void {
         },
         { loggerName: 'SettingsCallback' }
     ));
+    
+    // Register notification button callbacks
+    bot.callbackQuery('start_mood_report', createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            // Import and start mood report
+            const { startMoodReport } = await import('../mood-report/handlers.js');
+            await startMoodReport(ctx);
+        },
+        { removeKeyboard: true, loggerName: 'StartMoodReportCallback' }
+    ));
+    
+    bot.callbackQuery('start_journal_entry', createCallbackHandler(
+        async (ctx: JournalBotContext, user: IUser) => {
+            // Import and start journal entry
+            const { newEntryHandler } = await import('../journal-entry/handlers.js');
+            await newEntryHandler(ctx, user);
+        },
+        { removeKeyboard: true, loggerName: 'StartJournalEntryCallback' }
+    ));
 }

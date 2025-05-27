@@ -6,6 +6,7 @@ import { registerJournalHistoryHandlers } from '../features/journal-history';
 import { registerJournalChatHandlers } from '../features/journal-chat';
 import { registerSettingsHandlers } from '../features/settings';
 import { registerOnboardingHandlers } from '../features/onboarding';
+import { registerMoodReportHandlers } from '../features/mood-report';
 import { logger } from '../utils/logger';
 import { registerReanalyzeCommands } from '../commands/reanalyze';
 
@@ -25,6 +26,7 @@ export function registerFeatures(bot: Bot<JournalBotContext>): void {
     registerJournalHistoryHandlers(bot);
     registerJournalChatHandlers(bot);
     registerSettingsHandlers(bot);
+    registerMoodReportHandlers(bot);
     registerReanalyzeCommands(bot);
     
     logger.info('All feature handlers registered successfully');

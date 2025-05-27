@@ -91,6 +91,13 @@ export interface IJournalEntry extends Document {
     voiceMessages?: number; // Count of voice messages
     videoMessages?: number; // Count of video messages
     fileMessages?: number; // Count of file messages
+    
+    // Mood report fields
+    isMoodReport?: boolean;
+    moodRating?: number; // 1-5 scale
+    daySuccess?: string; // How successful was the day
+    sleepHours?: string; // Sleep duration last night
+    
     createdAt: Date;
     updatedAt: Date;
 }
