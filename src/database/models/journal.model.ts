@@ -21,6 +21,7 @@ export interface IJournalEntry extends Document {
     aiQuestions?: string[];
     aiInsights?: string;
     fullText?: string; // Full text of all messages
+    embedding?: number[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -63,6 +64,12 @@ const journalEntrySchema = new Schema<IJournalEntry>(
         fullText: {
             type: String,
             required: false
+        },
+        embedding: {
+            type: [Number],
+            required: false,
+            select: false,
+            default: undefined
         }
     },
     {
@@ -173,6 +180,20 @@ export async function getUserJournalEntries(userId: Types.ObjectId): Promise<IJo
     }).sort({ createdAt: -1 }).populate('messages');
 }
 
+export async function countUserJournalEntries(userId: Types.ObjectId): Promise<number> {
+    return JournalEntry.countDocuments({
+        user: userId,
+        status: JournalEntryStatus.COMPLETED
+    });
+}
+
+export async function getUserJournalEntriesWithEmbeddings(userId: Types.ObjectId): Promise<IJournalEntry[]> {
+    return JournalEntry.find({
+        user: userId,
+        status: JournalEntryStatus.COMPLETED
+    }).select('+embedding').sort({ createdAt: -1 }).populate('messages');
+}
+
 export async function getAllJournalEntries(): Promise<IJournalEntry[]> {
     return JournalEntry.find().sort({ createdAt: -1 }).populate('user');
 }
@@ -186,4 +207,15 @@ export async function updateJournalEntryFullText(
         { $set: { fullText } },
         { new: true }
     );
-} 
+}
+
+export async function updateJournalEntryEmbedding(
+    entryId: Types.ObjectId,
+    embedding: number[]
+): Promise<IJournalEntry | null> {
+    return JournalEntry.findByIdAndUpdate(
+        entryId,
+        { $set: { embedding } },
+        { new: true }
+    );
+}

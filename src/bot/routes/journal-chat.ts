@@ -1,6 +1,6 @@
 import { Bot, Keyboard } from 'grammy';
 import { Types } from 'mongoose';
-import { getUserJournalEntries } from '../../database';
+import { countUserJournalEntries, getUserJournalEntries } from '../../database';
 import { getTextForUser } from '../../utils/localization';
 import { escapeHtml } from '../../utils/html';
 import { createLogger } from '../../utils/logger';
@@ -9,6 +9,7 @@ import { generateJournalInsights, generateJournalQuestions } from '../../ai/jour
 import { getVideoFileId, transcribeVideoMessage, transcribeVoiceMessage } from '../../services/telegram-media';
 import { JournalBotContext } from '../context';
 import { buttonFilter, sendTranscriptionReply, showMainMenu, withWaitMessage } from '../helpers';
+import { retrieveRelevantEntries } from '../../services/journal-retrieval';
 
 const chatLogger = createLogger('JournalChat', LOG_LEVEL);
 
@@ -26,9 +27,9 @@ function exitChatKeyboard(ctx: JournalBotContext): Keyboard {
 
 /** Enters chat-about-journal mode. */
 export async function enterChatMode(ctx: JournalBotContext): Promise<void> {
-    const entries = await getUserJournalEntries(ctx.user._id as unknown as Types.ObjectId);
+    const entryCount = await countUserJournalEntries(ctx.user._id as unknown as Types.ObjectId);
 
-    if (entries.length === 0) {
+    if (entryCount === 0) {
         await ctx.reply(getTextForUser('noChatEntries', ctx.user), { parse_mode: 'HTML' });
         await showMainMenu(ctx, ctx.user);
         return;
@@ -87,8 +88,8 @@ export async function handleChatMessage(ctx: JournalBotContext): Promise<void> {
         return;
     }
 
-    const entries = await getUserJournalEntries(ctx.user._id as unknown as Types.ObjectId);
-    if (entries.length === 0) {
+    const entryCount = await countUserJournalEntries(ctx.user._id as unknown as Types.ObjectId);
+    if (entryCount === 0) {
         ctx.session.mode = { kind: 'idle' };
         await ctx.reply(getTextForUser('noChatEntries', ctx.user), { parse_mode: 'HTML' });
         await showMainMenu(ctx, ctx.user);
@@ -96,18 +97,18 @@ export async function handleChatMessage(ctx: JournalBotContext): Promise<void> {
     }
 
     if (ctx.message.text !== undefined) {
-        await answerTextQuestion(ctx, entries, ctx.message.text);
+        await answerTextQuestion(ctx, ctx.message.text);
         return;
     }
 
     if (ctx.message.voice) {
-        await answerMediaQuestion(ctx, entries, () => transcribeVoiceMessage(ctx, ctx.message!.voice!.file_id), 'errorProcessingVoice');
+        await answerMediaQuestion(ctx, () => transcribeVoiceMessage(ctx, ctx.message!.voice!.file_id), 'errorProcessingVoice');
         return;
     }
 
     const videoFileId = getVideoFileId(ctx.message);
     if (videoFileId) {
-        await answerMediaQuestion(ctx, entries, () => transcribeVideoMessage(ctx, videoFileId), 'errorProcessingVideo');
+        await answerMediaQuestion(ctx, () => transcribeVideoMessage(ctx, videoFileId), 'errorProcessingVideo');
         return;
     }
 
@@ -116,7 +117,6 @@ export async function handleChatMessage(ctx: JournalBotContext): Promise<void> {
 
 async function answerTextQuestion(
     ctx: JournalBotContext,
-    entries: Awaited<ReturnType<typeof getUserJournalEntries>>,
     question: string
 ): Promise<void> {
     if (ctx.chat) {
@@ -124,9 +124,14 @@ async function answerTextQuestion(
     }
 
     try {
+        const entries = await retrieveRelevantEntries(
+            ctx.user._id as unknown as Types.ObjectId,
+            question,
+            6
+        );
         const response = await generateJournalInsights(entries, ctx.user, question);
 
-        const mostRecentEntry = entries[0];
+        const mostRecentEntry = entries[entries.length - 1];
         let questionsText = '';
         if (mostRecentEntry) {
             const followUpQuestions = await generateJournalQuestions(mostRecentEntry, ctx.user);
@@ -145,7 +150,6 @@ async function answerTextQuestion(
 
 async function answerMediaQuestion(
     ctx: JournalBotContext,
-    entries: Awaited<ReturnType<typeof getUserJournalEntries>>,
     transcribe: () => Promise<string>,
     errorTextKey: 'errorProcessingVoice' | 'errorProcessingVideo'
 ): Promise<void> {
@@ -155,6 +159,11 @@ async function answerMediaQuestion(
         const insights = await withWaitMessage(ctx, async () => {
             const transcription = await transcribe();
             await sendTranscriptionReply(ctx, ctx.message!.message_id, transcription, ctx.user);
+            const entries = await retrieveRelevantEntries(
+                ctx.user._id as unknown as Types.ObjectId,
+                transcription,
+                6
+            );
             return generateJournalInsights(entries, ctx.user, transcription);
         });
 
