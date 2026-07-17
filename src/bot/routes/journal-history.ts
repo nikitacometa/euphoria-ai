@@ -2,6 +2,7 @@ import { Bot, InlineKeyboard } from 'grammy';
 import { Types } from 'mongoose';
 import { getJournalEntryById, getUserJournalEntries, IJournalEntry, IMessage, MessageType } from '../../database';
 import { getTextForUser } from '../../utils/localization';
+import { escapeHtml } from '../../utils/html';
 import { createLogger } from '../../utils/logger';
 import { LOG_LEVEL } from '../../config';
 import { JournalBotContext } from '../context';
@@ -60,11 +61,13 @@ async function showJournalEntry(ctx: JournalBotContext, entryId: string): Promis
             return;
         }
 
+        // Each branch yields ready-to-send HTML: plain text is escaped here, and the
+        // localized transcription templates escape their own interpolated values.
         const messages = entry.messages as IMessage[];
         const entryContent = messages
             .map(message => {
                 if (message.type === MessageType.TEXT) {
-                    return message.text || '';
+                    return escapeHtml(message.text || '');
                 }
                 if (message.type === MessageType.VOICE) {
                     return getTextForUser('voiceTranscription', ctx.user, {
@@ -91,7 +94,7 @@ async function showJournalEntry(ctx: JournalBotContext, entryId: string): Promis
             getTextForUser('journalEntry', ctx.user, {
                 date: createdAt.toLocaleDateString(),
                 time: createdAt.toLocaleTimeString(),
-                content: entryContent,
+                content: { raw: entryContent },
                 analysis: entry.analysis || 'No analysis available'
             }),
             { reply_markup: keyboard, parse_mode: 'HTML' }
