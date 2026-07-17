@@ -27,7 +27,7 @@ app.get('/', async (req: Request, res: Response) => {
     const dbTexts = await getAllLocalizationTexts();
     
     // Group by category
-    const categories: Record<string, any[]> = {};
+    const categories: Record<string, Array<{ key: string; translations: Record<Language, string> }>> = {};
     
     for (const dbText of dbTexts) {
       if (!categories[dbText.category]) {

@@ -12,7 +12,7 @@ const commandExecutionTimes = new Map<string, number>();
  * @param command The command name
  * @param params Optional parameters for the command
  */
-export function logCommandStart(command: string, params?: Record<string, any>): void {
+export function logCommandStart(command: string, params?: Record<string, unknown>): void {
     commandLogger.logCommandStart(command, params);
     commandExecutionTimes.set(command, Date.now());
 }
@@ -38,7 +38,7 @@ export function logCommandEnd(command: string): void {
  * @param handler The command handler function
  * @returns A wrapped handler function with logging
  */
-export function withCommandLogging<T extends any[], R>(
+export function withCommandLogging<T extends unknown[], R>(
     commandName: string,
     handler: (...args: T) => Promise<R>
 ): (...args: T) => Promise<R> {

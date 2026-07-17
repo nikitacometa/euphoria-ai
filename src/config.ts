@@ -10,12 +10,18 @@ const MONGODB_USER = process.env.MONGODB_USER || 'admin';
 const MONGODB_PASSWORD = process.env.MONGODB_PASSWORD || 'password';
 const MONGODB_DATABASE = process.env.MONGODB_DATABASE || 'euphoria';
 
-export const MONGODB_URI = process.env.MONGODB_URI || 
+export const MONGODB_URI = process.env.MONGODB_URI ||
     `mongodb://${MONGODB_USER}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}?authSource=admin`;
 
 export const TELEGRAM_API_TOKEN = process.env.TELEGRAM_API_TOKEN as string;
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY as string;
 export const GPT_VERSION = process.env.GPT_VERSION as string;
-export const LOG_LEVEL = process.env.LOG_LEVEL ? 
-    parseInt(process.env.LOG_LEVEL) as LogLevel : 
+export const LOG_LEVEL = process.env.LOG_LEVEL ?
+    parseInt(process.env.LOG_LEVEL) as LogLevel :
     LogLevel.INFO;
+
+/** Telegram user ids allowed to run admin commands (comma-separated env var). */
+export const ADMIN_TELEGRAM_IDS: number[] = (process.env.ADMIN_TELEGRAM_IDS || '')
+    .split(',')
+    .map(value => parseInt(value.trim(), 10))
+    .filter(value => !isNaN(value));

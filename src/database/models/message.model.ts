@@ -28,6 +28,7 @@ export interface IMessage extends Document {
     imageUrl?: string;
     imagePrompt?: string;
     fileId?: string;
+    /** @deprecated Legacy field: temp files are no longer persisted. Kept for old documents. */
     filePath?: string;
     createdAt: Date;
     updatedAt: Date;
@@ -121,7 +122,6 @@ export async function saveVoiceMessage(
     conversationId: Types.ObjectId,
     telegramMessageId: number,
     fileId: string,
-    filePath: string,
     transcription: string,
     role: MessageRole = MessageRole.USER
 ): Promise<IMessage> {
@@ -132,7 +132,6 @@ export async function saveVoiceMessage(
         type: MessageType.VOICE,
         role,
         fileId,
-        filePath,
         transcription
     });
 }
@@ -161,7 +160,6 @@ export async function saveVideoMessage(
     conversationId: Types.ObjectId,
     telegramMessageId: number,
     fileId: string,
-    filePath: string,
     transcription: string,
     role: MessageRole = MessageRole.USER
 ): Promise<IMessage> {
@@ -172,7 +170,6 @@ export async function saveVideoMessage(
         type: MessageType.VIDEO,
         role,
         fileId,
-        filePath,
         transcription
     });
 }
