@@ -1,8 +1,7 @@
-import { TELEGRAM_API_TOKEN } from './config'
 import { connectToDatabase } from './database'
-import { logger, createLogger } from './utils/logger'
+import { createLogger } from './utils/logger'
 import { LOG_LEVEL } from './config'
-import { journalBot } from './journal-bot-new'
+import { journalBot } from './bot'
 import { startAdminServer } from './admin/text-editor'
 import { initializeTexts } from './utils/localization'
 

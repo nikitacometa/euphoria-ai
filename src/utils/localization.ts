@@ -1,10 +1,8 @@
 import { IUser } from '../database';
 import * as fs from 'fs';
 import * as path from 'path';
-import { 
-  ILocalizationText, 
-  getAllLocalizationTexts, 
-  getLocalizationTextByKey,
+import {
+  getAllLocalizationTexts,
   upsertLocalizationText,
   updateTranslation
 } from '../database';

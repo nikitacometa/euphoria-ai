@@ -1,20 +1,22 @@
-// Using dynamic import for chalk
-let chalk: any;
-try {
-    // This will be properly resolved at runtime
-    import('chalk').then(module => {
+type ColorFn = (text: string) => string;
+type ChalkColors = {
+    red: ColorFn;
+    yellow: ColorFn;
+    blue: ColorFn;
+    green: ColorFn;
+    gray: ColorFn;
+};
+
+// chalk 5 is ESM-only, so it is loaded lazily from this CommonJS build.
+// Until (or unless) it loads, output is plain uncolored text.
+let chalk: ChalkColors | undefined;
+import('chalk')
+    .then(module => {
         chalk = module.default;
+    })
+    .catch(() => {
+        console.warn('[Logger] chalk failed to load, using uncolored output');
     });
-} catch (error) {
-    // Fallback if chalk is not available
-    chalk = {
-        red: (text: string) => text,
-        yellow: (text: string) => text,
-        blue: (text: string) => text,
-        green: (text: string) => text,
-        gray: (text: string) => text
-    };
-}
 
 // Log levels
 export enum LogLevel {
@@ -45,43 +47,47 @@ export class Logger {
         return `[${timestamp}] [${level}] [${this.context}] ${message}`;
     }
 
+    private colorize(color: keyof ChalkColors, text: string): string {
+        return chalk ? chalk[color](text) : text;
+    }
+
     // Error level logs
-    error(message: string, ...args: any[]): void {
+    error(message: string, ...args: unknown[]): void {
         if (this.logLevel >= LogLevel.ERROR) {
-            console.error(chalk?.red ? chalk.red(this.formatMessage('ERROR', message)) : this.formatMessage('ERROR', message), ...args);
+            console.error(this.colorize('red', this.formatMessage('ERROR', message)), ...args);
         }
     }
 
     // Warning level logs
-    warn(message: string, ...args: any[]): void {
+    warn(message: string, ...args: unknown[]): void {
         if (this.logLevel >= LogLevel.WARN) {
-            console.warn(chalk?.yellow ? chalk.yellow(this.formatMessage('WARN', message)) : this.formatMessage('WARN', message), ...args);
+            console.warn(this.colorize('yellow', this.formatMessage('WARN', message)), ...args);
         }
     }
 
     // Info level logs
-    info(message: string, ...args: any[]): void {
+    info(message: string, ...args: unknown[]): void {
         if (this.logLevel >= LogLevel.INFO) {
-            console.info(chalk?.blue ? chalk.blue(this.formatMessage('INFO', message)) : this.formatMessage('INFO', message), ...args);
+            console.info(this.colorize('blue', this.formatMessage('INFO', message)), ...args);
         }
     }
 
     // Debug level logs
-    debug(message: string, ...args: any[]): void {
+    debug(message: string, ...args: unknown[]): void {
         if (this.logLevel >= LogLevel.DEBUG) {
-            console.debug(chalk?.green ? chalk.green(this.formatMessage('DEBUG', message)) : this.formatMessage('DEBUG', message), ...args);
+            console.debug(this.colorize('green', this.formatMessage('DEBUG', message)), ...args);
         }
     }
 
     // Trace level logs (most verbose)
-    trace(message: string, ...args: any[]): void {
+    trace(message: string, ...args: unknown[]): void {
         if (this.logLevel >= LogLevel.TRACE) {
-            console.debug(chalk?.gray ? chalk.gray(this.formatMessage('TRACE', message)) : this.formatMessage('TRACE', message), ...args);
+            console.debug(this.colorize('gray', this.formatMessage('TRACE', message)), ...args);
         }
     }
 
     // Command execution logging
-    logCommandStart(command: string, params?: Record<string, any>): void {
+    logCommandStart(command: string, params?: Record<string, unknown>): void {
         if (this.logLevel >= LogLevel.INFO) {
             const paramsStr = params ? ` with params: ${JSON.stringify(params)}` : '';
             this.info(`Command started: ${command}${paramsStr}`);
@@ -107,4 +113,4 @@ export const logger = new Logger('App');
 // Helper function to create a logger for a specific context
 export function createLogger(context: string, logLevel?: LogLevel): Logger {
     return new Logger(context, logLevel);
-} 
+}
