@@ -7,7 +7,8 @@ vi.mock('../helpers', () => ({
 }));
 
 vi.mock('./onboarding', () => ({
-    handleOnboardingMessage: vi.fn()
+    handleOnboardingMessage: vi.fn(),
+    resumeOnboarding: vi.fn()
 }));
 
 vi.mock('./journal-entry', () => ({
@@ -25,7 +26,7 @@ vi.mock('./settings', () => ({
 import { showMainMenu } from '../helpers';
 import { handleChatMessage } from './journal-chat';
 import { handleJournalEntryMessage } from './journal-entry';
-import { handleOnboardingMessage } from './onboarding';
+import { handleOnboardingMessage, resumeOnboarding } from './onboarding';
 import { registerMessageRouter } from './router';
 import { handleSettingsMessage } from './settings';
 
@@ -36,13 +37,14 @@ const handlers = [
     handleJournalEntryMessage,
     handleChatMessage,
     handleSettingsMessage,
+    resumeOnboarding,
     showMainMenu
 ];
 
-function context(mode: SessionMode): JournalBotContext {
+function context(mode: SessionMode, onboardingCompleted = true): JournalBotContext {
     return {
         session: { mode },
-        user: { firstName: 'Nik' }
+        user: { firstName: 'Nik', onboardingCompleted }
     } as unknown as JournalBotContext;
 }
 
@@ -89,6 +91,25 @@ describe('registerMessageRouter', () => {
 
         expect(showMainMenu).toHaveBeenCalledWith(ctx, ctx.user);
         for (const handler of handlers.filter(candidate => candidate !== showMainMenu)) {
+            expect(handler).not.toHaveBeenCalled();
+        }
+    });
+
+    // A restart wipes the in-memory session, so an un-onboarded user lands in
+    // 'idle' and must be sent back into the wizard, not into the main menu.
+    it('resumes onboarding for an idle user who never completed it', async () => {
+        const bot = {
+            on: vi.fn((_event: string, callback: MessageHandler) => {
+                captured = callback;
+            })
+        } as unknown as Bot<JournalBotContext>;
+        const ctx = context({ kind: 'idle' }, false);
+        registerMessageRouter(bot);
+
+        await captured?.(ctx);
+
+        expect(resumeOnboarding).toHaveBeenCalledWith(ctx);
+        for (const handler of handlers.filter(candidate => candidate !== resumeOnboarding)) {
             expect(handler).not.toHaveBeenCalled();
         }
     });
