@@ -1,8 +1,10 @@
 import { IJournalEntry, IUser } from '../database';
+import { z } from 'zod';
 import { createLogger } from '../utils/logger';
 import { GPT_VERSION, LOG_LEVEL } from '../config';
 import { extractFullText } from '../utils/entry-text';
 import { openai } from './client';
+import { callStructured } from './structured';
 import {
     ANALYZE_ENTRY_PROMPT,
     ENTRY_SUMMARY_PROMPT,
@@ -48,6 +50,10 @@ const DEFAULT_QUESTIONS = [
     'What insights can you take from this experience?'
 ];
 
+const questionsSchema = z.object({
+    questions: z.array(z.string()).min(1)
+});
+
 /** Generates 2-3 follow-up questions for a journal entry. */
 export async function generateJournalQuestions(entry: IJournalEntry, user: IUser): Promise<string[]> {
     try {
@@ -56,32 +62,15 @@ export async function generateJournalQuestions(entry: IJournalEntry, user: IUser
             return ['What would you like to write about today?'];
         }
 
-        const response = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: [
-                { role: 'system', content: GENERATE_QUESTIONS_PROMPT },
-                {
-                    role: 'user',
-                    content: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease generate 2-3 thoughtful follow-up questions.`
-                }
-            ],
+        const response = await callStructured({
+            schema: questionsSchema,
+            schemaName: 'journal_questions',
+            systemPrompt: GENERATE_QUESTIONS_PROMPT,
+            userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease generate 2-3 thoughtful follow-up questions.`,
             temperature: 0.7,
-            max_tokens: 500,
-            response_format: { type: 'json_object' }
+            maxTokens: 500
         });
-
-        const content = response.choices[0]?.message?.content || '{}';
-        try {
-            const parsed = JSON.parse(content);
-            if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
-                return parsed.questions;
-            }
-            journalAiLogger.warn('No valid questions array in response:', content);
-            return DEFAULT_QUESTIONS;
-        } catch (parseError) {
-            journalAiLogger.error('Error parsing questions JSON:', parseError, 'raw content:', content);
-            return DEFAULT_QUESTIONS;
-        }
+        return response.questions;
     } catch (error) {
         journalAiLogger.error('Error generating journal questions:', error);
         return DEFAULT_QUESTIONS;
@@ -136,40 +125,23 @@ export interface EntrySummary {
     question: string;
 }
 
-const FALLBACK_SUMMARY: EntrySummary = {
-    summary: 'Thank you for sharing your thoughts.',
-    question: 'What else would you like to reflect on?'
-};
+const entrySummarySchema = z.object({
+    summary: z.string(),
+    question: z.string()
+});
 
 /** Produces a one-sentence summary and one reflection question for a finished entry. */
 export async function generateEntrySummary(entry: IJournalEntry, user: IUser): Promise<EntrySummary> {
     const entryContent = extractFullText(entry);
 
-    const response = await openai.chat.completions.create({
-        model: GPT_VERSION,
-        messages: [
-            { role: 'system', content: ENTRY_SUMMARY_PROMPT },
-            {
-                role: 'user',
-                content: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease provide a one-sentence summary and one thoughtful question.`
-            }
-        ],
+    return callStructured({
+        schema: entrySummarySchema,
+        schemaName: 'entry_summary',
+        systemPrompt: ENTRY_SUMMARY_PROMPT,
+        userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease provide a one-sentence summary and one thoughtful question.`,
         temperature: 0.7,
-        max_tokens: 300,
-        response_format: { type: 'json_object' }
+        maxTokens: 300
     });
-
-    const content = response.choices[0]?.message?.content || '{}';
-    try {
-        const parsed = JSON.parse(content);
-        return {
-            summary: parsed.summary || FALLBACK_SUMMARY.summary,
-            question: parsed.question || FALLBACK_SUMMARY.question
-        };
-    } catch (parseError) {
-        journalAiLogger.error('Error parsing entry summary JSON:', parseError);
-        return FALLBACK_SUMMARY;
-    }
 }
 
 export interface ParsedBio {
@@ -177,20 +149,27 @@ export interface ParsedBio {
     structuredInfo: Record<string, unknown>;
 }
 
+const bioSchema = z.object({
+    age: z.number().nullable(),
+    gender: z.string().nullable(),
+    location: z.string().nullable(),
+    occupation: z.string().nullable(),
+    relationship_status: z.string().nullable(),
+    hobbies: z.array(z.string()),
+    goals: z.array(z.string()),
+    other_details: z.array(z.string())
+});
+
 /** Extracts structured profile details from a free-form bio. */
 export async function parseBioInformation(text: string): Promise<ParsedBio> {
     try {
-        const response = await openai.chat.completions.create({
-            model: GPT_VERSION,
-            messages: [
-                { role: 'system', content: PARSE_BIO_PROMPT },
-                { role: 'user', content: `Parse the following bio information into a structured JSON format: "${text}"` }
-            ],
-            response_format: { type: 'json_object' }
+        const structuredInfo = await callStructured({
+            schema: bioSchema,
+            schemaName: 'bio_information',
+            systemPrompt: PARSE_BIO_PROMPT,
+            userPrompt: `Bio text (between <bio> tags):\n<bio>\n${text}\n</bio>`
         });
-
-        const parsedBio = response.choices[0]?.message?.content || '{}';
-        return { parsedBio, structuredInfo: JSON.parse(parsedBio) };
+        return { parsedBio: JSON.stringify(structuredInfo), structuredInfo };
     } catch (error) {
         journalAiLogger.error('Error parsing bio information:', error);
         return { parsedBio: '{}', structuredInfo: {} };

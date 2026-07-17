@@ -4,12 +4,11 @@ import { timingSafeEqual } from 'crypto';
 import { Language, reloadTexts, updateText, exportTextsToFiles } from '../utils/localization';
 import { getAllLocalizationTexts } from '../database';
 import { connectToDatabase } from '../database/connection';
+import { ADMIN_HOST, ADMIN_PASSWORD, ADMIN_PORT } from '../config';
 
 // Create Express app
 const app = express();
-const PORT = Number(process.env.ADMIN_PORT || 3000);
 // Bound to loopback by default: this is an operator tool, not a public page.
-const HOST = process.env.ADMIN_HOST || '127.0.0.1';
 
 // Middleware
 app.use(express.json());
@@ -22,7 +21,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 /** HTTP Basic auth against ADMIN_PASSWORD; every route requires it. */
 function basicAuth(req: Request, res: Response, next: NextFunction): void {
-    const expected = process.env.ADMIN_PASSWORD || '';
+    const expected = ADMIN_PASSWORD || '';
     const header = req.headers.authorization || '';
     const encoded = header.startsWith('Basic ') ? header.slice(6) : '';
     const decoded = Buffer.from(encoded, 'base64').toString('utf8');
@@ -137,12 +136,12 @@ app.post('/api/export-texts', async (req: Request, res: Response) => {
 
 // Start the server (assumes the database connection is already established)
 export async function startAdminServer(): Promise<void> {
-  if (!process.env.ADMIN_PASSWORD) {
+  if (!ADMIN_PASSWORD) {
     throw new Error('ADMIN_PASSWORD must be set to run the admin interface');
   }
 
-  app.listen(PORT, HOST, () => {
-    console.log(`Admin interface running at http://${HOST}:${PORT}`);
+  app.listen(ADMIN_PORT, ADMIN_HOST, () => {
+    console.log(`Admin interface running at http://${ADMIN_HOST}:${ADMIN_PORT}`);
   });
 }
 
