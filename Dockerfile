@@ -18,7 +18,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder --chown=node:node /app/dist ./dist
-COPY --chown=node:node localization ./localization
 
 USER node
 

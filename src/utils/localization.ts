@@ -25,10 +25,9 @@ export type TextCollection = {
   [key: string]: LocalizedText;
 };
 
-// Path to the localization files directory
 const LOCALIZATION_DIR = path.join(process.cwd(), 'localization');
 
-// Default texts as fallback
+// Seeds the database and is the single source of truth for localization copy.
 const defaultTexts: TextCollection = {
   // Onboarding
   languageSelection: {
@@ -370,118 +369,6 @@ async function initializeDefaultTexts(): Promise<void> {
   }
 }
 
-// Function to load texts from JSON files (for backward compatibility)
-export function loadTextsFromFiles(): TextCollection {
-  try {
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(LOCALIZATION_DIR)) {
-      fs.mkdirSync(LOCALIZATION_DIR, { recursive: true });
-      
-      // Save default texts to files for each category
-      saveDefaultTextsToFiles();
-      
-      return defaultTexts;
-    }
-    
-    // Load all JSON files from the localization directory
-    const files = fs.readdirSync(LOCALIZATION_DIR).filter(file => file.endsWith('.json'));
-    
-    // If no files exist, create them with default texts
-    if (files.length === 0) {
-      saveDefaultTextsToFiles();
-      return defaultTexts;
-    }
-    
-    // Merge all text files into a single collection
-    const loadedTexts: TextCollection = {};
-    
-    for (const file of files) {
-      const filePath = path.join(LOCALIZATION_DIR, file);
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      const fileTexts = JSON.parse(fileContent) as TextCollection;
-      
-      // Merge with loaded texts
-      Object.assign(loadedTexts, fileTexts);
-    }
-    
-    return loadedTexts;
-  } catch (error) {
-    console.error('Error loading localization files:', error);
-    return defaultTexts;
-  }
-}
-
-// Function to save default texts to separate files by category (for backward compatibility)
-function saveDefaultTextsToFiles() {
-  // Group texts by category
-  const categories = {
-    onboarding: [
-      'languageSelection', 'languageChanged', 'welcome', 'niceMeet', 
-      'thanks', 'gotIt', 'almostDone', 'amazing', 'welcomeAboard'
-    ],
-    mainMenu: [
-      'mainMenu', 'createNewEntry', 'viewJournalHistory', 
-      'chatAboutJournal', 'analyzeToday', 'settings'
-    ],
-    journalEntry: [
-      'continueEntry', 'newEntry', 'finishEntry', 
-      'goDeeper', 'cancelEntry'
-    ],
-    journalHistory: [
-      'noEntries', 'journalHistory'
-    ],
-    chatMode: [
-      'noChatEntries', 'chatIntro', 'exitChatMode'
-    ],
-    buttonResponses: [
-      'entryCanceled', 'exitedChatMode'
-    ],
-    entryView: [
-      'journalEntry', 'voiceTranscription', 'videoTranscription'
-    ],
-    goDeeper: [
-      'deeperQuestions', 'thoughtsOnQuestions'
-    ],
-    analyzeJournal: [
-      'noActiveEntry', 'entryNotFound', 'questionsToThinkAbout', 'shareThoughts'
-    ],
-    finishEntry: [
-      'entrySaved'
-    ],
-    settings: [
-      'settingsTitle', 'changeLanguage', 'backToMainMenu'
-    ],
-    analyzeToday: [
-      'analyzeTodayIntro', 'noTodayEntries', 'todayAnalysis'
-    ],
-    errorMessages: [
-      'errorProcessingVoice', 'errorProcessingVideo'
-    ],
-    transcription: [
-      'transcriptionText'
-    ],
-    chatFollowUps: [
-      'anythingElse', 'anyOtherQuestions', 'gotMoreQuestions', 'askMeAnything'
-    ]
-  };
-  
-  // Create a file for each category
-  for (const [category, keys] of Object.entries(categories)) {
-    const categoryTexts: TextCollection = {};
-    
-    // Add each key to the category
-    for (const key of keys) {
-      if (defaultTexts[key]) {
-        categoryTexts[key] = defaultTexts[key];
-      }
-    }
-    
-    // Save to file
-    const filePath = path.join(LOCALIZATION_DIR, `${category}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(categoryTexts, null, 2), 'utf8');
-  }
-}
-
 // Initialize texts from database
 export async function initializeTexts(): Promise<void> {
   const loadedTexts = await loadTextsFromDatabase();
@@ -560,7 +447,7 @@ export async function updateText(key: string, language: Language, newText: strin
   }
 }
 
-// Function to export texts to JSON files (for backup)
+// JSON files are a backup export only and are never used as localization input.
 export async function exportTextsToFiles(): Promise<boolean> {
   try {
     // Get all texts from database
@@ -580,10 +467,7 @@ export async function exportTextsToFiles(): Promise<boolean> {
       };
     }
     
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(LOCALIZATION_DIR)) {
-      fs.mkdirSync(LOCALIZATION_DIR, { recursive: true });
-    }
+    fs.mkdirSync(LOCALIZATION_DIR, { recursive: true });
     
     // Save each category to a file
     for (const [category, categoryTexts] of Object.entries(categorizedTexts)) {
@@ -597,4 +481,4 @@ export async function exportTextsToFiles(): Promise<boolean> {
     console.error('Error exporting texts to files:', error);
     return false;
   }
-} 
+}
