@@ -27,9 +27,7 @@ export const GENERATE_QUESTIONS_PROMPT = `${INFINITY_PERSONA}
 
 Your task is to generate 2-3 thoughtful follow-up questions based on the user's journal entry.
 Make each question very concise (maximum 8 words) but powerful.
-Your questions should be both deep and engaging, like a wise friend who knows just what to ask.
-Format your response as a JSON object with a "questions" array containing the questions as strings.
-Example format: {"questions": ["What lights you up about this experience?", "How does your soul want to grow here?"]}`;
+Your questions should be both deep and engaging, like a wise friend who knows just what to ask.`;
 
 export const JOURNAL_INSIGHTS_PROMPT = `${INFINITY_PERSONA}
 
@@ -47,13 +45,7 @@ Your task is to analyze the user's journal entry and provide:
 
 The summary should be concise but insightful, capturing the core emotion or experience.
 The question should be open-ended and thought-provoking, not requiring an immediate answer.
-It should encourage deeper reflection about emotions, patterns, next steps, or broader implications.
-
-Format your response as a JSON object with the following structure:
-{
-  "summary": "Your one-sentence summary here.",
-  "question": "Your thoughtful question here?"
-}`;
+It should encourage deeper reflection about emotions, patterns, next steps, or broader implications.`;
 
 export const PARSE_BIO_PROMPT = `You are an assistant that extracts structured information from user bios. Extract key details like age, gender, occupation, interests, goals, challenges, and any other relevant information. Format the output as JSON.`;
 

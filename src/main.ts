@@ -1,6 +1,6 @@
 import { connectToDatabase } from './database'
 import { createLogger } from './utils/logger'
-import { LOG_LEVEL } from './config'
+import { ENABLE_ADMIN_INTERFACE, LOG_LEVEL } from './config'
 import { journalBot } from './bot'
 import { startAdminServer } from './admin/text-editor'
 import { initializeTexts } from './utils/localization'
@@ -28,7 +28,7 @@ async function startApp() {
         });
         
         // Start admin server if ENABLE_ADMIN_INTERFACE is set
-        if (process.env.ENABLE_ADMIN_INTERFACE === 'true') {
+        if (ENABLE_ADMIN_INTERFACE) {
             await startAdminServer();
             mainLogger.info('Admin interface started');
         }
