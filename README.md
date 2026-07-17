@@ -11,7 +11,7 @@ A Telegram bot that turns journaling into a conversation. Users write, speak, or
 - **AI reflection** — every finished entry gets a one-sentence summary and a reflection question (structured LLM output, schema-validated)
 - **Chat with your journal** — ask questions about your past; answers are grounded in your most relevant entries via embedding-based retrieval
 - **Daily analysis** — one-tap insight into today's entries, mood, and patterns
-- **Bilingual** — English and Russian UI with runtime-editable texts and a small admin panel
+- **Bilingual** — English and Russian texts are seeded from code into MongoDB, edited at runtime through the admin panel or `/updatetext`, and exportable to JSON as a backup
 - **Personalized** — onboarding builds a profile (parsed from free-form voice/video bio with a structured-output extraction) that grounds every prompt
 
 ## How the AI pipeline works
