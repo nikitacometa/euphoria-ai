@@ -11,6 +11,7 @@ import {
     GENERATE_QUESTIONS_PROMPT,
     JOURNAL_INSIGHTS_PROMPT,
     PARSE_BIO_PROMPT,
+    asData,
     buildUserInfo,
     languageInstruction
 } from './prompts';
@@ -31,7 +32,7 @@ export async function analyzeJournalEntry(entry: IJournalEntry, user: IUser): Pr
                 { role: 'system', content: `${ANALYZE_ENTRY_PROMPT}\n\n${languageInstruction(user)}` },
                 {
                     role: 'user',
-                    content: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease analyze this journal entry and provide the 3 most important insights as short bullet points.`
+                    content: `${buildUserInfo(user)}\n\nJournal Entry:\n${asData('journal', entryContent)}\n\nPlease analyze this journal entry and provide the 3 most important insights as short bullet points.`
                 }
             ],
             temperature: 0.7,
@@ -67,7 +68,7 @@ export async function generateJournalQuestions(entry: IJournalEntry, user: IUser
             schema: questionsSchema,
             schemaName: 'journal_questions',
             systemPrompt: `${GENERATE_QUESTIONS_PROMPT}\n\n${languageInstruction(user)}`,
-            userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease generate 2-3 thoughtful follow-up questions.`,
+            userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${asData('journal', entryContent)}\n\nPlease generate 2-3 thoughtful follow-up questions.`,
             temperature: 0.7,
             maxTokens: 500
         });
@@ -93,13 +94,13 @@ export async function generateJournalInsights(
             .map((entry, index) => {
                 const entryContent = entry.fullText || extractFullText(entry);
                 const date = new Date(entry.createdAt).toLocaleDateString();
-                return `Entry ${index + 1} (${date}):\n${entryContent}`;
+                return `Entry ${index + 1} (${date}):\n${asData('journal', entryContent)}`;
             })
             .join('\n\n---\n\n');
 
         let userPrompt = `${buildUserInfo(user)}\n\nJournal Entries:\n${entriesSummary}\n\n`;
         if (question) {
-            userPrompt += `Based on these entries, please answer the following question as concisely as possible: ${question}`;
+            userPrompt += `Based on these entries, please answer the following question as concisely as possible:\n${asData('question', question)}`;
         } else {
             userPrompt += 'Please provide a very brief analysis (1-3 sentences) of the most significant patterns or insights from these journal entries.';
         }
@@ -139,7 +140,7 @@ export async function generateEntrySummary(entry: IJournalEntry, user: IUser): P
         schema: entrySummarySchema,
         schemaName: 'entry_summary',
         systemPrompt: `${ENTRY_SUMMARY_PROMPT}\n\n${languageInstruction(user)}`,
-        userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease provide a one-sentence summary and one thoughtful question.`,
+        userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${asData('journal', entryContent)}\n\nPlease provide a one-sentence summary and one thoughtful question.`,
         temperature: 0.7,
         maxTokens: 300
     });
@@ -151,7 +152,10 @@ export interface ParsedBio {
 }
 
 const bioSchema = z.object({
-    age: z.number().nullable(),
+    // Explicit union rather than .number().nullable(): with nullable numbers the model
+    // tends to invent a value instead of returning null, and a wrong age then grounds
+    // every later prompt. See openai/openai-node#1461.
+    age: z.union([z.number(), z.null()]),
     gender: z.string().nullable(),
     location: z.string().nullable(),
     occupation: z.string().nullable(),
@@ -168,7 +172,7 @@ export async function parseBioInformation(text: string): Promise<ParsedBio> {
             schema: bioSchema,
             schemaName: 'bio_information',
             systemPrompt: PARSE_BIO_PROMPT,
-            userPrompt: `Bio text (between <bio> tags):\n<bio>\n${text}\n</bio>`
+            userPrompt: `Parse the following bio into the structured format:\n${asData('bio', text)}`
         });
         return { parsedBio: JSON.stringify(structuredInfo), structuredInfo };
     } catch (error) {
