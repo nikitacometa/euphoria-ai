@@ -12,6 +12,7 @@ import {
     saveVideoMessage,
     saveVoiceMessage,
     updateJournalEntryAnalysis,
+    updateJournalEntryEmbedding,
     updateJournalEntryQuestions,
     updateJournalEntryStatus
 } from '../../database';
@@ -20,10 +21,12 @@ import { escapeHtml } from '../../utils/html';
 import { createLogger } from '../../utils/logger';
 import { LOG_LEVEL } from '../../config';
 import { analyzeJournalEntry, generateEntrySummary, generateJournalQuestions } from '../../ai/journal-ai';
+import { embedText } from '../../ai/embeddings';
 import { getVideoFileId, transcribeVideoMessage, transcribeVoiceMessage } from '../../services/telegram-media';
 import { appendMessageToEntry } from '../../services/journal-entry.service';
 import { JournalBotContext } from '../context';
 import { buttonFilter, sendTranscriptionReply, showMainMenu, withWaitMessage } from '../helpers';
+import { extractFullText } from '../../utils/entry-text';
 
 const entryLogger = createLogger('JournalEntry', LOG_LEVEL);
 
@@ -194,6 +197,13 @@ async function finishJournalEntry(ctx: JournalBotContext, entryId: Types.ObjectI
     try {
         const { summary, question } = await withWaitMessage(ctx, () => generateEntrySummary(entry, ctx.user));
         await completeJournalEntry(entryId, summary, question);
+
+        try {
+            const embedding = await embedText(extractFullText(entry));
+            await updateJournalEntryEmbedding(entryId, embedding);
+        } catch (error) {
+            entryLogger.error('Error embedding completed journal entry:', error);
+        }
 
         const formattedMessage = `<b>Good job, ${escapeHtml(ctx.user.name || ctx.user.firstName)}! ✨ Entry saved.</b>\n\n<b>📝 Summary:</b>\n${escapeHtml(summary)}\n\n<b>💭 Something to reflect on:</b>\n<i>${escapeHtml(question)}</i>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });

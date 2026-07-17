@@ -16,6 +16,7 @@
         "dev": "tsx watch src/main.ts",
         "start": "node dist/main.js",
         "admin": "tsx src/admin/text-editor.ts",
+        "backfill-embeddings": "tsx scripts/backfill-embeddings.ts",
         "lint": "eslint src",
         "format": "prettier --write src",
         "test": "vitest run"
