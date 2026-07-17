@@ -96,20 +96,38 @@ export async function findOrCreateUser(
     lastName?: string,
     username?: string
 ): Promise<IUser> {
-    let user = await User.findOne({ telegramId });
-    
-    if (!user) {
-        user = await User.create({
-            telegramId,
-            firstName,
-            lastName,
-            username,
-            language: Language.ENGLISH,
-            onboardingCompleted: false
-        });
+    // Atomic upsert: concurrent updates from the same new user must not
+    // race a separate find-then-create into a duplicate-key crash.
+    try {
+        return await User.findOneAndUpdate(
+            { telegramId },
+            {
+                $setOnInsert: {
+                    telegramId,
+                    firstName,
+                    lastName,
+                    username,
+                    language: Language.ENGLISH,
+                    onboardingCompleted: false
+                }
+            },
+            { new: true, upsert: true }
+        );
+    } catch (error) {
+        // Upserts can still throw E11000 when two run at the exact same moment;
+        // by then the document exists, so a plain lookup resolves it.
+        if (isDuplicateKeyError(error)) {
+            const user = await User.findOne({ telegramId });
+            if (user) {
+                return user;
+            }
+        }
+        throw error;
     }
-    
-    return user;
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && (error as { code?: number }).code === 11000;
 }
 
 export async function getUserById(telegramId: number): Promise<IUser | null> {

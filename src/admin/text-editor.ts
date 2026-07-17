@@ -1,20 +1,50 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import * as path from 'path';
+import { timingSafeEqual } from 'crypto';
 import { Language, reloadTexts, updateText, exportTextsToFiles } from '../utils/localization';
 import { getAllLocalizationTexts } from '../database';
 import { connectToDatabase } from '../database/connection';
 
 // Create Express app
 const app = express();
-const PORT = process.env.ADMIN_PORT || 3000;
+const PORT = Number(process.env.ADMIN_PORT || 3000);
+// Bound to loopback by default: this is an operator tool, not a public page.
+const HOST = process.env.ADMIN_HOST || '127.0.0.1';
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(basicAuth);
 
 // Set up EJS as the view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+/** HTTP Basic auth against ADMIN_PASSWORD; every route requires it. */
+function basicAuth(req: Request, res: Response, next: NextFunction): void {
+    const expected = process.env.ADMIN_PASSWORD || '';
+    const header = req.headers.authorization || '';
+    const encoded = header.startsWith('Basic ') ? header.slice(6) : '';
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const password = decoded.includes(':') ? decoded.slice(decoded.indexOf(':') + 1) : '';
+
+    if (expected && safeEquals(password, expected)) {
+        next();
+        return;
+    }
+
+    res.setHeader('WWW-Authenticate', 'Basic realm="Journal Bot Admin"');
+    res.status(401).send('Authentication required');
+}
+
+function safeEquals(a: string, b: string): boolean {
+    const bufferA = Buffer.from(a);
+    const bufferB = Buffer.from(b);
+    if (bufferA.length !== bufferB.length) {
+        return false;
+    }
+    return timingSafeEqual(bufferA, bufferB);
+}
 
 
 // Routes
@@ -105,19 +135,23 @@ app.post('/api/export-texts', async (req: Request, res: Response) => {
   }
 });
 
-// Start the server
-export async function startAdminServer() {
-  // Connect to database
-  await connectToDatabase();
-  
-  app.listen(PORT, () => {
-    console.log(`Admin interface running at http://localhost:${PORT}`);
+// Start the server (assumes the database connection is already established)
+export async function startAdminServer(): Promise<void> {
+  if (!process.env.ADMIN_PASSWORD) {
+    throw new Error('ADMIN_PASSWORD must be set to run the admin interface');
+  }
+
+  app.listen(PORT, HOST, () => {
+    console.log(`Admin interface running at http://${HOST}:${PORT}`);
   });
 }
 
-// If this file is run directly, start the server
+// If this file is run directly, connect to the database and start the server
 if (require.main === module) {
-  startAdminServer().catch(error => {
-    console.error('Failed to start admin server:', error);
-  });
-} 
+  connectToDatabase()
+    .then(() => startAdminServer())
+    .catch(error => {
+      console.error('Failed to start admin server:', error);
+      process.exit(1);
+    });
+}
