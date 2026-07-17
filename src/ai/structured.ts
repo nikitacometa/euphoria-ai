@@ -3,6 +3,10 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { GPT_VERSION } from '../config';
 import { openai } from './client';
 
+// Note: openai@4 only supports zod v3 (peer dependency ^3.23.8). With zod v4 this
+// helper silently emits a malformed schema instead of failing; upgrading zod
+// requires openai >= 6.7.0 first.
+
 export interface StructuredCallOptions<T> {
     schema: ZodType<T>;
     schemaName: string;
