@@ -133,7 +133,7 @@ export async function runJournalAgent(user: IUser, question: string): Promise<Jo
     ];
     let toolCallCount = 0;
 
-    for (let iteration = 1; ; iteration += 1) {
+    for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration += 1) {
         const response = await openai.chat.completions.create({
             model: GPT_VERSION,
             messages,

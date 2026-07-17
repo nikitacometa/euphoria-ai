@@ -228,10 +228,7 @@ describe('runJournalAgent', () => {
         vi.mocked(openai.chat.completions.create).mockResolvedValue(
             completionWithToolCalls([{ id: 'search-loop', query: 'again' }])
         );
-        vi.mocked(retrieveRelevantEntries).mockImplementation(async () => {
-            await new Promise<void>(resolve => setImmediate(resolve));
-            return [];
-        });
+        vi.mocked(retrieveRelevantEntries).mockResolvedValue([]);
 
         await expect(runJournalAgent(user(), 'Keep looking'))
             .rejects.toThrow(/4-iteration cap/u);
