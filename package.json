@@ -15,7 +15,10 @@
         "build": "tsc -p tsconfig.build.json && cp -R src/admin/views dist/admin/",
         "dev": "tsx watch src/main.ts",
         "start": "node dist/main.js",
-        "admin": "tsx src/admin/text-editor.ts"
+        "admin": "tsx src/admin/text-editor.ts",
+        "lint": "eslint src",
+        "format": "prettier --write src",
+        "test": "vitest run"
     },
     "dependencies": {
         "chalk": "^5.4.1",
@@ -30,7 +33,12 @@
         "@types/ejs": "^3.1.5",
         "@types/express": "^4.17.21",
         "@types/node": "^22.13.10",
+        "@vitest/coverage-v8": "4.1.10",
+        "eslint": "9.39.5",
+        "prettier": "3.9.5",
         "tsx": "^4.19.3",
-        "typescript": "^5.8.2"
+        "typescript": "^5.8.2",
+        "typescript-eslint": "8.64.0",
+        "vitest": "4.1.10"
     }
 }
