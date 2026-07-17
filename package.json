@@ -17,9 +17,10 @@
         "start": "node dist/main.js",
         "admin": "tsx src/admin/text-editor.ts",
         "backfill-embeddings": "tsx scripts/backfill-embeddings.ts",
-        "lint": "eslint src",
+        "lint": "eslint src evals",
         "format": "prettier --write src",
-        "test": "vitest run"
+        "test": "vitest run",
+        "eval": "tsx evals/run-evals.ts"
     },
     "dependencies": {
         "chalk": "^5.4.1",
