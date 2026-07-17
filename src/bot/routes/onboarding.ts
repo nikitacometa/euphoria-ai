@@ -1,12 +1,12 @@
 import { Bot, Keyboard } from 'grammy';
-import { updateUserLanguage, updateUserProfile } from '../../database';
+import { IUser, updateUserLanguage, updateUserProfile } from '../../database';
 import { Language, getTextForUser } from '../../utils/localization';
 import { withCommandLogging } from '../../utils/command-logger';
 import { createLogger } from '../../utils/logger';
 import { LOG_LEVEL } from '../../config';
 import { parseBioInformation } from '../../ai/journal-ai';
 import { getVideoFileId, transcribeVideoMessage, transcribeVoiceMessage } from '../../services/telegram-media';
-import { JournalBotContext } from '../context';
+import { JournalBotContext, OnboardingStep } from '../context';
 import { buildLanguageKeyboard, LANGUAGE_PROMPT, sendTranscriptionReply, showMainMenu, withWaitMessage } from '../helpers';
 
 const onboardingLogger = createLogger('Onboarding', LOG_LEVEL);
@@ -24,6 +24,88 @@ async function handleStartCommand(ctx: JournalBotContext): Promise<void> {
 
     ctx.session.mode = { kind: 'onboarding', step: 'language' };
     await ctx.reply(LANGUAGE_PROMPT, { reply_markup: buildLanguageKeyboard() });
+}
+
+/**
+ * Puts a user whose session was lost back into onboarding at the first
+ * question they have not answered yet, using their stored profile rather
+ * than restarting the wizard from scratch.
+ */
+export async function resumeOnboarding(ctx: JournalBotContext): Promise<void> {
+    const step = nextOnboardingStep(ctx.user);
+    if (!step) {
+        // Every field is filled but the flag never got set: finish the job.
+        const user = (await updateUserProfile(ctx.from!.id, { onboardingCompleted: true })) || ctx.user;
+        ctx.session.mode = { kind: 'idle' };
+        await showMainMenu(ctx, user);
+        return;
+    }
+
+    ctx.session.mode = { kind: 'onboarding', step };
+    await sendStepPrompt(ctx, step, ctx.user);
+}
+
+/** First onboarding question the stored profile has no answer for. */
+function nextOnboardingStep(user: IUser): OnboardingStep | null {
+    if (!user.name) return 'name';
+    if (!user.age) return 'age';
+    if (!user.gender) return 'gender';
+    if (!user.occupation) return 'occupation';
+    if (!user.bio) return 'bio';
+    return null;
+}
+
+/** Asks the question for a given onboarding step. */
+async function sendStepPrompt(ctx: JournalBotContext, step: OnboardingStep, user: IUser): Promise<void> {
+    switch (step) {
+        case 'language':
+            await ctx.reply(LANGUAGE_PROMPT, { reply_markup: buildLanguageKeyboard() });
+            return;
+
+        case 'name':
+            await ctx.reply(getTextForUser('welcome', user), {
+                reply_markup: new Keyboard().text(ctx.from!.first_name).resized(),
+                parse_mode: 'HTML'
+            });
+            return;
+
+        case 'age':
+            await ctx.reply(getTextForUser('niceMeet', user, { name: user.name || user.firstName }), {
+                reply_markup: new Keyboard()
+                    .text('0-18')
+                    .text('18-24')
+                    .row()
+                    .text('25-34')
+                    .text('35-44')
+                    .row()
+                    .text('45-60')
+                    .text('60+')
+                    .resized(),
+                parse_mode: 'HTML'
+            });
+            return;
+
+        case 'gender':
+            await ctx.reply(getTextForUser('thanks', user), {
+                reply_markup: new Keyboard().text('Male').text('Female').row().text('Non-binary').text('Other').resized(),
+                parse_mode: 'HTML'
+            });
+            return;
+
+        case 'occupation':
+            await ctx.reply(getTextForUser('gotIt', user), {
+                reply_markup: { remove_keyboard: true },
+                parse_mode: 'HTML'
+            });
+            return;
+
+        case 'bio':
+            await ctx.reply(getTextForUser('almostDone', user), {
+                reply_markup: { remove_keyboard: true },
+                parse_mode: 'HTML'
+            });
+            return;
+    }
 }
 
 /** Handles onboarding replies; the message router calls this while mode is 'onboarding'. */
@@ -53,41 +135,20 @@ export async function handleOnboardingMessage(ctx: JournalBotContext): Promise<v
     await ctx.reply('Please send a text message, voice message, or video to continue with the setup.');
 }
 
-async function handleTextStep(ctx: JournalBotContext, step: string, text: string): Promise<void> {
+/** Saves the answer for the current step, then asks the next question. */
+async function handleTextStep(ctx: JournalBotContext, step: OnboardingStep, text: string): Promise<void> {
     switch (step) {
         case 'language': {
             const language = text === 'Русский 🇷🇺' ? Language.RUSSIAN : Language.ENGLISH;
             const user = (await updateUserLanguage(ctx.from!.id, language)) || ctx.user;
-
-            ctx.session.mode = { kind: 'onboarding', step: 'name' };
-            const nameKeyboard = new Keyboard().text(ctx.from!.first_name).resized();
-            await ctx.reply(getTextForUser('welcome', user), {
-                reply_markup: nameKeyboard,
-                parse_mode: 'HTML'
-            });
-            break;
+            await advanceTo(ctx, 'name', user);
+            return;
         }
 
         case 'name': {
-            await updateUserProfile(ctx.from!.id, { name: text });
-            ctx.session.mode = { kind: 'onboarding', step: 'age' };
-
-            const ageKeyboard = new Keyboard()
-                .text('0-18')
-                .text('18-24')
-                .row()
-                .text('25-34')
-                .text('35-44')
-                .row()
-                .text('45-60')
-                .text('60+')
-                .resized();
-
-            await ctx.reply(getTextForUser('niceMeet', ctx.user, { name: text }), {
-                reply_markup: ageKeyboard,
-                parse_mode: 'HTML'
-            });
-            break;
+            const user = (await updateUserProfile(ctx.from!.id, { name: text })) || ctx.user;
+            await advanceTo(ctx, 'age', user);
+            return;
         }
 
         case 'age': {
@@ -96,55 +157,38 @@ async function handleTextStep(ctx: JournalBotContext, step: string, text: string
                 await ctx.reply('Please select one of the age ranges or enter a valid age (a number between 1 and 120):');
                 return;
             }
-
-            await updateUserProfile(ctx.from!.id, { age });
-            ctx.session.mode = { kind: 'onboarding', step: 'gender' };
-
-            const genderKeyboard = new Keyboard()
-                .text('Male')
-                .text('Female')
-                .row()
-                .text('Non-binary')
-                .text('Other')
-                .resized();
-
-            await ctx.reply(getTextForUser('thanks', ctx.user), {
-                reply_markup: genderKeyboard,
-                parse_mode: 'HTML'
-            });
-            break;
+            const user = (await updateUserProfile(ctx.from!.id, { age })) || ctx.user;
+            await advanceTo(ctx, 'gender', user);
+            return;
         }
 
         case 'gender': {
-            await updateUserProfile(ctx.from!.id, { gender: text });
-            ctx.session.mode = { kind: 'onboarding', step: 'occupation' };
-            await ctx.reply(getTextForUser('gotIt', ctx.user), {
-                reply_markup: { remove_keyboard: true },
-                parse_mode: 'HTML'
-            });
-            break;
+            const user = (await updateUserProfile(ctx.from!.id, { gender: text })) || ctx.user;
+            await advanceTo(ctx, 'occupation', user);
+            return;
         }
 
         case 'occupation': {
-            await updateUserProfile(ctx.from!.id, { occupation: text });
-            ctx.session.mode = { kind: 'onboarding', step: 'bio' };
-            await ctx.reply(getTextForUser('almostDone', ctx.user), {
-                reply_markup: { remove_keyboard: true },
-                parse_mode: 'HTML'
-            });
-            break;
+            const user = (await updateUserProfile(ctx.from!.id, { occupation: text })) || ctx.user;
+            await advanceTo(ctx, 'bio', user);
+            return;
         }
 
         case 'bio': {
-            const updatedUser =
-                (await updateUserProfile(ctx.from!.id, { bio: text, onboardingCompleted: true })) || ctx.user;
+            const user = (await updateUserProfile(ctx.from!.id, { bio: text, onboardingCompleted: true })) || ctx.user;
             ctx.session.mode = { kind: 'idle' };
 
-            await ctx.reply(getTextForUser('amazing', updatedUser), { parse_mode: 'HTML' });
-            await showMainMenu(ctx, updatedUser);
-            break;
+            await ctx.reply(getTextForUser('amazing', user), { parse_mode: 'HTML' });
+            await showMainMenu(ctx, user);
+            return;
         }
     }
+}
+
+/** Moves the wizard to a step and asks its question with the freshest profile. */
+async function advanceTo(ctx: JournalBotContext, step: OnboardingStep, user: IUser): Promise<void> {
+    ctx.session.mode = { kind: 'onboarding', step };
+    await sendStepPrompt(ctx, step, user);
 }
 
 function parseAgeAnswer(text: string): number | null {

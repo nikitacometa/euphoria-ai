@@ -1,7 +1,7 @@
 import { Bot } from 'grammy';
 import { JournalBotContext } from '../context';
 import { showMainMenu } from '../helpers';
-import { handleOnboardingMessage } from './onboarding';
+import { handleOnboardingMessage, resumeOnboarding } from './onboarding';
 import { handleJournalEntryMessage } from './journal-entry';
 import { handleChatMessage } from './journal-chat';
 import { handleSettingsMessage } from './settings';
@@ -26,6 +26,12 @@ export function registerMessageRouter(bot: Bot<JournalBotContext>): void {
                 await handleSettingsMessage(ctx);
                 return;
             case 'idle':
+                // Sessions live in memory, so a restart drops users mid-onboarding
+                // into 'idle'. The durable flag decides where they actually belong.
+                if (!ctx.user.onboardingCompleted) {
+                    await resumeOnboarding(ctx);
+                    return;
+                }
                 await showMainMenu(ctx, ctx.user);
                 return;
         }
