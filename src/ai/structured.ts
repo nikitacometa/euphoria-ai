@@ -1,5 +1,6 @@
 import { ZodType } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { GPT_VERSION } from '../config';
 import { openai } from './client';
 
@@ -7,22 +8,37 @@ import { openai } from './client';
 // helper silently emits a malformed schema instead of failing; upgrading zod
 // requires openai >= 6.7.0 first.
 
-export interface StructuredCallOptions<T> {
+interface StructuredCallBase<T> {
     schema: ZodType<T>;
     schemaName: string;
-    systemPrompt: string;
-    userPrompt: string;
     temperature?: number;
     maxTokens?: number;
 }
 
+interface StructuredPromptCallOptions<T> extends StructuredCallBase<T> {
+    systemPrompt: string;
+    userPrompt: string;
+    messages?: never;
+}
+
+interface StructuredMessagesCallOptions<T> extends StructuredCallBase<T> {
+    messages: ChatCompletionMessageParam[];
+    systemPrompt?: never;
+    userPrompt?: never;
+}
+
+export type StructuredCallOptions<T> =
+    | StructuredPromptCallOptions<T>
+    | StructuredMessagesCallOptions<T>;
+
 export async function callStructured<T>(options: StructuredCallOptions<T>): Promise<T> {
+    const messages = options.messages ?? [
+        { role: 'system' as const, content: options.systemPrompt },
+        { role: 'user' as const, content: options.userPrompt }
+    ];
     const response = await openai.beta.chat.completions.parse({
         model: GPT_VERSION,
-        messages: [
-            { role: 'system', content: options.systemPrompt },
-            { role: 'user', content: options.userPrompt }
-        ],
+        messages,
         temperature: options.temperature ?? 0.7,
         max_tokens: options.maxTokens ?? 500,
         response_format: zodResponseFormat(options.schema, options.schemaName)

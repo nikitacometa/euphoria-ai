@@ -5,7 +5,8 @@ import { getTextForUser } from '../../utils/localization';
 import { escapeHtml } from '../../utils/html';
 import { createLogger } from '../../utils/logger';
 import { LOG_LEVEL } from '../../config';
-import { generateJournalInsights, generateJournalQuestions } from '../../ai/journal-ai';
+import { runJournalAgent, JournalAgentResult } from '../../ai/agent';
+import { generateJournalInsights } from '../../ai/journal-ai';
 import { getVideoFileId, transcribeVideoMessage, transcribeVoiceMessage } from '../../services/telegram-media';
 import { JournalBotContext } from '../context';
 import { buttonFilter, sendTranscriptionReply, showMainMenu, withWaitMessage } from '../helpers';
@@ -124,24 +125,20 @@ async function answerTextQuestion(
     }
 
     try {
-        const entries = await retrieveRelevantEntries(
-            ctx.user._id as unknown as Types.ObjectId,
-            question,
-            6
-        );
-        const response = await generateJournalInsights(entries, ctx.user, question);
-
-        const mostRecentEntry = entries[entries.length - 1];
-        let questionsText = '';
-        if (mostRecentEntry) {
-            const followUpQuestions = await generateJournalQuestions(mostRecentEntry, ctx.user);
-            questionsText =
-                followUpQuestions.length > 0 ? '\n\n' + followUpQuestions.slice(0, 2).map(escapeHtml).join('\n') : '';
+        try {
+            const result = await runJournalAgent(ctx.user, question);
+            await ctx.reply(formatAgentResponse(
+                result,
+                'Or maybe you wanna know something else? 😏'
+            ), { parse_mode: 'HTML' });
+        } catch (error) {
+            chatLogger.error('Journal agent failed; using fixed retrieval fallback:', error);
+            const response = await generateFallbackAnswer(ctx, question);
+            await ctx.reply(
+                `${escapeHtml(response)}\n\nOr maybe you wanna know something else? 😏`,
+                { parse_mode: 'HTML' }
+            );
         }
-
-        await ctx.reply(`${escapeHtml(response)}${questionsText}\n\nOr maybe you wanna know something else? 😏`, {
-            parse_mode: 'HTML'
-        });
     } catch (error) {
         chatLogger.error('Error in journal chat:', error);
         await ctx.reply("I encountered an error while processing your question. Let's try again!");
@@ -159,18 +156,45 @@ async function answerMediaQuestion(
         const insights = await withWaitMessage(ctx, async () => {
             const transcription = await transcribe();
             await sendTranscriptionReply(ctx, ctx.message!.message_id, transcription, ctx.user);
-            const entries = await retrieveRelevantEntries(
-                ctx.user._id as unknown as Types.ObjectId,
-                transcription,
-                6
-            );
-            return generateJournalInsights(entries, ctx.user, transcription);
+            try {
+                return await runJournalAgent(ctx.user, transcription);
+            } catch (error) {
+                chatLogger.error('Journal agent failed; using fixed retrieval fallback:', error);
+                const answer = await generateFallbackAnswer(ctx, transcription);
+                return { answer, followUpQuestions: [], toolCallCount: 0 };
+            }
         });
 
-        await ctx.reply(`<b>${escapeHtml(insights)}</b>`, { parse_mode: 'HTML' });
-        await ctx.reply(getTextForUser('anyOtherQuestions', ctx.user), { parse_mode: 'HTML' });
+        await ctx.reply(formatAgentResponse(
+            insights,
+            getTextForUser('anyOtherQuestions', ctx.user),
+            true
+        ), { parse_mode: 'HTML' });
     } catch (error) {
         chatLogger.error('Error processing media message in chat mode:', error);
         await ctx.reply(getTextForUser(errorTextKey, ctx.user), { parse_mode: 'HTML' });
     }
+}
+
+function formatAgentResponse(
+    result: JournalAgentResult,
+    closingLine: string,
+    boldAnswer = false
+): string {
+    const escapedAnswer = escapeHtml(result.answer);
+    const answer = boldAnswer ? `<b>${escapedAnswer}</b>` : escapedAnswer;
+    const questions = result.followUpQuestions.slice(0, 2).map(escapeHtml).join('\n');
+    return [answer, questions, closingLine].filter(Boolean).join('\n\n');
+}
+
+async function generateFallbackAnswer(
+    ctx: JournalBotContext,
+    question: string
+): Promise<string> {
+    const entries = await retrieveRelevantEntries(
+        ctx.user._id as unknown as Types.ObjectId,
+        question,
+        6
+    );
+    return generateJournalInsights(entries, ctx.user, question);
 }
