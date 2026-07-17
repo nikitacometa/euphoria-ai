@@ -2,6 +2,7 @@ import { Bot, Keyboard } from 'grammy';
 import { Types } from 'mongoose';
 import { getUserJournalEntries } from '../../database';
 import { getTextForUser } from '../../utils/localization';
+import { escapeHtml } from '../../utils/html';
 import { createLogger } from '../../utils/logger';
 import { LOG_LEVEL } from '../../config';
 import { generateJournalInsights, generateJournalQuestions } from '../../ai/journal-ai';
@@ -129,10 +130,11 @@ async function answerTextQuestion(
         let questionsText = '';
         if (mostRecentEntry) {
             const followUpQuestions = await generateJournalQuestions(mostRecentEntry, ctx.user);
-            questionsText = followUpQuestions.length > 0 ? '\n\n' + followUpQuestions.slice(0, 2).join('\n') : '';
+            questionsText =
+                followUpQuestions.length > 0 ? '\n\n' + followUpQuestions.slice(0, 2).map(escapeHtml).join('\n') : '';
         }
 
-        await ctx.reply(`${response}${questionsText}\n\nOr maybe you wanna know something else? 😏`, {
+        await ctx.reply(`${escapeHtml(response)}${questionsText}\n\nOr maybe you wanna know something else? 😏`, {
             parse_mode: 'HTML'
         });
     } catch (error) {
@@ -156,7 +158,7 @@ async function answerMediaQuestion(
             return generateJournalInsights(entries, ctx.user, transcription);
         });
 
-        await ctx.reply(`<b>${insights}</b>`, { parse_mode: 'HTML' });
+        await ctx.reply(`<b>${escapeHtml(insights)}</b>`, { parse_mode: 'HTML' });
         await ctx.reply(getTextForUser('anyOtherQuestions', ctx.user), { parse_mode: 'HTML' });
     } catch (error) {
         chatLogger.error('Error processing media message in chat mode:', error);

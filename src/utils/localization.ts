@@ -6,6 +6,7 @@ import {
   upsertLocalizationText,
   updateTranslation
 } from '../database';
+import { escapeHtml } from './html';
 
 // Supported languages
 export enum Language {
@@ -498,20 +499,33 @@ export function getText(key: string, language: Language): string {
   return texts[key][language] || texts[key][Language.ENGLISH] || `[Missing translation: ${key}]`;
 }
 
-// Helper function to get text for a user with variable replacement
-export function getTextForUser(key: string, user: IUser, variables: Record<string, string> = {}): string {
+/**
+ * A template variable value. Plain strings are HTML-escaped before insertion;
+ * wrap pre-built trusted markup in `{ raw: ... }` to insert it verbatim.
+ */
+export type TemplateValue = string | { raw: string };
+
+// Replacement uses a function so that `$`-patterns in values are inserted literally.
+function replacePlaceholder(text: string, varName: string, value: string): string {
+  return text.replace(new RegExp(`\\{${varName}\\}`, 'g'), () => value);
+}
+
+// Helper function to get text for a user with variable replacement.
+// Texts themselves are trusted HTML; all injected values are escaped by default.
+export function getTextForUser(key: string, user: IUser, variables: Record<string, TemplateValue> = {}): string {
   const language = user.language || Language.ENGLISH;
   let text = getText(key, language);
-  
+
   // Replace user-specific variables
-  text = text.replace(/{name}/g, user.name || user.firstName || '');
-  text = text.replace(/{firstName}/g, user.firstName || '');
-  
+  text = replacePlaceholder(text, 'name', escapeHtml(user.name || user.firstName || ''));
+  text = replacePlaceholder(text, 'firstName', escapeHtml(user.firstName || ''));
+
   // Replace custom variables
   for (const [varName, varValue] of Object.entries(variables)) {
-    text = text.replace(new RegExp(`{${varName}}`, 'g'), varValue);
+    const value = typeof varValue === 'string' ? escapeHtml(varValue) : varValue.raw;
+    text = replacePlaceholder(text, varName, value);
   }
-  
+
   return text;
 }
 
