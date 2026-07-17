@@ -27,6 +27,7 @@ flowchart LR
         RAG[Retrieval service]
     end
     subgraph AI["AI layer"]
+        A[Journal agent loop max 4]
         P[Prompt registry]
         S[Structured outputs zod]
         E[Embeddings]
@@ -38,17 +39,22 @@ flowchart LR
     R --> M -->|temp file| W -->|transcription| R
     R -->|finish entry| S -->|summary + question| DB
     R -->|entry full text| E -->|vector| DB
-    U -->|chat question| RAG
+    U -->|chat question| R --> A
+    A -->|search_journal tool| RAG
     RAG -->|query embedding + cosine top-k| DB
-    RAG -->|relevant entries| S
+    DB -->|relevant entries| RAG
+    RAG -->|bounded entry excerpts| A
+    A -->|final turn| S
+    S -->|answer + follow-ups| R
+    P --> A
     P --> S
 ```
 
-**Retrieval-augmented chat.** When an entry is completed, its full text is embedded (`text-embedding-3-small`) and stored on the entry document. A chat question embeds the query, scores the user's entries by cosine similarity, and sends only the top-k (chronologically reordered) to the model — instead of stuffing the entire journal into the context window. Legacy entries without vectors fall back to recency, and a failed embedding call degrades gracefully to recent entries so chat never breaks. `npm run backfill-embeddings` vectorizes pre-existing entries.
+**Retrieval-augmented chat.** When an entry is completed, its full text is embedded (`text-embedding-3-small`) and stored on the entry document. For chat, a bounded agent loop lets the model call `search_journal` with one or more focused queries. The tool delegates to the existing retrieval service, which embeds each query, scores the user's entries by cosine similarity, and returns only bounded excerpts from the top-k entries (chronologically reordered). The loop is capped at four iterations; tool failures are returned to the model so it can recover, while an agent-level failure falls back to the fixed retrieve-then-answer path. Legacy entries without vectors fall back to recency, and a failed embedding call degrades gracefully to recent entries. `npm run backfill-embeddings` vectorizes pre-existing entries.
 
 **Why brute-force cosine and not a vector database?** A journal corpus is per-user and small (hundreds of entries, not millions). An O(n) scan over in-document vectors is a few milliseconds, adds zero infrastructure, and keeps the data model trivial. The retrieval service is isolated in `src/services/journal-retrieval.ts`; swapping the scan for MongoDB Atlas `$vectorSearch`, Qdrant, or pgvector when scale demands it is a one-file change.
 
-**Structured outputs.** All JSON-shaped model calls (follow-up questions, entry summaries, bio parsing) go through one typed helper (`src/ai/structured.ts`) built on the OpenAI SDK's `parse` API with zod schemas — no hand-rolled `JSON.parse` with regex fallbacks. Refusals and schema mismatches throw; callers own their fallbacks.
+**Structured outputs.** All JSON-shaped model calls (agent answers with follow-up questions, standalone follow-up questions, entry summaries, bio parsing) go through one typed helper (`src/ai/structured.ts`) built on the OpenAI SDK's `parse` API with zod schemas — no hand-rolled `JSON.parse` with regex fallbacks. Refusals and schema mismatches throw; callers own their fallbacks. Once the chat agent finishes retrieving, its answer and two follow-up questions are generated in one structured completion instead of the previous two separate answer and question completions; tool-decision rounds can still add model calls before that final response.
 
 **Prompt management.** Every system prompt lives in `src/ai/prompts.ts` — one persona, one source of truth, no copies drifting across call sites.
 
