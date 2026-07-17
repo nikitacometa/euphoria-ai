@@ -11,7 +11,8 @@ import {
     GENERATE_QUESTIONS_PROMPT,
     JOURNAL_INSIGHTS_PROMPT,
     PARSE_BIO_PROMPT,
-    buildUserInfo
+    buildUserInfo,
+    languageInstruction
 } from './prompts';
 
 const journalAiLogger = createLogger('JournalAI', LOG_LEVEL);
@@ -27,7 +28,7 @@ export async function analyzeJournalEntry(entry: IJournalEntry, user: IUser): Pr
         const response = await openai.chat.completions.create({
             model: GPT_VERSION,
             messages: [
-                { role: 'system', content: ANALYZE_ENTRY_PROMPT },
+                { role: 'system', content: `${ANALYZE_ENTRY_PROMPT}\n\n${languageInstruction(user)}` },
                 {
                     role: 'user',
                     content: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease analyze this journal entry and provide the 3 most important insights as short bullet points.`
@@ -65,7 +66,7 @@ export async function generateJournalQuestions(entry: IJournalEntry, user: IUser
         const response = await callStructured({
             schema: questionsSchema,
             schemaName: 'journal_questions',
-            systemPrompt: GENERATE_QUESTIONS_PROMPT,
+            systemPrompt: `${GENERATE_QUESTIONS_PROMPT}\n\n${languageInstruction(user)}`,
             userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease generate 2-3 thoughtful follow-up questions.`,
             temperature: 0.7,
             maxTokens: 500
@@ -106,7 +107,7 @@ export async function generateJournalInsights(
         const response = await openai.chat.completions.create({
             model: GPT_VERSION,
             messages: [
-                { role: 'system', content: JOURNAL_INSIGHTS_PROMPT },
+                { role: 'system', content: `${JOURNAL_INSIGHTS_PROMPT}\n\n${languageInstruction(user)}` },
                 { role: 'user', content: userPrompt }
             ],
             temperature: 0.7,
@@ -137,7 +138,7 @@ export async function generateEntrySummary(entry: IJournalEntry, user: IUser): P
     return callStructured({
         schema: entrySummarySchema,
         schemaName: 'entry_summary',
-        systemPrompt: ENTRY_SUMMARY_PROMPT,
+        systemPrompt: `${ENTRY_SUMMARY_PROMPT}\n\n${languageInstruction(user)}`,
         userPrompt: `${buildUserInfo(user)}\n\nJournal Entry:\n${entryContent}\n\nPlease provide a one-sentence summary and one thoughtful question.`,
         temperature: 0.7,
         maxTokens: 300

@@ -1,4 +1,5 @@
 import { IUser } from '../database';
+import { Language } from '../utils/localization';
 
 /**
  * Single source of truth for every LLM prompt in the application.
@@ -48,6 +49,13 @@ The question should be open-ended and thought-provoking, not requiring an immedi
 It should encourage deeper reflection about emotions, patterns, next steps, or broader implications.`;
 
 export const PARSE_BIO_PROMPT = `You are an assistant that extracts structured information from user bios. Extract key details like age, gender, occupation, interests, goals, challenges, and any other relevant information. Format the output as JSON.`;
+
+/** Instructs the model to respond in the user's interface language. */
+export function languageInstruction(user: IUser): string {
+    return user.language === Language.RUSSIAN
+        ? 'Respond in Russian: the user journals in Russian.'
+        : 'Respond in English.';
+}
 
 /** Renders the profile block prepended to journal prompts for personalization. */
 export function buildUserInfo(user: IUser): string {
