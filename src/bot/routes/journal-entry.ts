@@ -6,14 +6,17 @@ import {
     getActiveJournalEntry,
     getJournalEntryById,
     IUser,
+    JournalEntryStatus,
     MessageRole,
     saveTextMessage,
     saveVideoMessage,
     saveVoiceMessage,
     updateJournalEntryAnalysis,
-    updateJournalEntryQuestions
+    updateJournalEntryQuestions,
+    updateJournalEntryStatus
 } from '../../database';
 import { getTextForUser } from '../../utils/localization';
+import { escapeHtml } from '../../utils/html';
 import { createLogger } from '../../utils/logger';
 import { LOG_LEVEL } from '../../config';
 import { analyzeJournalEntry, generateEntrySummary, generateJournalQuestions } from '../../ai/journal-ai';
@@ -56,6 +59,11 @@ function requireActiveEntry(
         }
         await handler(ctx, new Types.ObjectId(ctx.session.mode.entryId));
     };
+}
+
+/** Renders AI questions as an escaped, italicized numbered list. */
+function formatQuestionsHtml(questions: string[]): string {
+    return questions.map((q, i) => `<i>${i + 1}. ${escapeHtml(q)}</i>`).join('\n\n');
 }
 
 function entryActionKeyboard(user: IUser): Keyboard {
@@ -187,7 +195,7 @@ async function finishJournalEntry(ctx: JournalBotContext, entryId: Types.ObjectI
         const { summary, question } = await withWaitMessage(ctx, () => generateEntrySummary(entry, ctx.user));
         await completeJournalEntry(entryId, summary, question);
 
-        const formattedMessage = `<b>Good job, ${ctx.user.name || ctx.user.firstName}! ✨ Entry saved.</b>\n\n<b>📝 Summary:</b>\n${summary}\n\n<b>💭 Something to reflect on:</b>\n<i>${question}</i>`;
+        const formattedMessage = `<b>Good job, ${escapeHtml(ctx.user.name || ctx.user.firstName)}! ✨ Entry saved.</b>\n\n<b>📝 Summary:</b>\n${escapeHtml(summary)}\n\n<b>💭 Something to reflect on:</b>\n<i>${escapeHtml(question)}</i>`;
         await ctx.reply(formattedMessage, { parse_mode: 'HTML' });
     } catch (error) {
         entryLogger.error('Error finishing journal entry:', error);
@@ -205,8 +213,9 @@ async function finishJournalEntry(ctx: JournalBotContext, entryId: Types.ObjectI
     await showMainMenu(ctx, ctx.user);
 }
 
-/** Cancels the active entry and returns to the menu. */
-async function cancelJournalEntry(ctx: JournalBotContext): Promise<void> {
+/** Cancels the active entry (in the database too, so it is not resumed later). */
+async function cancelJournalEntry(ctx: JournalBotContext, entryId: Types.ObjectId): Promise<void> {
+    await updateJournalEntryStatus(entryId, JournalEntryStatus.CANCELLED);
     ctx.session.mode = { kind: 'idle' };
     await ctx.reply(getTextForUser('entryCanceled', ctx.user), { parse_mode: 'HTML' });
     await showMainMenu(ctx, ctx.user);
@@ -229,9 +238,9 @@ async function handleAnalyzeJournal(ctx: JournalBotContext, entryId: Types.Objec
         await updateJournalEntryQuestions(entryId, questions);
 
         if (questions.length > 0) {
-            const questionsText = questions.map((q, i) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
+            const questionsText = formatQuestionsHtml(questions);
             await ctx.reply(
-                `<b>I've been thinking about what you shared, ${ctx.user.name || ctx.user.firstName}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n${questionsText}`,
+                `<b>I've been thinking about what you shared, ${escapeHtml(ctx.user.name || ctx.user.firstName)}... 🤔</b>\n\n<b>Questions to ponder:</b>\n\n${questionsText}`,
                 { parse_mode: 'HTML' }
             );
         }
@@ -243,7 +252,7 @@ async function handleAnalyzeJournal(ctx: JournalBotContext, entryId: Types.Objec
     } catch (error) {
         entryLogger.error('Error in analyze journal handler:', error);
         await ctx.reply(
-            `<b>Oops!</b> My brain got a little fuzzy there. Let's try again later, ${ctx.user.name || ctx.user.firstName}!`,
+            `<b>Oops!</b> My brain got a little fuzzy there. Let's try again later, ${escapeHtml(ctx.user.name || ctx.user.firstName)}!`,
             { parse_mode: 'HTML' }
         );
         await showMainMenu(ctx, ctx.user);
@@ -273,10 +282,11 @@ async function handleGoDeeper(ctx: JournalBotContext, entryId: Types.ObjectId): 
         await updateJournalEntryQuestions(entryId, questions);
 
         if (questions.length > 0) {
-            const questionsText = questions.map((q, i) => `<i>${i + 1}. ${q}</i>`).join('\n\n');
-            await ctx.reply(getTextForUser('deeperQuestions', ctx.user, { analysis, questions: questionsText }), {
-                parse_mode: 'HTML'
-            });
+            const questionsText = formatQuestionsHtml(questions);
+            await ctx.reply(
+                getTextForUser('deeperQuestions', ctx.user, { analysis, questions: { raw: questionsText } }),
+                { parse_mode: 'HTML' }
+            );
         }
 
         await ctx.reply(getTextForUser('thoughtsOnQuestions', ctx.user), {
@@ -286,7 +296,7 @@ async function handleGoDeeper(ctx: JournalBotContext, entryId: Types.ObjectId): 
     } catch (error) {
         entryLogger.error('Error in go deeper handler:', error);
         await ctx.reply(
-            `<b>Something went wrong with my thinking cap, ${ctx.user.name || ctx.user.firstName}!</b> Let's try again later.`,
+            `<b>Something went wrong with my thinking cap, ${escapeHtml(ctx.user.name || ctx.user.firstName)}!</b> Let's try again later.`,
             { parse_mode: 'HTML' }
         );
         await showMainMenu(ctx, ctx.user);
