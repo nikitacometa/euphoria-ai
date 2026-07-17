@@ -54,7 +54,8 @@ export async function showJournalHistory(ctx: JournalBotContext): Promise<void> 
 async function showJournalEntry(ctx: JournalBotContext, entryId: string): Promise<void> {
     try {
         const entry = await getJournalEntryById(new Types.ObjectId(entryId));
-        if (!entry) {
+        // Ownership check: callback data arrives from the client and can be forged.
+        if (!entry || !isOwnedBy(entry, ctx.user._id)) {
             await ctx.reply('Entry not found.');
             return;
         }
@@ -99,6 +100,12 @@ async function showJournalEntry(ctx: JournalBotContext, entryId: string): Promis
         historyLogger.error('Error viewing entry:', error);
         await ctx.reply('Sorry, I encountered an error while retrieving your journal entry.');
     }
+}
+
+function isOwnedBy(entry: IJournalEntry, userId: unknown): boolean {
+    const owner = entry.user;
+    const ownerId = typeof owner === 'object' && owner !== null && '_id' in owner ? owner._id : owner;
+    return String(ownerId) === String(userId);
 }
 
 /** Formats an entry timestamp as [DD/MM/YY HH:MM]. */

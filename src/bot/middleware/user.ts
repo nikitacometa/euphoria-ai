@@ -12,6 +12,12 @@ export async function attachUser(ctx: JournalBotContext, next: NextFunction): Pr
         return;
     }
 
+    // A journal is personal: sessions and entries must never be shared through
+    // a group chat, so non-private chats are ignored entirely.
+    if (ctx.chat && ctx.chat.type !== 'private') {
+        return;
+    }
+
     ctx.user = await findOrCreateUser(
         ctx.from.id,
         ctx.from.first_name,

@@ -7,7 +7,8 @@ export enum JournalEntryStatus {
     IN_PROGRESS = 'in_progress',
     ANALYZING = 'analyzing',
     ASKING_QUESTIONS = 'asking_questions',
-    COMPLETED = 'completed'
+    COMPLETED = 'completed',
+    CANCELLED = 'cancelled'
 }
 
 // Journal entry interface
@@ -166,10 +167,10 @@ export async function completeJournalEntry(
 }
 
 export async function getUserJournalEntries(userId: Types.ObjectId): Promise<IJournalEntry[]> {
-    return JournalEntry.find({ 
+    return JournalEntry.find({
         user: userId,
         status: JournalEntryStatus.COMPLETED
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).populate('messages');
 }
 
 export async function getAllJournalEntries(): Promise<IJournalEntry[]> {
